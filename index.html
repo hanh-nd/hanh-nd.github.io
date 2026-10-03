@@ -187,7 +187,7 @@
 
 <div id="bottom" class="hidden">
   <div class="meter" id="swing-wrap">
-    <div class="lbl">SWING · <span id="swing-label">swing fast to smash</span></div>
+    <div class="lbl">SWING · <span id="swing-label">flick forward to smash</span></div>
     <div class="bar"><div id="swing-fill"></div><div class="smash-mark"></div></div>
   </div>
   <div class="meter" id="power-wrap">
@@ -215,7 +215,7 @@
       <b>Controls</b><br>
       <kbd>Mouse</kbd> move racket · <b>swing forward</b> for power, sideways for direction &amp; sidespin<br>
       <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows move<br>
-      <b>Smash:</b> swing the racket fast as you hit — sideways or forward (on touch: a quick swipe, e.g. right→left) — or hold <kbd>Shift</kbd>. The swing direction aims it. Best on high balls.<br>
+      <b>Smash:</b> a quick short flick <b>forward/up</b> as you hit — straight up or diagonal (e.g. bottom-left → top-right aims right) — or hold <kbd>Shift</kbd>. Moving sideways to defend never smashes. Best on high balls.<br>
       <b>Touch:</b> drag anywhere to move the racket · hold &amp; release to serve · ❚❚ to pause<br>
       <kbd>Q</kbd>/<kbd>E</kbd> or <kbd>Wheel</kbd> tilt face: backspin / topspin<br>
       <kbd>Space</kbd> / hold mouse: charge serve, release to serve (red zone = long)<br>
@@ -293,11 +293,13 @@ const REACH = {
   handleClearance: 0.27,  // blade center must be this high above the top when over the table
 };
 
-/** Smash: a fast swing of the racket at contact — sideways (e.g. a right-to-left swipe) and/or
- *  forward — or Shift. Flat, very fast, topspin; the swing direction steers it.
+/** Smash: a quick FORWARD flick of the racket at contact (finger/mouse moving up the screen —
+ *  straight or diagonal, e.g. bottom-left → top-right), or Shift. Sideways moves (defending,
+ *  chasing a wide ball) never smash. Flat, very fast, topspin; the flick's direction steers it.
  *  Safe on a high ball; a low ball is likely to fly long or wide. */
 const SMASH = {
-  minSwing: 3.5,          // racket swing speed (real m/s, sideways + forward) that triggers a smash
+  minSwing: 2.8,          // speed (real m/s) of a forward-pointing flick that triggers a smash
+  maxAngle: 60,           // flick must point within this many degrees of straight forward
   minSpeed: 12, maxSpeed: 16,    // horizontal ball speed range (m/s), scaled by swing
   topspin: 70,
   safeHeight: 0.17,       // ball at least this far above the table top = clean smash
@@ -321,6 +323,7 @@ const PLAYER_CFG = {
   followRate: 40,         // racket smoothing toward the target (1/s)
   heightRate: 30,
   maxPower: 1.2,
+  lungeSweep: 0.08,       // a fast-moving racket also meets balls it crossed this long ago (s)
 };
 
 /** AI tuning, all difficulty levels in one object.
@@ -1009,6 +1012,13 @@ function keepOnScreen(t) {
 
 /** Swing memory: peak recent swing speed (real m/s, sideways + forward) and the racket's recent
  *  path. A swipe rarely peaks at the exact instant of contact, so both are kept briefly. */
+/** Smash intent of a racket motion (vx sideways, fwd = speed toward the net): its speed if it
+ *  points mostly forward (within SMASH.maxAngle), otherwise 0 — so sideways moves never count. */
+const FORWARD_RATIO = Math.tan((90 - SMASH.maxAngle) * Math.PI / 180);
+function smashIntent(vx, fwd) {
+  return fwd > 0 && fwd >= FORWARD_RATIO * Math.abs(vx) ? Math.hypot(vx, fwd) : 0;
+}
+
 const swing = { peak: 0, peakAt: -1, vx: 0, path: [], tPrev: null, tvx: 0, tvz: 0 };
 function trackSwing(r, dt) {
   // The finger/mouse (target) velocity registers a swipe immediately; the racket's own velocity
@@ -1021,14 +1031,14 @@ function trackSwing(r, dt) {
   }
   swing.tPrev = { x: t.x, z: t.z };
   const ts = timeScale();
-  const racketSwing = Math.hypot(r.vel.x, Math.max(0, -r.vel.z));
-  const inputSwing = Math.hypot(swing.tvx, Math.max(0, -swing.tvz));
+  const racketSwing = smashIntent(r.vel.x, -r.vel.z);
+  const inputSwing = smashIntent(swing.tvx, -swing.tvz);
   const now = Math.max(racketSwing, inputSwing) * ts;
   if (now >= swing.peak || simTime - swing.peakAt > SMASH.window) {
     swing.peak = now; swing.peakAt = simTime;
     swing.vx = (inputSwing > racketSwing ? swing.tvx : r.vel.x) * ts;
   }
-  swing.path.push({ x: r.pos.x, y: r.pos.y });
+  swing.path.push({ x: r.pos.x, y: r.pos.y, t: simTime });
   if (swing.path.length > Math.round(SMASH.sweepTime / PHYS.dt)) swing.path.shift();
 }
 /** Optional diagnostics (enable from the console: PingPong.debug.on = true). */
@@ -1047,12 +1057,17 @@ function racketContact(r, radius, yWeight) {
   const dx = lerp(ballPrev.x, ball.p.x) - lerp(r.last.x, r.pos.x);
   const dy = lerp(ballPrev.y, ball.p.y) - lerp(r.last.y, r.pos.y);
   let d = Math.hypot(dx, dy * yWeight);
-  // Mid-swing, the racket sweeps a wide strip: also accept the ball where the racket just was.
-  if (d > radius && r.owner === 'player' && recentSwing() >= SMASH.minSwing) {
+  // A moving racket sweeps a strip: also accept the ball where the racket just was.
+  // A smash flick sweeps generously; any other quick move (e.g. lunging sideways to defend)
+  // gets a short window so a racket that just swept across the ball's line still meets it.
+  if (d > radius && r.owner === 'player') {
+    const smashing = recentSwing() >= SMASH.minSwing;
+    const since = simTime - (smashing ? SMASH.sweepTime : PLAYER_CFG.lungeSweep);
+    const reach = radius * (smashing ? SMASH.sweepReach : 1);
     const bx = lerp(ballPrev.x, ball.p.x), by = lerp(ballPrev.y, ball.p.y);
     let best = Infinity;
-    for (const q of swing.path) best = Math.min(best, Math.hypot(bx - q.x, (by - q.y) * yWeight));
-    if (best <= radius * SMASH.sweepReach) d = Math.min(best, radius);   // counts as a (just) clean contact
+    for (const q of swing.path) if (q.t >= since) best = Math.min(best, Math.hypot(bx - q.x, (by - q.y) * yWeight));
+    if (best <= reach) d = Math.min(best, radius);
   }
   if (DEBUG.on && r.owner === 'player') {
     DEBUG.log.push({ t: +simTime.toFixed(3), d: +d.toFixed(3), hit: d <= radius, canHit: canHit('player'), swing: +recentSwing().toFixed(2),
@@ -1075,8 +1090,8 @@ function playerHit(contactDist) {
   // Swing speed in real-world m/s (the racket follows the mouse in real time even when the sim is slowed).
   const sf = Math.max(0, -r.vel.z) * timeScale();   // forward swing speed (toward the net)
   const sl = r.vel.x * timeScale();                 // lateral swing speed
-  // Backward motion never counts; a swing that peaked a moment ago still does.
-  const swingSpeed = Math.max(Math.hypot(sl, sf), recentSwing());
+  // Only forward-pointing flicks count; one that peaked a moment ago still does.
+  const swingSpeed = Math.max(smashIntent(sl, sf), recentSwing());
   if (swingSpeed >= SMASH.minSwing) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl);
   if (keyDown('ShiftLeft', 'ShiftRight')) return playerSmash(SMASH.minSwing, sl);
   const power = clamp(0.38 + sf * 0.085, 0.2, PLAYER_CFG.maxPower);
@@ -1120,7 +1135,8 @@ function playerSmash(swingSpeed, sl, contact = null) {
   contact = contact || { offX: ball.p.x - player.pos.x, x: ball.p.x, y: ball.p.y };
   const swing = Math.max(swingSpeed, SMASH.minSwing);
   let vh = clamp(SMASH.minSpeed + (swing - SMASH.minSwing) * 1.2, SMASH.minSpeed, SMASH.maxSpeed);
-  let tx = clamp(contact.x * 0.2 + contact.offX * 2.4 + sl * 0.08, -0.65, 0.65);
+  // The flick's direction leads the aim (diagonal right → right); contact point adds a little.
+  let tx = clamp(contact.x * 0.3 + contact.offX * 0.6 + sl * 0.25, -0.65, 0.65);
   let tz = -rand(0.95, 1.25);
   const high = contact.y - TABLE_TOP >= SMASH.safeHeight;
   let botched = false;
@@ -1516,7 +1532,7 @@ function updateHUD() {
   $('swing-wrap').classList.toggle('hidden', serving);
   $('hint').innerHTML = serving
     ? '<b>Your serve.</b> Hold <b>Space</b> or the mouse button, release to serve. Avoid the red zone. Racket position aims; <b>Q/E</b> adds spin.'
-    : '<b>Mouse/WASD</b> move · <b>swing forward</b> for power · <b>fast swing</b> or <b>Shift</b> = smash · <b>Q/E/Wheel</b> spin · <b>P</b> pause';
+    : '<b>Mouse/WASD</b> move · <b>swing forward</b> for power · <b>quick flick forward/up</b> or <b>Shift</b> = smash · <b>Q/E/Wheel</b> spin · <b>P</b> pause';
 }
 
 /** Per-frame HUD bits: serve power bar and spin gauge. */
@@ -1529,7 +1545,7 @@ function updateLiveHUD() {
   $('swing-fill').style.width = clamp(swingPeak / (SMASH.minSwing * 1.5), 0, 1) * 100 + '%';
   $('swing-fill').classList.toggle('hot', hot);
   $('swing-label').classList.toggle('hot', hot);
-  $('swing-label').textContent = hot ? 'SMASH!' : 'swing fast to smash';
+  $('swing-label').textContent = hot ? 'SMASH!' : 'flick forward to smash';
   $('power-fill').style.width = (input.charging ? currentCharge() * 100 : 0) + '%';
   $('spin-needle').style.left = (50 + input.tilt * 45) + '%';
 }
