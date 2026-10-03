@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Ping Pong 3D</title>
+<style>
+  /* ============================================================
+     STYLES — HUD, messages, menus
+     ============================================================ */
+  :root {
+    --player: #ff4d5e;
+    --cpu: #3d8bff;
+    --gold: #ffd23f;
+    --panel: rgba(12, 16, 24, 0.74);
+    --border: rgba(255, 255, 255, 0.09);
+    --text: #eef2f8;
+    --muted: #9aa6b8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #0d1016; color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    user-select: none; -webkit-user-select: none;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+  .hidden { display: none !important; }
+
+  /* ---------- Scoreboard ---------- */
+  #hud {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    pointer-events: none; z-index: 5;
+  }
+  .scoreboard {
+    display: flex; align-items: stretch; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  }
+  .side { display: flex; align-items: center; gap: 10px; padding: 6px 16px; }
+  .side.you { border-left: 4px solid var(--player); }
+  .side.cpu { border-right: 4px solid var(--cpu); }
+  .side .name { font-size: 12px; font-weight: 800; letter-spacing: 0.15em; color: var(--muted); }
+  .side .pts { font-size: 34px; font-weight: 800; min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; }
+  .serve-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.14); transition: all .2s; }
+  .serve-dot.on { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+  .center { padding: 4px 14px; background: rgba(255, 255, 255, 0.04); text-align: center; display: flex; flex-direction: column; justify-content: center; }
+  .games { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .games .gp { color: var(--player); } .games .ga { color: var(--cpu); }
+  .center .label { font-size: 9px; letter-spacing: 0.14em; color: var(--muted); }
+  .infobar {
+    display: flex; gap: 16px; font-size: 12px; background: var(--panel);
+    padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted);
+  }
+  .infobar b { color: var(--text); }
+
+  /* ---------- Center messages ("Point!", "Fault") ---------- */
+  #msg {
+    position: fixed; top: 32%; left: 50%; transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none; opacity: 0; transition: opacity .35s; z-index: 6;
+    width: min(92vw, 640px);
+  }
+  #msg.show { opacity: 1; }
+  #msg.show #msg-main { animation: pop .38s cubic-bezier(.2, 1.6, .4, 1); }
+  #msg-main { font-size: clamp(36px, 8vw, 68px); font-weight: 900; letter-spacing: 0.02em; text-shadow: 0 4px 24px rgba(0,0,0,.6); }
+  #msg-sub { margin-top: 4px; font-size: clamp(14px, 2.4vw, 18px); font-weight: 600; color: #dfe6f1; text-shadow: 0 2px 10px rgba(0,0,0,.7); }
+  #msg.good #msg-main { color: #57e389; }
+  #msg.bad #msg-main { color: #ff6b6b; }
+  #msg.warn #msg-main { color: var(--gold); }
+  #msg.neutral #msg-main { color: #fff; }
+  @keyframes pop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* ---------- Bottom panel: serve power + spin gauge + hints ---------- */
+  #bottom {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 14px; align-items: flex-end; pointer-events: none; z-index: 5;
+  }
+  .meter { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; min-width: 190px; }
+  .meter .lbl { font-size: 10px; letter-spacing: .14em; color: var(--muted); margin-bottom: 6px; font-weight: 700; }
+  .bar { position: relative; height: 10px; border-radius: 6px; background: rgba(255,255,255,.1); overflow: hidden; }
+  #power-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #57e389, #ffd23f); }
+  .zone-out { position: absolute; top: 0; bottom: 0; right: 0; width: 12%; background: rgba(255, 80, 80, .55); }
+  .gauge { position: relative; height: 10px; border-radius: 6px; background: linear-gradient(90deg, #3d8bff, rgba(255,255,255,.15) 50%, #ff8c42); }
+  #spin-needle { position: absolute; top: -3px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: #fff; left: 50%; box-shadow: 0 0 6px #000; }
+  .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 4px; }
+  #hint {
+    position: fixed; left: 14px; bottom: 14px; max-width: 320px; font-size: 12px; line-height: 1.45;
+    color: var(--muted); background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 12px; pointer-events: none; z-index: 5;
+  }
+  #hint b { color: var(--text); }
+
+  /* ---------- Menus ---------- */
+  .menu {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 40%, rgba(0,0,0,.25), rgba(0,0,0,.72)); z-index: 10;
+    padding: 16px;
+  }
+  .card {
+    background: rgba(18, 22, 32, 0.94); border: 1px solid var(--border); border-radius: 18px;
+    padding: 26px 30px; width: 100%; max-width: 580px; max-height: 100%; overflow: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .card h1 { margin: 0 0 4px; font-size: clamp(30px, 6vw, 42px); font-weight: 900; letter-spacing: .02em; }
+  .card h1 .r { color: var(--player); } .card h1 .b { color: var(--cpu); }
+  .card h2 { margin: 0 0 12px; font-size: 28px; }
+  .card p.sub { margin: 0 0 18px; color: var(--muted); }
+  .levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+  .row-label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: -4px 0 8px; font-weight: 700; }
+  .levels.speeds { grid-template-columns: repeat(3, 1fr); }
+  .level-btn {
+    background: rgba(255,255,255,.05); border: 2px solid transparent; border-radius: 12px;
+    color: var(--text); padding: 10px 6px; cursor: pointer; font: inherit; text-align: center;
+  }
+  .level-btn b { display: block; font-size: 15px; }
+  .level-btn small { color: var(--muted); font-size: 11px; }
+  .level-btn:hover { background: rgba(255,255,255,.1); }
+  .level-btn.sel { border-color: var(--gold); background: rgba(255, 210, 63, .1); }
+  .btn {
+    display: inline-block; border: 0; border-radius: 12px; padding: 12px 20px; cursor: pointer;
+    font: inherit; font-weight: 800; font-size: 15px; color: #10131a; background: var(--gold); margin: 4px 6px 4px 0;
+  }
+  .btn.alt { background: rgba(255,255,255,.1); color: var(--text); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn:hover:not(:disabled) { filter: brightness(1.1); }
+  .controls { margin-top: 16px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .controls kbd {
+    display: inline-block; padding: 0 6px; border-radius: 5px; background: rgba(255,255,255,.12);
+    color: var(--text); font-family: inherit; font-size: 12px; border-bottom: 2px solid rgba(255,255,255,.2);
+  }
+  table.stats { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 14px; }
+  table.stats td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  table.stats td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 640px) {
+    .levels { grid-template-columns: repeat(2, 1fr); }
+    .side { padding: 4px 10px; } .side .pts { font-size: 26px; min-width: 32px; }
+    .side .name { display: none; }
+    #hint { display: none; }
+    .meter { min-width: 140px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- ===== HUD ===== -->
+<div id="hud" class="hidden">
+  <div class="scoreboard">
+    <div class="side you"><span class="name">YOU</span><span id="score-p" class="pts">0</span><span id="serve-p" class="serve-dot"></span></div>
+    <div class="center">
+      <div class="games"><span class="gp" id="games-p">0</span> – <span class="ga" id="games-a">0</span></div>
+      <div class="label">GAMES · BEST OF 3</div>
+    </div>
+    <div class="side cpu"><span id="serve-a" class="serve-dot"></span><span id="score-a" class="pts">0</span><span class="name">CPU</span></div>
+  </div>
+  <div class="infobar">
+    <span>Level <b id="hud-level">-</b></span>
+    <span>Server <b id="hud-server">-</b></span>
+    <span>Rally <b id="hud-rally">0</b></span>
+    <span>Speed <b id="hud-speed">-</b></span>
+  </div>
+</div>
+
+<div id="msg"><div id="msg-main"></div><div id="msg-sub"></div></div>
+
+<div id="bottom" class="hidden">
+  <div class="meter" id="power-wrap">
+    <div class="lbl">SERVE POWER</div>
+    <div class="bar"><div id="power-fill"></div><div class="zone-out"></div></div>
+  </div>
+  <div class="meter">
+    <div class="lbl">RACKET FACE / SPIN</div>
+    <div class="gauge"><div id="spin-needle"></div></div>
+    <div class="ticks"><span>Back</span><span>Flat</span><span>Top</span></div>
+  </div>
+</div>
+<div id="hint" class="hidden"></div>
+
+<!-- ===== Start menu ===== -->
+<div id="menu-start" class="menu">
+  <div class="card">
+    <h1>PING <span class="r">PONG</span> <span class="b">3D</span></h1>
+    <p class="sub">Table tennis. Games to 11, win by 2, best of 3.</p>
+    <div class="levels" id="levels"></div>
+    <div class="row-label">Game speed</div>
+    <div class="levels speeds" id="speeds"></div>
+    <button class="btn" id="btn-start">Start Match</button>
+    <div class="controls">
+      <b>Controls</b><br>
+      <kbd>Mouse</kbd> move racket · <b>swing forward</b> for power, sideways for direction &amp; sidespin<br>
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows move · <kbd>Shift</kbd> power shot<br>
+      <kbd>Q</kbd>/<kbd>E</kbd> or <kbd>Wheel</kbd> tilt face: backspin / topspin<br>
+      <kbd>Space</kbd> / hold mouse: charge serve, release to serve (red zone = long)<br>
+      <kbd>P</kbd>/<kbd>Esc</kbd> pause · <kbd>H</kbd> bounce marker · <kbd>M</kbd> mute<br>
+      Hit the edge of the racket to angle the ball. You can only hit after the ball bounces on your side.
+    </div>
+  </div>
+</div>
+
+<!-- ===== Pause menu ===== -->
+<div id="menu-pause" class="menu hidden">
+  <div class="card" style="max-width:380px;text-align:center">
+    <h2>Paused</h2>
+    <button class="btn" id="btn-resume">Resume</button>
+    <button class="btn alt" id="btn-restart">Restart Match</button>
+    <button class="btn alt" id="btn-quit">Main Menu</button>
+  </div>
+</div>
+
+<!-- ===== Match end ===== -->
+<div id="menu-end" class="menu hidden">
+  <div class="card" style="max-width:440px">
+    <h2 id="end-title">You Win!</h2>
+    <p class="sub" id="end-sub"></p>
+    <table class="stats" id="end-stats"></table>
+    <button class="btn" id="btn-again">Play Again</button>
+    <button class="btn" id="btn-next">Next Level</button>
+    <button class="btn alt" id="btn-menu">Main Menu</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+/* =====================================================================
+   CONFIG
+   Units: meters, seconds, radians. +Z points toward the player (camera),
+   -Z toward the AI. The table surface is at y = TABLE.height.
+   ===================================================================== */
+/*<core>*/
+const TABLE = {
+  length: 2.74, width: 1.525, height: 0.76, thickness: 0.03,   // ITTF regulation
+  netHeight: 0.1525, netOverhang: 0.1525,
+  lineWidth: 0.02, centerLineWidth: 0.003,
+};
+
+const PHYS = {
+  dt: 1 / 240,            // fixed physics timestep (decoupled from rendering)
+  maxSubSteps: 16,        // safety cap per frame
+  gravity: 9.81,
+  radius: 0.02,           // 40 mm ball
+  drag: 0.11,             // quadratic air drag: a = -drag * |v| * v
+  magnus: 0.0045,         // Magnus effect:      a = magnus * (ω × v)
+  spinDecay: 0.1,         // fraction of spin lost per second in flight
+  tableRestitution: 0.88,
+  tableGrip: 0.55,        // 0..1, how much of the contact slip friction removes on a bounce
+  floorRestitution: 0.55,
+  netDamping: 0.15,       // fraction of speed kept when the ball hits the net
+};
+/*</core>*/
+
+const GAME = {
+  pointsToWin: 11, winBy: 2, gamesToWin: 2,  // best of 3
+  servesPerTurn: 2,                          // serve switches every 2 points (every point at deuce)
+  pointDelay: 1.7, gameDelay: 2.8,           // seconds
+  // Simulation speed relative to real time. Physics stays physically correct; it just runs slower.
+  speeds: { slow: { label: 'Slow', scale: 0.65 }, normal: { label: 'Normal', scale: 0.8 }, real: { label: 'Real', scale: 1.0 } },
+  rallyTimeout: 8,                           // safety: resolve a stuck rally
+};
+
+/** Physical reach limits shared by both rackets: a player stands behind the end line, so the
+ *  racket can only reach a little way over the table, and it can't dip into the table top. */
+const REACH = {
+  overTable: 0.45,        // how far past the end line (toward the net) a racket can reach
+  handleClearance: 0.27,  // blade center must be this high above the top when over the table
+};
+
+const PLAYER_CFG = {
+  hitRadius: 0.17,        // generous contact sphere around the racket center
+  yWeight: 0.55,          // vertical distance counts less (racket height is auto-assisted)
+  minX: -1.3, maxX: 1.3, minZ: TABLE.length / 2 - REACH.overTable, maxZ: 2.6,
+  serveMinZ: 1.42,        // must serve from behind the end line
+  restY: 0.92,
+  keySpeed: 2.6,          // m/s with keyboard
+  followRate: 28,         // racket smoothing toward the target (1/s)
+  heightRate: 30,
+  maxPower: 1.2,
+};
+
+/** AI tuning, all difficulty levels in one object.
+ *  speed: racket m/s · reactionMs: delay before reading the ball · aimError: aim + positioning noise
+ *  power: shot pace · spin: 0..1 spin amount · mistakeRate: chance of an unforced error per shot */
+const AI_LEVELS = {
+  easy:   { label: 'Easy',   speed: 1.5, reactionMs: 350, aimError: 0.35, power: 0.6,  spin: 0,    mistakeRate: 0.25 },
+  medium: { label: 'Medium', speed: 2.6, reactionMs: 210, aimError: 0.18, power: 0.8,  spin: 0.35, mistakeRate: 0.13 },
+  hard:   { label: 'Hard',   speed: 4.0, reactionMs: 100, aimError: 0.08, power: 1.0,  spin: 0.7,  mistakeRate: 0.05 },
+  expert: { label: 'Expert', speed: 5.5, reactionMs: 60,  aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02 },
+};
+const LEVEL_ORDER = ['easy', 'medium', 'hard', 'expert'];
+const LEVEL_BLURB = { easy: 'Slow & sloppy', medium: 'Steady', hard: 'Fast, spinny', expert: 'Ruthless' };
+
+const AI_COMMON = {
+  hitRadius: 0.17, minX: -1.4, maxX: 1.4, minZ: -2.6, maxZ: -(TABLE.length / 2 - REACH.overTable), serveZ: -1.55,
+  home: { x: 0, y: 0.92, z: -1.8 }, ySpeed: 3.5, reachDepth: 2.35,
+};
+
+const COLORS = { player: 0xe63946, ai: 0x2f80ed, table: 0x1b4f8f, ball: 0xff8c1a };
+
+/* =====================================================================
+   PHYSICS (pure functions; no Three.js, so they also run headless)
+   Ball state: { p: position, v: velocity, w: angular velocity (rad/s) }
+   ===================================================================== */
+/*<core>*/
+const HALF_L = TABLE.length / 2, HALF_W = TABLE.width / 2;
+const TABLE_TOP = TABLE.height, NET_TOP = TABLE.height + TABLE.netHeight;
+const NET_HALF = HALF_W + TABLE.netOverhang;
+
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+function makeBallState() {
+  return { p: { x: 0, y: 1, z: 0 }, v: { x: 0, y: 0, z: 0 }, w: { x: 0, y: 0, z: 0 } };
+}
+function cloneBall(b) {
+  return { p: { ...b.p }, v: { ...b.v }, w: { ...b.w } };
+}
+
+/** Spin vector for a shot travelling horizontally along (dx, dz).
+ *  top > 0 = topspin (ball dips, kicks forward), top < 0 = backspin; side spins about +Y. */
+function spinVector(dx, dz, top, side) {
+  // topspin axis = up × direction = (dz, 0, -dx)
+  return { x: top * dz, y: side, z: -top * dx };
+}
+
+/** Advance the ball one step. Fills `ev` with { net, table, floor } collision events. */
+function stepBall(b, dt, ev) {
+  const R = PHYS.radius, p = b.p, v = b.v, w = b.w;
+  const speed = Math.hypot(v.x, v.y, v.z);
+  const kd = PHYS.drag * speed, km = PHYS.magnus;
+
+  // Forces: gravity + drag + Magnus (ω × v). Semi-implicit Euler.
+  v.x += (-kd * v.x + km * (w.y * v.z - w.z * v.y)) * dt;
+  v.y += (-PHYS.gravity - kd * v.y + km * (w.z * v.x - w.x * v.z)) * dt;
+  v.z += (-kd * v.z + km * (w.x * v.y - w.y * v.x)) * dt;
+  const decay = Math.max(0, 1 - PHYS.spinDecay * dt);
+  w.x *= decay; w.y *= decay; w.z *= decay;
+
+  const oy = p.y, oz = p.z;
+  p.x += v.x * dt; p.y += v.y * dt; p.z += v.z * dt;
+
+  // --- Net: crossing z = 0 inside the net rectangle ---
+  if ((oz > 0) !== (p.z > 0) && Math.abs(p.x) <= NET_HALF && p.y > TABLE_TOP && p.y < NET_TOP + R) {
+    ev.net = true;
+    if (p.y < NET_TOP) {                       // solid net: knocked back, loses most energy
+      const side = oz > 0 ? 1 : -1;
+      p.z = side * (R + 0.002);
+      v.z = -v.z * PHYS.netDamping; v.x *= 0.5; v.y *= 0.3;
+    } else {                                    // clips the tape: slows and pops up, may dribble over
+      v.z *= 0.5; v.y = Math.abs(v.y) * 0.3 + 0.4;
+    }
+  }
+
+  // --- Table top (only when arriving from above) ---
+  if (v.y < 0 && p.y - R <= TABLE_TOP && oy - R >= TABLE_TOP - 0.02 &&
+      Math.abs(p.x) <= HALF_W + R * 0.5 && Math.abs(p.z) <= HALF_L + R * 0.5) {
+    p.y = TABLE_TOP + R;
+    const impact = -v.y;
+    v.y = impact * PHYS.tableRestitution;
+    // Friction at the contact point: slip u = v_t + ω × r, with r = (0, -R, 0).
+    // Impulse applied to a hollow sphere (I = 2/3 m R²) couples linear and angular velocity.
+    const ux = v.x + R * w.z, uz = v.z - R * w.x;
+    const dvx = -ux * 0.4 * PHYS.tableGrip, dvz = -uz * 0.4 * PHYS.tableGrip;
+    v.x += dvx; v.z += dvz;
+    w.x += -dvz * 1.5 / R; w.z += dvx * 1.5 / R;
+    ev.table = { side: p.z >= 0 ? 'player' : 'ai', x: p.x, z: p.z, speed: impact };
+  }
+
+  // --- Floor ---
+  if (p.y - R <= 0 && v.y < 0) {
+    p.y = R;
+    const impact = -v.y;
+    v.y = impact * PHYS.floorRestitution; v.x *= 0.85; v.z *= 0.85;
+    w.x *= 0.7; w.y *= 0.7; w.z *= 0.7;
+    ev.floor = { speed: impact };
+  }
+}
+
+/** Run a copy of the ball forward; onStep returns a value to stop early. */
+function simulate(b0, maxT, onStep) {
+  const b = cloneBall(b0), ev = { net: false, table: null, floor: null };
+  for (let t = 0; t < maxT; t += PHYS.dt) {
+    ev.net = false; ev.table = null; ev.floor = null;
+    stepBall(b, PHYS.dt, ev);
+    const r = onStep(b, ev, t);
+    if (r !== undefined) return r;
+  }
+  return null;
+}
+
+/** Where the ball first lands (table or floor). For serves, skip the server-side bounce
+ *  and report whether it happened (`ownBounce`). */
+function landingOf(b0, serve) {
+  const startSign = Math.sign(b0.p.z);
+  let skip = serve, net = false, ownBounce = false;
+  return simulate(b0, 3, (b, ev) => {
+    if (ev.net) net = true;
+    if (ev.table) {
+      if (skip && Math.sign(ev.table.z) === startSign) { skip = false; ownBounce = true; return undefined; }
+      return { x: ev.table.x, z: ev.table.z, net, table: true, ownBounce };
+    }
+    if (ev.floor) return { x: b.p.x, z: b.p.z, net, table: false, ownBounce };
+    return undefined;
+  });
+}
+
+/** Signed landing distance along the shot direction. Touching the net counts as short,
+ *  a serve that skips its own-side bounce counts as long — this keeps the search monotonic. */
+function shotDistance(start, ux, uz, vh, vy, w, serve) {
+  const land = landingOf({ p: { ...start }, v: { x: ux * vh, y: vy, z: uz * vh }, w: { ...w } }, serve);
+  let s = land ? (land.x - start.x) * ux + (land.z - start.z) * uz : Infinity;
+  if (land && land.net) s = -Infinity;
+  else if (serve && land && !land.ownBounce) s = Infinity;
+  return { s, land };
+}
+
+/** Find a launch velocity that lands the ball at `target` {x,z} with horizontal speed vh and
+ *  the given spin. Bisects on vertical speed and corrects aim for Magnus/drag drift.
+ *  Simulates the real physics, so drag, spin and the net are all accounted for. */
+function solveShot(start, target, vh, top, side) {
+  let aimX = target.x, result = null;
+  for (let iter = 0; iter < 3; iter++) {
+    const dx = aimX - start.x, dz = target.z - start.z;
+    const dist = Math.hypot(dx, dz) || 1e-6;
+    const ux = dx / dist, uz = dz / dist;
+    const w = spinVector(ux, uz, top, side);
+    let lo = -6, hi = 9, vy = 0;
+    for (let i = 0; i < 24; i++) {
+      vy = (lo + hi) / 2;
+      if (shotDistance(start, ux, uz, vh, vy, w, false).s < dist) lo = vy; else hi = vy;
+    }
+    const { land } = shotDistance(start, ux, uz, vh, vy, w, false);
+    result = { v: { x: ux * vh, y: vy, z: uz * vh }, w, land };
+    if (!land || land.net) break;
+    aimX += target.x - land.x;   // correct sideways drift and re-solve
+  }
+  return pushOutIfAimedOut(result, target);
+}
+
+/** Serve solver: the ball is struck downward so it bounces on the server's half first.
+ *  Tries a few downward angles, bisecting on horizontal speed to reach the target depth. */
+function solveServe(start, target, top, side) {
+  let best = null;
+  for (const vy of [-1.5, -2, -2.5, -1, -3]) {
+    let aimX = target.x, cand = null;
+    for (let iter = 0; iter < 2; iter++) {
+      const dx = aimX - start.x, dz = target.z - start.z;
+      const dist = Math.hypot(dx, dz) || 1e-6;
+      const ux = dx / dist, uz = dz / dist;
+      const w = spinVector(ux, uz, top, side);
+      let lo = 1.5, hi = 10, vh = 4;
+      for (let i = 0; i < 20; i++) {
+        vh = (lo + hi) / 2;
+        if (shotDistance(start, ux, uz, vh, vy, w, true).s < dist) lo = vh; else hi = vh;
+      }
+      const { land } = shotDistance(start, ux, uz, vh, vy, w, true);
+      const err = land && !land.net && land.ownBounce ? Math.hypot(land.x - target.x, land.z - target.z) : Infinity;
+      cand = { v: { x: ux * vh, y: vy, z: uz * vh }, w, land, err };
+      if (!isFinite(err)) break;
+      aimX += target.x - land.x;
+    }
+    if (!best || cand.err < best.err) best = cand;
+    if (best.err < 0.04) break;
+  }
+  return pushOutIfAimedOut(best, target);
+}
+
+/** The searches stop at the table edge when the target lies off the table;
+ *  give such deliberate "out" shots extra pace so they really miss. */
+function pushOutIfAimedOut(shot, target) {
+  if (Math.abs(target.z) > HALF_L || Math.abs(target.x) > HALF_W) { shot.v.x *= 1.15; shot.v.z *= 1.15; }
+  return shot;
+}
+
+/** First table bounce on the given side (sideSign: +1 player, -1 AI). */
+function predictBounce(b0, sideSign) {
+  return simulate(b0, 3, (b, ev) => {
+    if (ev.table && Math.sign(ev.table.z) === sideSign) return { x: ev.table.x, z: ev.table.z };
+    if (ev.floor) return null;
+    return undefined;
+  });
+}
+
+/** Predict where a racket should meet the ball: after it bounces on `sideSign`'s half,
+ *  at the top of the bounce (or where it passes maxDepth from the net). The racket can't reach
+ *  closer to the net than minDepth, so a short ball is met where it comes within reach. */
+function predictIntercept(b0, sideSign, maxDepth, minDepth = 0) {
+  let bounced = false;
+  return simulate(b0, 3, (b, ev, t) => {
+    if (ev.floor) return null;
+    if (ev.table) {
+      if (!bounced && Math.sign(ev.table.z) === sideSign) { bounced = true; return undefined; }
+      return bounced ? { x: b.p.x, y: b.p.y, z: b.p.z, t } : null;
+    }
+    if (bounced && Math.abs(b.p.z) >= minDepth && (b.v.y <= 0 || Math.abs(b.p.z) >= maxDepth)) return { x: b.p.x, y: b.p.y, z: b.p.z, t };
+    return undefined;
+  });
+}
+/*</core>*/
+
+function randn() {   // standard normal (Box–Muller)
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+const rand = (a, b) => a + Math.random() * (b - a);
+
+/** Lowest allowed racket-center height at (x, z): above the table top when over the table. */
+function racketMinY(x, z) {
+  const overTable = Math.abs(x) < HALF_W + 0.06 && Math.abs(z) < HALF_L + 0.06;
+  return overTable ? TABLE_TOP + REACH.handleClearance : 0.3;
+}
+/** Simulation speed factor chosen in the menu. */
+const timeScale = () => GAME.speeds[match.speedKey].scale;
+
+/* =====================================================================
+   SCENE — renderer, camera, lights, resize
+   ===================================================================== */
+const canvas = document.getElementById('game');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x141920);
+scene.fog = new THREE.Fog(0x141920, 9, 24);
+
+// Camera behind the player's end of the table.
+const CAM_BASE = { pos: new THREE.Vector3(0, 1.85, 3.15), look: new THREE.Vector3(0, 0.76, -0.5) };
+const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.05, 60);
+camera.position.copy(CAM_BASE.pos);
+camera.lookAt(CAM_BASE.look);
+const camLook = CAM_BASE.look.clone();
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x2a2a30, 0.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.3);
+sun.position.set(1.5, 5, 2.5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -3.2, right: 3.2, top: 3.2, bottom: -3.2, near: 1, far: 12 });
+sun.shadow.bias = -0.0005;
+sun.shadow.normalBias = 0.02;
+scene.add(sun);
+
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight, aspect = w / h;
+  // Widen the field of view on portrait screens so the table still fits.
+  const fov = aspect < 1.2 ? Math.min(85, 52 * 1.2 / aspect) : 52;
+  camera.aspect = aspect; camera.fov = fov; camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+/* =====================================================================
+   TABLE — floor, table top, lines, legs, net and posts
+   ===================================================================== */
+function std(color, opts = {}) { return new THREE.MeshStandardMaterial({ color, roughness: 0.6, ...opts }); }
+function box(w, h, d, mat, x = 0, y = 0, z = 0, shadow = true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.castShadow = shadow; m.receiveShadow = true;
+  return m;
+}
+
+function buildFloor() {
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), std(0x262a31, { roughness: 0.95 }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+  // Playing area mat + low barriers for a sense of depth.
+  const court = new THREE.Mesh(new THREE.PlaneGeometry(7, 12), std(0x6b2b2b, { roughness: 0.9 }));
+  court.rotation.x = -Math.PI / 2; court.position.y = 0.002; court.receiveShadow = true;
+  scene.add(court);
+  const barrierMat = std(0x1e3a5f, { roughness: 0.8 });
+  for (const z of [-6, 6]) scene.add(box(7, 0.7, 0.05, barrierMat, 0, 0.35, z));
+  for (const x of [-3.5, 3.5]) scene.add(box(0.05, 0.7, 12, barrierMat, x, 0.35, 0));
+}
+
+function makeNetTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 32;
+  const g = c.getContext('2d');
+  g.strokeStyle = 'rgba(240,240,240,0.95)';
+  g.lineWidth = 1;
+  for (let x = 0.5; x <= 256; x += 4) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 32); g.stroke(); }
+  for (let y = 0.5; y <= 32; y += 4) { g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke(); }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.repeat.set(4, 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function buildTable() {
+  const { width: W, length: L, height: H, thickness: T } = TABLE;
+  const g = new THREE.Group();
+
+  g.add(box(W, T, L, std(COLORS.table, { roughness: 0.45 }), 0, H - T / 2, 0));
+
+  // White lines: two side lines, two end lines, center line (doubles line).
+  const lineMat = std(0xffffff, { roughness: 0.5 });
+  const lw = TABLE.lineWidth, ly = H + 0.0008;
+  g.add(box(lw, 0.0015, L, lineMat, -(W / 2 - lw / 2), ly, 0, false));
+  g.add(box(lw, 0.0015, L, lineMat, (W / 2 - lw / 2), ly, 0, false));
+  g.add(box(W, 0.0015, lw, lineMat, 0, ly, -(L / 2 - lw / 2), false));
+  g.add(box(W, 0.0015, lw, lineMat, 0, ly, (L / 2 - lw / 2), false));
+  g.add(box(0.004, 0.0015, L, lineMat, 0, ly, 0, false));
+
+  // Legs and under-frame.
+  const metal = std(0x2d3138, { metalness: 0.5, roughness: 0.4 });
+  const legH = H - T;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(box(0.05, legH, 0.05, metal, sx * (W / 2 - 0.12), legH / 2, sz * (L / 2 - 0.25)));
+  for (const sz of [-1, 1]) g.add(box(W - 0.24, 0.04, 0.04, metal, 0, legH - 0.06, sz * (L / 2 - 0.25)));
+  g.add(box(0.04, 0.04, L - 0.5, metal, 0, 0.18, 0));
+
+  // Net: textured transparent mesh, white top tape, posts and clamps.
+  const netH = TABLE.netHeight;
+  const net = new THREE.Mesh(
+    new THREE.PlaneGeometry(NET_HALF * 2, netH),
+    new THREE.MeshStandardMaterial({ map: makeNetTexture(), transparent: true, alphaTest: 0.25, side: THREE.DoubleSide, roughness: 0.9 })
+  );
+  net.position.set(0, H + netH / 2, 0);
+  net.castShadow = true;
+  g.add(net);
+  g.add(box(NET_HALF * 2, 0.012, 0.006, std(0xffffff), 0, NET_TOP - 0.006, 0));
+  const postMat = std(0x111418, { metalness: 0.6, roughness: 0.35 });
+  for (const sx of [-1, 1]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, netH + 0.02, 16), postMat);
+    post.position.set(sx * NET_HALF, H + (netH + 0.02) / 2, 0);
+    post.castShadow = true;
+    g.add(post);
+    g.add(box(0.03, 0.05, 0.05, postMat, sx * (NET_HALF - 0.11), H - 0.02, 0));
+    g.add(box(0.12, 0.012, 0.03, postMat, sx * (NET_HALF - 0.06), H + 0.006, 0));
+  }
+  scene.add(g);
+}
+
+buildFloor();
+buildTable();
+
+/* =====================================================================
+   RACKET — reusable factory (cylinder blade + rubber faces + handle).
+   Players exist only as these floating rackets.
+   ===================================================================== */
+function createRacketMesh(rubberColor) {
+  const group = new THREE.Group();
+  const wood = std(0xc89a5b, { roughness: 0.7 });
+  const front = std(rubberColor, { roughness: 0.55 });
+  const back = std(new THREE.Color(rubberColor).multiplyScalar(0.6), { roughness: 0.6 });
+  const R = 0.082;
+  const cyl = (r, h, mat, z) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 40), mat);
+    m.rotation.x = Math.PI / 2;          // cylinder axis along Z → face normal points along ±Z
+    m.position.z = z;
+    m.castShadow = true;
+    return m;
+  };
+  group.add(cyl(R, 0.006, wood, 0));
+  group.add(cyl(R - 0.002, 0.003, front, -0.0045));   // front rubber faces -Z (toward the opponent)
+  group.add(cyl(R - 0.002, 0.003, back, 0.0045));
+  const handle = box(0.03, 0.105, 0.026, wood, 0, -(R + 0.048), 0);
+  const flare = box(0.04, 0.025, 0.02, wood, 0, -(R - 0.004), 0);
+  const cap = box(0.034, 0.012, 0.03, front, 0, -(R + 0.104), 0);
+  group.add(handle, flare, cap);
+  group.scale.setScalar(1.35);   // slightly oversized so it reads well from the camera
+  return group;
+}
+
+class Racket {
+  constructor(owner, color, pos) {
+    this.owner = owner;
+    this.mesh = createRacketMesh(color);
+    this.pos = new THREE.Vector3(pos.x, pos.y, pos.z);
+    this.prev = this.pos.clone();
+    this.last = this.pos.clone();   // position at the start of the current physics step
+    this.vel = new THREE.Vector3();
+    this.swing = 0;      // 1 → 0 swing animation timer
+    this.tilt = 0;       // face angle, -1 open (backspin) .. +1 closed (topspin)
+    scene.add(this.mesh);
+  }
+  /** Smoothed velocity from the last fixed step; drives power, direction and spin. */
+  integrateVelocity(dt) {
+    this.last.copy(this.prev);
+    const inst = new THREE.Vector3().subVectors(this.pos, this.prev).divideScalar(dt);
+    this.vel.lerp(inst, 1 - Math.exp(-14 * dt));
+    this.prev.copy(this.pos);
+  }
+  /** Visual pose: position, face tilt, roll from lateral motion, swing animation. */
+  updateMesh(dt, tilt) {
+    this.swing = Math.max(0, this.swing - dt / 0.22);
+    const s = this.swing > 0 ? Math.sin((1 - this.swing) * Math.PI) : 0;
+    const isAI = this.owner === 'ai';
+    const dir = isAI ? 1 : -1;  // forward direction along Z
+    this.mesh.position.set(this.pos.x, this.pos.y, this.pos.z + dir * s * 0.07);
+    const roll = clamp(-this.vel.x * 0.08, -0.6, 0.6);
+    const pitch = (isAI ? 1 : -1) * (tilt * 0.45 + s * 0.5);
+    this.mesh.rotation.set(pitch, isAI ? Math.PI : 0, roll);
+  }
+}
+
+const player = new Racket('player', COLORS.player, { x: 0, y: PLAYER_CFG.restY, z: 1.8 });
+const aiRacket = new Racket('ai', COLORS.ai, AI_COMMON.home);
+
+/* =====================================================================
+   BALL — mesh with a marker dot (to show spin), blob shadow, bounce marker
+   ===================================================================== */
+const ball = makeBallState();
+const ballPrev = { ...ball.p };   // previous physics position (render interpolation + swept hits)
+const ballMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(PHYS.radius, 24, 16),
+  std(COLORS.ball, { roughness: 0.35, emissive: 0x2a1000 })
+);
+ballMesh.castShadow = true;
+for (const sx of [-1, 1]) {   // two dark dots make the rotation visible
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(PHYS.radius * 0.3, 8, 6), std(0x5a2500));
+  dot.position.set(sx * PHYS.radius * 0.82, 0, 0);
+  ballMesh.add(dot);
+}
+scene.add(ballMesh);
+
+// Blob shadow: always visible, gives strong depth cues on top of the shadow map.
+const blob = new THREE.Mesh(
+  new THREE.CircleGeometry(PHYS.radius * 1.5, 24),
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false })
+);
+blob.rotation.x = -Math.PI / 2;
+scene.add(blob);
+
+// Predicted bounce marker on the player's half (toggle with H).
+const marker = new THREE.Mesh(
+  new THREE.RingGeometry(0.03, 0.045, 32),
+  new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.7, depthWrite: false })
+);
+marker.rotation.x = -Math.PI / 2;
+marker.visible = false;
+scene.add(marker);
+let showMarker = true;
+
+function setBall(p, v = { x: 0, y: 0, z: 0 }, w = { x: 0, y: 0, z: 0 }) {
+  Object.assign(ball.p, p); Object.assign(ball.v, v); Object.assign(ball.w, w);
+  Object.assign(ballPrev, ball.p);
+}
+
+const _spinQ = new THREE.Quaternion(), _axis = new THREE.Vector3();
+function renderBall(alpha, dt) {
+  ballMesh.position.set(
+    ballPrev.x + (ball.p.x - ballPrev.x) * alpha,
+    ballPrev.y + (ball.p.y - ballPrev.y) * alpha,
+    ballPrev.z + (ball.p.z - ballPrev.z) * alpha
+  );
+  const wm = Math.hypot(ball.w.x, ball.w.y, ball.w.z);
+  if (wm > 0.01) {   // integrate visual rotation (slowed so it reads as motion, not noise)
+    _axis.set(ball.w.x / wm, ball.w.y / wm, ball.w.z / wm);
+    _spinQ.setFromAxisAngle(_axis, Math.min(wm * dt, 0.6));
+    ballMesh.quaternion.premultiply(_spinQ);
+  }
+  const p = ballMesh.position;
+  const overTable = Math.abs(p.x) <= HALF_W && Math.abs(p.z) <= HALF_L && p.y >= TABLE_TOP;
+  const groundY = overTable ? TABLE_TOP + 0.002 : 0.004;
+  const h = Math.max(0, p.y - PHYS.radius - groundY);
+  blob.position.set(p.x, groundY, p.z);
+  blob.scale.setScalar(1 + h * 1.6);
+  blob.material.opacity = clamp(0.5 - h * 0.35, 0.08, 0.5);
+}
+
+/* =====================================================================
+   INPUT — mouse/touch (pointer events) and keyboard
+   ===================================================================== */
+const input = {
+  keys: new Set(),
+  mouseActive: false,
+  ndc: new THREE.Vector2(0, -0.4),
+  target: { x: 0, z: 1.8 },    // where the player wants the racket (XZ)
+  wheelTilt: 0, keyTilt: 0, tilt: 0,
+  charging: false, chargeStart: 0,
+};
+const keyDown = (...codes) => codes.some(c => input.keys.has(c));
+
+window.addEventListener('keydown', e => {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  Sound.init();
+  if (e.repeat) return;
+  input.keys.add(e.code);
+  if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
+  else if (e.code === 'Space') startCharge();
+  else if (e.code === 'KeyH') { showMarker = !showMarker; if (!showMarker) marker.visible = false; }
+  else if (e.code === 'KeyM') Sound.toggleMute();
+});
+window.addEventListener('keyup', e => {
+  input.keys.delete(e.code);
+  if (e.code === 'Space') releaseCharge();
+});
+canvas.addEventListener('pointermove', e => {
+  input.ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  input.mouseActive = true;
+});
+canvas.addEventListener('pointerdown', e => {
+  Sound.init();
+  input.ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  input.mouseActive = true;
+  if (e.button === 0) startCharge();
+});
+window.addEventListener('pointerup', e => { if (e.button === 0) releaseCharge(); });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  input.wheelTilt = clamp(input.wheelTilt - e.deltaY * 0.0015, -1, 1);
+}, { passive: false });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('blur', () => { input.keys.clear(); if (isPlaying() && !match.paused) togglePause(); });
+
+/** Map the mouse to the racket's reachable area: left/right → X, up/down → depth (Z).
+ *  The lower ~60% of the screen spans from the farthest step back to full reach over the table. */
+const MOUSE_MAP = { xRange: 1.3, ndcNear: -1, ndcFar: 0.2, zNear: 2.3 };
+function updateMouseTarget() {
+  if (!input.mouseActive) return;
+  const t = clamp((input.ndc.y - MOUSE_MAP.ndcNear) / (MOUSE_MAP.ndcFar - MOUSE_MAP.ndcNear), 0, 1);
+  input.target.x = input.ndc.x * MOUSE_MAP.xRange;
+  input.target.z = MOUSE_MAP.zNear + (PLAYER_CFG.minZ - MOUSE_MAP.zNear) * t;
+}
+
+/** Serve power oscillates 0 → 1 → 0 while held, so timing the release matters. */
+function currentCharge() {
+  const t = (performance.now() - input.chargeStart) / 1100;
+  const c = t % 2;
+  return c < 1 ? c : 2 - c;
+}
+function startCharge() {
+  if (match.paused || match.state !== 'serve' || match.server !== 'player' || input.charging) return;
+  input.charging = true;
+  input.chargeStart = performance.now();
+}
+function releaseCharge() {
+  if (!input.charging) return;
+  input.charging = false;
+  if (match.paused || match.state !== 'serve' || match.server !== 'player') return;
+  playerServe(currentCharge());
+}
+
+/** Player racket: follows the target in XZ; height auto-tracks an incoming ball. */
+function updatePlayer(dt) {
+  let kx = 0, kz = 0;
+  if (keyDown('KeyA', 'ArrowLeft')) kx -= 1;
+  if (keyDown('KeyD', 'ArrowRight')) kx += 1;
+  if (keyDown('KeyW', 'ArrowUp')) kz -= 1;
+  if (keyDown('KeyS', 'ArrowDown')) kz += 1;
+  if (kx || kz) {
+    input.mouseActive = false;
+    input.target.x += kx * PLAYER_CFG.keySpeed * dt / timeScale();
+    input.target.z += kz * PLAYER_CFG.keySpeed * dt / timeScale();
+  }
+  input.target.x = clamp(input.target.x, PLAYER_CFG.minX, PLAYER_CFG.maxX);
+  input.target.z = clamp(input.target.z, PLAYER_CFG.minZ, PLAYER_CFG.maxZ);
+
+  const kt = (keyDown('KeyE') ? 1 : 0) - (keyDown('KeyQ') ? 1 : 0);
+  input.keyTilt += (kt - input.keyTilt) * (1 - Math.exp(-10 * dt));
+  input.tilt = clamp(input.wheelTilt + input.keyTilt, -1, 1);
+
+  const serving = match.state === 'serve' && match.server === 'player';
+  const r = player, k = 1 - Math.exp(-PLAYER_CFG.followRate * dt);
+  const tx = serving ? clamp(input.target.x, -0.9, 0.9) : input.target.x;
+  const tz = serving ? Math.max(PLAYER_CFG.serveMinZ, input.target.z) : input.target.z;
+  r.pos.x += (tx - r.pos.x) * k;
+  r.pos.z += (tz - r.pos.z) * k;
+
+  let ty = PLAYER_CFG.restY;
+  if (rally.live && rally.lastHitter === 'ai' && ball.v.z > 0 && ball.p.z > -0.3) {
+    ty = clamp(ball.p.y, TABLE_TOP + 0.06, 1.7);
+  }
+  const minY = racketMinY(r.pos.x, r.pos.z);
+  r.pos.y += (Math.max(ty, minY) - r.pos.y) * (1 - Math.exp(-PLAYER_CFG.heightRate * dt));
+  r.pos.y = Math.max(r.pos.y, minY);   // never through the table
+  r.integrateVelocity(dt);
+}
+
+/** Contact test: did the ball pass through the racket's face plane this step (measured relative to
+ *  the moving racket, so forward swings count) within `radius` of the blade center?
+ *  Returns the off-center distance at contact, or -1 for no contact. */
+function racketContact(r, radius, yWeight) {
+  const f = r.owner === 'player' ? 1 : -1;   // the ball travels toward +Z to reach the player
+  const rel0 = (ballPrev.z - r.last.z) * f, rel1 = (ball.p.z - r.pos.z) * f;
+  if (!(rel0 < 0 && rel1 >= 0)) return -1;
+  const t = rel0 / (rel0 - rel1);
+  const lerp = (a, b) => a + (b - a) * t;
+  const dx = lerp(ballPrev.x, ball.p.x) - lerp(r.last.x, r.pos.x);
+  const dy = lerp(ballPrev.y, ball.p.y) - lerp(r.last.y, r.pos.y);
+  const d = Math.hypot(dx, dy * yWeight);
+  return d <= radius ? d : -1;
+}
+
+/** Topspin component of the ball's spin relative to its direction of travel (rad/s). */
+function incomingTopspin(b) {
+  const h = Math.hypot(b.v.x, b.v.z) || 1;
+  const dx = b.v.x / h, dz = b.v.z / h;
+  return b.w.x * dz - b.w.z * dx;
+}
+
+/** Player stroke: swing speed → power, lateral swing + contact point → direction,
+ *  face tilt + brushing → top/backspin, lateral swing → sidespin. */
+function playerHit(contactDist) {
+  const r = player;
+  // Swing speed in real-world m/s (the racket follows the mouse in real time even when the sim is slowed).
+  const sf = Math.max(0, -r.vel.z) * timeScale();   // forward swing speed (toward the net)
+  const sl = r.vel.x * timeScale();                 // lateral swing speed
+  const boost = keyDown('ShiftLeft', 'ShiftRight') ? 0.28 : 0;
+  const power = clamp(0.38 + sf * 0.085 + boost, 0.2, PLAYER_CFG.maxPower);
+  const tilt = input.tilt;
+
+  // Incoming topspin makes the return fly long unless the face is closed (and vice versa).
+  const depthShift = (incomingTopspin(ball) / 150) * 0.3 - tilt * 0.12;
+  let tz = -(0.3 + power * 0.95 + depthShift);
+  // Contact off-center angles the ball (Pong-style), plus lateral swing.
+  const offX = ball.p.x - r.pos.x;
+  let tx = clamp(ball.p.x * 0.2 + offX * 2.4 + sl * 0.09, -1.1, 1.1);
+  const top = clamp(tilt + sf * 0.045, -1, 1.2) * 130;
+  const side = clamp(sl * 7, -50, 50);
+  let vh = 3.2 + power * 5;
+
+  let edge = false;
+  if (contactDist / PLAYER_CFG.hitRadius > 0.85) {   // frame/edge hit: unpredictable
+    edge = true;
+    tx += rand(-0.5, 0.5); tz -= rand(-0.15, 0.3); vh *= 0.85;
+  }
+  let shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
+  // Mild assist: if the planned stroke would find the net, take a little pace off.
+  for (let i = 0; i < 3 && shot.land && shot.land.net; i++) {
+    vh *= 0.88;
+    shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
+  }
+  applyShot(shot);
+  r.swing = 1;
+  const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
+  match.stats.fastest = Math.max(match.stats.fastest, kmh);
+  if (edge) showMessage('Edge!', '', 'warn', 0.7);
+  registerHit('player', power);
+}
+
+function applyShot(shot) {
+  Object.assign(ball.v, shot.v);
+  Object.assign(ball.w, shot.w);
+}
+
+/* =====================================================================
+   AI — predicts the intercept, moves there at limited speed after a
+   reaction delay, aims for corners with level-scaled error and mistakes.
+   ===================================================================== */
+const ai = { racket: aiRacket, plan: null, serveAt: 0, serveX: 0 };
+const levelCfg = () => AI_LEVELS[match.levelKey];
+
+function aiOnOpponentHit() {
+  ai.plan = { readyAt: simTime + levelCfg().reactionMs / 1000, computed: false, point: null };
+}
+
+function computeAIPlan() {
+  const cfg = levelCfg();
+  ai.plan.computed = true;
+  const p = predictIntercept(ball, -1, AI_COMMON.reachDepth, -AI_COMMON.maxZ);
+  if (!p) return;   // ball is going out / into the net: no need to chase
+  // Positioning error grows with the incoming spin and shrinks with level.
+  const spin = Math.hypot(ball.w.x, ball.w.y, ball.w.z);
+  const err = cfg.aimError * 0.22 * (1 + spin / 120);
+  ai.plan.point = {
+    x: clamp(p.x + randn() * err, AI_COMMON.minX, AI_COMMON.maxX),
+    y: clamp(p.y + randn() * err * 0.5, TABLE_TOP + 0.05, 1.8),
+    z: clamp(p.z + randn() * err * 0.6, AI_COMMON.minZ, AI_COMMON.maxZ),
+  };
+}
+
+function updateAI(dt) {
+  const cfg = levelCfg(), r = aiRacket;
+  let goal = { x: ball.p.x * 0.3, y: AI_COMMON.home.y, z: AI_COMMON.home.z };   // drift home, shading the ball
+  if (match.state === 'serve' && match.server === 'ai') {
+    goal = { x: ai.serveX, y: 0.88, z: AI_COMMON.serveZ };
+  } else if (ai.plan) {
+    if (!ai.plan.computed && simTime >= ai.plan.readyAt) computeAIPlan();
+    if (!ai.plan.computed) goal = r.pos;                     // still reacting
+    else if (ai.plan.point) goal = ai.plan.point;
+    else goal = { x: ball.p.x * 0.5, y: AI_COMMON.home.y, z: AI_COMMON.home.z };
+  }
+  // Move in XZ at the level's top speed; height adjusts with its own limit.
+  const dx = goal.x - r.pos.x, dz = goal.z - r.pos.z, d = Math.hypot(dx, dz);
+  if (d > 1e-4) {
+    const step = Math.min(d, cfg.speed * dt);
+    r.pos.x += dx / d * step; r.pos.z += dz / d * step;
+  }
+  const dy = Math.max(goal.y, racketMinY(goal.x, goal.z)) - r.pos.y;
+  r.pos.y += clamp(dy, -AI_COMMON.ySpeed * dt, AI_COMMON.ySpeed * dt);
+  r.pos.z = clamp(r.pos.z, AI_COMMON.minZ, AI_COMMON.maxZ);
+  r.pos.y = Math.max(r.pos.y, racketMinY(r.pos.x, r.pos.z));
+  r.integrateVelocity(dt);
+}
+
+function aiHit() {
+  const cfg = levelCfg();
+  const speedIn = Math.hypot(ball.v.x, ball.v.y, ball.v.z);
+  const spinIn = Math.hypot(ball.w.x, ball.w.y, ball.w.z);
+  // Fast or spinny balls raise the chance of an error.
+  const pressure = clamp((speedIn - 6) / 8, 0, 1) * 0.6 + clamp(spinIn / 200, 0, 0.6);
+  const mistake = Math.random() < cfg.mistakeRate * (1 + pressure * 1.5);
+
+  const sideSign = Math.random() < 0.5 ? -1 : 1;
+  let tx = sideSign * 0.62 * (1 - cfg.aimError) + rand(-1, 1) * cfg.aimError * 0.6;   // corners
+  let tz = clamp(0.75 + cfg.power * 0.4 + rand(-1, 1) * cfg.aimError * 0.5, 0.45, 1.27);
+  let vh = 3.4 + cfg.power * 4.5 + Math.random() * 0.6;
+  let top = cfg.spin * rand(0.6, 1) * 140;
+  if (Math.random() < 0.2) top *= -0.5;                                                // occasional chop
+  const side = rand(-1, 1) * cfg.spin * 40;
+
+  let kind = mistake ? (Math.random() < 0.4 ? 'long' : Math.random() < 0.5 ? 'wide' : 'net') : null;
+  if (kind === 'long') tz = HALF_L + rand(0.08, 0.38);
+  if (kind === 'wide') tx = sideSign * (HALF_W + rand(0.08, 0.28));
+
+  let shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
+  for (let i = 0; !mistake && i < 5 && shot.land && shot.land.net; i++) {
+    vh *= 0.88;
+    shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
+  }
+  if (kind === 'net') shot.v.y -= rand(1.2, 2.2);
+  applyShot(shot);
+  aiRacket.tilt = clamp(top / 140, -1, 1);
+  aiRacket.swing = 1;
+  registerHit('ai', 0.4 + cfg.power * 0.5);
+}
+
+function aiServe() {
+  const cfg = levelCfg();
+  let charge = clamp(0.35 + cfg.power * 0.35 + rand(-0.08, 0.08), 0.05, 0.9);
+  if (Math.random() < cfg.mistakeRate * 0.4) charge = rand(0.97, 1.0);   // serve fault: long
+  const tx = (Math.random() < 0.5 ? -1 : 1) * (0.2 + 0.4 * (1 - cfg.aimError));
+  const top = cfg.spin * (Math.random() < 0.5 ? -1 : 1) * 80;
+  const side = cfg.spin * rand(-1, 1) * 40;
+  aiRacket.tilt = top / 140;
+  doServe('ai', charge, top, side, tx);
+}
+
+function playerServe(charge) {
+  const vx = player.vel.x * timeScale();
+  const tx = clamp(player.pos.x * 0.7 + vx * 0.05, -0.6, 0.6);
+  doServe('player', charge, input.tilt * 90, clamp(vx * 8, -40, 40), tx);
+}
+
+/** Serve: ball must bounce once on the server's half, then on the receiver's half.
+ *  Charge sets depth (and therefore pace); too much and the serve goes long. */
+function doServe(who, charge, top, side, tx) {
+  const dir = who === 'player' ? -1 : 1;
+  const tz = dir * (0.45 + charge * 1.05);   // charge above ~0.88 lands past the end line
+  const shot = solveServe({ ...ball.p }, { x: tx, z: tz }, top, side);
+  applyShot(shot);
+  (who === 'player' ? player : aiRacket).swing = 1;
+  match.state = 'rally';
+  rally.live = true;
+  rally.serveStage = 1;
+  if (who === 'player') match.stats.serves++;
+  registerHit(who, 0.3 + charge * 0.4);
+}
+
+/* =====================================================================
+   RULES — serves, faults, lets, scoring, serve rotation, games, match
+   ===================================================================== */
+const match = {
+  levelKey: 'medium',
+  speedKey: 'normal',
+  state: 'menu',          // menu | serve | rally | pointOver | matchOver
+  paused: false,
+  points: [0, 0],         // [player, ai]
+  games: [0, 0],
+  gameStarter: 'player',  // who serves first in the current game
+  server: 'player',
+  rallyCount: 0,
+  timer: 0, after: null,  // delayed transition
+  stats: null,
+};
+const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, lastHitTime: 0 };
+const idx = who => (who === 'player' ? 0 : 1);
+const other = who => (who === 'player' ? 'ai' : 'player');
+const nameOf = who => (who === 'player' ? 'You' : 'CPU');
+const isPlaying = () => ['serve', 'rally', 'pointOver'].includes(match.state);
+
+function newStats() {
+  return { pointsWon: [0, 0], longestRally: 0, winners: 0, errors: 0, serveFaults: [0, 0], aces: 0, fastest: 0, serves: 0 };
+}
+
+function startMatch(levelKey) {
+  match.levelKey = levelKey;
+  match.points = [0, 0];
+  match.games = [0, 0];
+  match.gameStarter = 'player';
+  match.paused = false;
+  match.stats = newStats();
+  match.after = null; match.timer = 0;
+  hideAllMenus();
+  $('hud').classList.remove('hidden');
+  $('bottom').classList.remove('hidden');
+  $('hint').classList.remove('hidden');
+  player.pos.set(0, PLAYER_CFG.restY, 1.8);
+  aiRacket.pos.set(AI_COMMON.home.x, AI_COMMON.home.y, AI_COMMON.home.z);
+  input.target.x = 0; input.target.z = 1.8;
+  setupServe();
+  showMessage('Game 1', `vs ${AI_LEVELS[levelKey].label} CPU`, 'neutral', 1.4);
+}
+
+/** Server rotation: every 2 points, every point once both reach 10 (deuce). */
+function currentServer() {
+  const [p, a] = match.points, total = p + a;
+  const turn = (p >= GAME.pointsToWin - 1 && a >= GAME.pointsToWin - 1)
+    ? (GAME.pointsToWin - 1) + (total - 2 * (GAME.pointsToWin - 1))
+    : Math.floor(total / GAME.servesPerTurn);
+  return turn % 2 === 0 ? match.gameStarter : other(match.gameStarter);
+}
+
+function setupServe() {
+  match.server = currentServer();
+  match.state = 'serve';
+  match.rallyCount = 0;
+  Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false });
+  ai.plan = null;
+  marker.visible = false;
+  input.charging = false;
+  if (match.server === 'ai') {
+    ai.serveX = rand(-0.4, 0.4);
+    ai.serveAt = simTime + rand(1.1, 1.8);
+  }
+  holdBallForServe();
+  updateHUD();
+}
+
+function holdBallForServe() {
+  const r = match.server === 'player' ? player : aiRacket;
+  const bob = Math.sin(simTime * 3) * 0.015;
+  setBall({ x: r.pos.x, y: r.pos.y + 0.13 + bob, z: r.pos.z });
+}
+
+/** Can `who` legally strike the ball now? Only after it has bounced once on their half. */
+function canHit(who) {
+  return rally.live && rally.serveStage === 0 && rally.lastHitter !== who && rally.bounceCount === 1;
+}
+
+function registerHit(who, intensity) {
+  rally.lastHitter = who;
+  rally.bounceCount = 0;
+  rally.netTouched = false;
+  rally.lastHitTime = simTime;
+  match.rallyCount++;
+  Sound.hit(intensity);
+  if (who === 'player') {
+    aiOnOpponentHit();
+    marker.visible = false;
+  } else {
+    ai.plan = null;
+    const m = showMarker ? predictBounce(ball, 1) : null;
+    marker.visible = !!m;
+    if (m) marker.position.set(m.x, TABLE_TOP + 0.003, m.z);
+  }
+  updateHUD();
+}
+
+function onTableBounce(side) {
+  const server = match.server, receiver = other(server);
+  if (rally.serveStage === 1) {
+    if (side === server) rally.serveStage = 2;
+    else serveFault('Serve must bounce on the server’s side first');
+  } else if (rally.serveStage === 2) {
+    if (side === receiver) {
+      if (rally.netTouched) return callLet();
+      rally.serveStage = 0;
+      rally.bounceCount = 1;
+    } else {
+      serveFault(rally.netTouched ? 'Serve into the net' : 'Serve fault');
+    }
+  } else if (side === rally.lastHitter) {
+    endPoint(other(side), rally.netTouched ? 'Into the net' : 'Bounced on own side', 'error');
+  } else {
+    rally.bounceCount++;
+    if (rally.bounceCount >= 2) endPoint(rally.lastHitter, 'Double bounce', 'miss');
+  }
+}
+
+function onFloor() {
+  if (rally.serveStage > 0) {
+    let why = 'Serve missed the table';
+    if (rally.netTouched) why = 'Serve into the net';
+    else if (rally.serveStage === 2) why = Math.abs(ball.p.x) > HALF_W ? 'Serve went wide' : 'Serve went long';
+    serveFault(why);
+  } else if (rally.bounceCount === 0) {
+    const why = rally.netTouched ? 'Into the net' : Math.abs(ball.p.x) > HALF_W ? 'Out — wide' : 'Out — long';
+    endPoint(other(rally.lastHitter), why, 'error');
+  } else {
+    endPoint(rally.lastHitter, 'Missed return', 'miss');
+  }
+}
+
+function serveFault(why) {
+  match.stats.serveFaults[idx(match.server)]++;
+  endPoint(other(match.server), why, 'fault');
+}
+
+function callLet() {
+  rally.live = false;
+  showMessage('Let', 'Serve touched the net — replay', 'warn', 1.3);
+  schedule(GAME.pointDelay, setupServe);
+}
+
+/** kind: 'error' (loser hit out/net), 'miss' (loser failed to return), 'fault' (serve fault). */
+function endPoint(winner, why, kind) {
+  if (!rally.live) return;
+  rally.live = false;
+  ai.plan = null;
+  marker.visible = false;
+  match.state = 'pointOver';
+  const loser = other(winner), s = match.stats;
+  match.points[idx(winner)]++;
+  s.pointsWon[idx(winner)]++;
+  s.longestRally = Math.max(s.longestRally, match.rallyCount);
+  if (winner === 'player' && kind === 'miss') s.winners++;
+  if (loser === 'player' && kind === 'error') s.errors++;
+  if (winner === match.server && kind === 'miss' && match.rallyCount === 1) s.aces++;
+
+  const youWon = winner === 'player';
+  if (kind === 'fault') showMessage('Fault', `${nameOf(loser)}: ${why} · point ${nameOf(winner)}`, youWon ? 'good' : 'bad', 1.5);
+  else showMessage('Point!', `${youWon ? 'You score' : 'CPU scores'} — ${nameOf(loser)}: ${why}`, youWon ? 'good' : 'bad', 1.5);
+  Sound.point(youWon);
+  updateHUD();
+  schedule(GAME.pointDelay, afterPoint);
+}
+
+function afterPoint() {
+  const [p, a] = match.points;
+  const gameOver = (p >= GAME.pointsToWin || a >= GAME.pointsToWin) && Math.abs(p - a) >= GAME.winBy;
+  if (!gameOver) return setupServe();
+  const winner = p > a ? 'player' : 'ai';
+  match.games[idx(winner)]++;
+  updateHUD();
+  if (match.games[idx(winner)] >= GAME.gamesToWin) return endMatch(winner);
+  showMessage(`Game ${winner === 'player' ? 'You' : 'CPU'}`, `${p} – ${a} · Games ${match.games[0]} – ${match.games[1]}`, winner === 'player' ? 'good' : 'bad', 2.4);
+  Sound.fanfare(winner === 'player');
+  schedule(GAME.gameDelay, () => {
+    match.points = [0, 0];
+    match.gameStarter = other(match.gameStarter);   // alternate first server each game
+    setupServe();
+    showMessage(`Game ${match.games[0] + match.games[1] + 1}`, '', 'neutral', 1.2);
+  });
+}
+
+function endMatch(winner) {
+  match.state = 'matchOver';
+  Sound.fanfare(winner === 'player');
+  showEndMenu(winner);
+}
+
+function schedule(delay, fn) { match.timer = delay; match.after = fn; }
+
+/* =====================================================================
+   UI — HUD, messages, menus
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+let msgTimer = 0;
+
+function showMessage(main, sub = '', tone = 'neutral', duration = 1.4) {
+  const el = $('msg');
+  $('msg-main').textContent = main;
+  $('msg-sub').textContent = sub;
+  el.className = '';
+  void el.offsetWidth;   // restart the pop animation
+  el.className = 'show ' + tone;
+  msgTimer = duration;
+}
+
+function updateHUD() {
+  $('score-p').textContent = match.points[0];
+  $('score-a').textContent = match.points[1];
+  $('games-p').textContent = match.games[0];
+  $('games-a').textContent = match.games[1];
+  $('serve-p').classList.toggle('on', match.server === 'player');
+  $('serve-a').classList.toggle('on', match.server === 'ai');
+  $('hud-level').textContent = AI_LEVELS[match.levelKey].label;
+  $('hud-server').textContent = nameOf(match.server);
+  $('hud-rally').textContent = match.rallyCount;
+  $('hud-speed').textContent = GAME.speeds[match.speedKey].label;
+  const serving = match.state === 'serve' && match.server === 'player';
+  $('power-wrap').style.visibility = serving ? 'visible' : 'hidden';
+  $('hint').innerHTML = serving
+    ? '<b>Your serve.</b> Hold <b>Space</b> or the mouse button, release to serve. Avoid the red zone. Racket position aims; <b>Q/E</b> adds spin.'
+    : '<b>Mouse/WASD</b> move · <b>swing forward</b> for power · <b>Q/E/Wheel</b> spin · <b>Shift</b> power · <b>P</b> pause';
+}
+
+/** Per-frame HUD bits: serve power bar and spin gauge. */
+function updateLiveHUD() {
+  $('power-fill').style.width = (input.charging ? currentCharge() * 100 : 0) + '%';
+  $('spin-needle').style.left = (50 + input.tilt * 45) + '%';
+}
+
+function hideAllMenus() {
+  for (const id of ['menu-start', 'menu-pause', 'menu-end']) $(id).classList.add('hidden');
+}
+
+function buildLevelButtons() {
+  const wrap = $('levels');
+  for (const key of LEVEL_ORDER) {
+    const b = document.createElement('button');
+    b.className = 'level-btn' + (key === match.levelKey ? ' sel' : '');
+    b.dataset.level = key;
+    b.innerHTML = `<b>${AI_LEVELS[key].label}</b><small>${LEVEL_BLURB[key]}</small>`;
+    b.addEventListener('click', () => {
+      match.levelKey = key;
+      wrap.querySelectorAll('.level-btn').forEach(x => x.classList.toggle('sel', x === b));
+    });
+    wrap.appendChild(b);
+  }
+}
+
+function buildSpeedButtons() {
+  const wrap = $('speeds');
+  for (const [key, sp] of Object.entries(GAME.speeds)) {
+    const b = document.createElement('button');
+    b.className = 'level-btn' + (key === match.speedKey ? ' sel' : '');
+    b.innerHTML = `<b>${sp.label}</b><small>${Math.round(sp.scale * 100)}% speed</small>`;
+    b.addEventListener('click', () => {
+      match.speedKey = key;
+      wrap.querySelectorAll('.level-btn').forEach(x => x.classList.toggle('sel', x === b));
+    });
+    wrap.appendChild(b);
+  }
+}
+
+function showStartMenu() {
+  hideAllMenus();
+  match.state = 'menu';
+  match.paused = false;
+  rally.live = false;
+  marker.visible = false;
+  $('hud').classList.add('hidden');
+  $('bottom').classList.add('hidden');
+  $('hint').classList.add('hidden');
+  $('menu-start').classList.remove('hidden');
+  setBall({ x: 0, y: 1.3, z: 0.5 });
+}
+
+function togglePause() {
+  if (!isPlaying()) return;
+  match.paused = !match.paused;
+  input.charging = false;
+  $('menu-pause').classList.toggle('hidden', !match.paused);
+}
+
+function showEndMenu(winner) {
+  const s = match.stats, lvl = LEVEL_ORDER.indexOf(match.levelKey);
+  $('end-title').textContent = winner === 'player' ? '🏆 You Win!' : 'CPU Wins';
+  $('end-sub').textContent = `Games ${match.games[0]} – ${match.games[1]} vs ${AI_LEVELS[match.levelKey].label} CPU`;
+  const rows = [
+    ['Points won', `${s.pointsWon[0]} – ${s.pointsWon[1]}`],
+    ['Longest rally', `${s.longestRally} hits`],
+    ['Your winners (CPU missed)', s.winners],
+    ['Your errors (net / out)', s.errors],
+    ['Serve faults (you / CPU)', `${s.serveFaults[0]} / ${s.serveFaults[1]}`],
+    ['Aces (both)', s.aces],
+    ['Fastest shot', `${Math.round(s.fastest)} km/h`],
+  ];
+  $('end-stats').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+  const next = $('btn-next');
+  next.disabled = lvl >= LEVEL_ORDER.length - 1;
+  next.textContent = next.disabled ? 'Max Level' : `Next Level: ${AI_LEVELS[LEVEL_ORDER[lvl + 1]].label}`;
+  $('hud').classList.add('hidden');
+  $('bottom').classList.add('hidden');
+  $('hint').classList.add('hidden');
+  $('menu-end').classList.remove('hidden');
+}
+
+buildLevelButtons();
+buildSpeedButtons();
+$('btn-start').addEventListener('click', () => { Sound.init(); startMatch(match.levelKey); });
+$('btn-resume').addEventListener('click', togglePause);
+$('btn-restart').addEventListener('click', () => startMatch(match.levelKey));
+$('btn-quit').addEventListener('click', showStartMenu);
+$('btn-again').addEventListener('click', () => startMatch(match.levelKey));
+$('btn-next').addEventListener('click', () => {
+  const i = LEVEL_ORDER.indexOf(match.levelKey);
+  startMatch(LEVEL_ORDER[Math.min(i + 1, LEVEL_ORDER.length - 1)]);
+  document.querySelectorAll('#levels .level-btn').forEach(x => x.classList.toggle('sel', x.dataset.level === match.levelKey));
+});
+$('btn-menu').addEventListener('click', showStartMenu);
+
+/* =====================================================================
+   AUDIO — synthesized with Web Audio (no files)
+   ===================================================================== */
+const Sound = {
+  ctx: null, master: null, noise: null, muted: false,
+  init() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.6;
+    this.master.connect(this.ctx.destination);
+    const len = Math.floor(this.ctx.sampleRate * 0.2);
+    this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = this.noise.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  },
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.master) this.master.gain.value = this.muted ? 0 : 0.6;
+    showMessage(this.muted ? 'Muted' : 'Sound on', '', 'neutral', 0.8);
+  },
+  ready() { return this.ctx && !this.muted && this.ctx.state === 'running'; },
+  tone(f0, f1, dur, type, vol, delay = 0) {
+    if (!this.ready()) return;
+    const t = this.ctx.currentTime + delay;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(this.master);
+    o.start(t); o.stop(t + dur + 0.02);
+  },
+  click(freq, dur, vol) {
+    if (!this.ready()) return;
+    const t = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    src.buffer = this.noise;
+    f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = 1.2;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t); src.stop(t + dur + 0.02);
+  },
+  hit(i = 0.5) {
+    i = clamp(i, 0.1, 1.2);
+    this.click(2600, 0.05, 0.25 + 0.4 * i);
+    this.tone(650 + 350 * i, 260, 0.08, 'triangle', 0.15 + 0.25 * i);
+  },
+  bounce(surface, speed) {
+    const i = clamp(speed / 5, 0.1, 1);
+    if (surface === 'table') { this.tone(1500, 1000, 0.05, 'sine', 0.3 * i); this.click(4200, 0.02, 0.12 * i); }
+    else if (surface === 'floor') this.tone(460, 280, 0.08, 'sine', 0.25 * i);
+    else this.click(500, 0.07, 0.25);   // net
+  },
+  point(win) {
+    const notes = win ? [660, 880] : [440, 330];
+    notes.forEach((f, k) => this.tone(f, f, 0.16, 'sine', 0.22, k * 0.12));
+  },
+  fanfare(win) {
+    const notes = win ? [523, 659, 784, 1047] : [392, 349, 311, 262];
+    notes.forEach((f, k) => this.tone(f, f * (win ? 1 : 0.98), 0.22, 'triangle', 0.2, k * 0.14));
+  },
+};
+
+/* =====================================================================
+   MAIN LOOP — fixed-timestep physics, interpolated rendering
+   ===================================================================== */
+let simTime = 0, accumulator = 0, lastFrame = performance.now();
+const stepEvents = { net: false, table: null, floor: null };
+
+/** Ball physics + collisions + rule events + racket contacts for one fixed step. */
+function stepLiveBall(dt) {
+  Object.assign(ballPrev, ball.p);
+  const ev = stepEvents;
+  ev.net = false; ev.table = null; ev.floor = null;
+  stepBall(ball, dt, ev);
+
+  if (ev.net) { Sound.bounce('net', 1); if (rally.live) rally.netTouched = true; }
+  if (ev.table) {
+    if (ev.table.speed > 0.4) Sound.bounce('table', ev.table.speed);
+    if (ev.table.side === 'player') marker.visible = false;
+    if (rally.live) onTableBounce(ev.table.side);
+  }
+  if (ev.floor) {
+    if (ev.floor.speed > 0.5) Sound.bounce('floor', ev.floor.speed);
+    if (rally.live) onFloor();
+  }
+  if (!rally.live) return;
+
+  if (canHit('player')) {
+    const d = racketContact(player, PLAYER_CFG.hitRadius, PLAYER_CFG.yWeight);
+    if (d >= 0) return playerHit(d);
+  }
+  if (canHit('ai')) {
+    if (racketContact(aiRacket, AI_COMMON.hitRadius, 1) >= 0) return aiHit();
+  }
+  if (simTime - rally.lastHitTime > GAME.rallyTimeout) onFloor();   // safety net
+}
+
+/** Attract mode behind the start menu: the ball bounces on the table. */
+function menuStep(dt) {
+  Object.assign(ballPrev, ball.p);
+  const ev = stepEvents;
+  ev.net = false; ev.table = null; ev.floor = null;
+  stepBall(ball, dt, ev);
+  if (ev.floor || ball.p.y < 0.1) setBall({ x: rand(-0.5, 0.5), y: 1.3, z: rand(-1, 1) }, { x: 0, y: 0, z: rand(-1, 1) });
+  const t = simTime;
+  player.pos.set(Math.sin(t * 0.8) * 0.4, 0.95 + Math.sin(t * 1.7) * 0.05, 1.7);
+  aiRacket.pos.set(Math.sin(t * 0.9 + 1) * 0.4, 0.95 + Math.sin(t * 1.5) * 0.05, -1.7);
+}
+
+function fixedUpdate(dt) {
+  simTime += dt;
+  if (match.state === 'menu') return menuStep(dt);
+  updatePlayer(dt);
+  updateAI(dt);
+  if (match.state === 'serve') {
+    holdBallForServe();
+    if (match.server === 'ai' && simTime >= ai.serveAt) aiServe();
+  } else {
+    stepLiveBall(dt);
+  }
+  if (match.after) {
+    match.timer -= dt;
+    if (match.timer <= 0) { const fn = match.after; match.after = null; fn(); }
+  }
+}
+
+const _camTarget = new THREE.Vector3(), _lookTarget = new THREE.Vector3();
+function updateCamera(dt) {
+  if (match.state === 'menu') {   // slow orbit behind the menu
+    const t = performance.now() / 1000 * 0.12;
+    camera.position.set(Math.sin(t) * 4.2, 2.3, Math.cos(t) * 4.2);
+    camLook.set(0, TABLE_TOP, 0);
+    camera.lookAt(camLook);
+    return;
+  }
+  const k = 1 - Math.exp(-4 * dt);
+  _camTarget.set(CAM_BASE.pos.x + player.pos.x * 0.18, CAM_BASE.pos.y, CAM_BASE.pos.z);
+  _lookTarget.set(player.pos.x * 0.12, CAM_BASE.look.y, CAM_BASE.look.z);
+  camera.position.lerp(_camTarget, k);
+  camLook.lerp(_lookTarget, k);
+  camera.lookAt(camLook);
+}
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (now - lastFrame) / 1000);
+  lastFrame = now;
+
+  const running = !match.paused && match.state !== 'matchOver';
+  if (running) {
+    updateMouseTarget();
+    accumulator += dt * timeScale();
+    let steps = 0;
+    while (accumulator >= PHYS.dt && steps < PHYS.maxSubSteps) {
+      fixedUpdate(PHYS.dt);
+      accumulator -= PHYS.dt;
+      steps++;
+    }
+    if (steps === PHYS.maxSubSteps) accumulator = 0;   // avoid a spiral of death after a stall
+  }
+
+  const alpha = running ? accumulator / PHYS.dt : 1;
+  renderBall(alpha, running ? dt : 0);
+  player.updateMesh(dt, match.state === 'menu' ? 0 : input.tilt);
+  aiRacket.updateMesh(dt, aiRacket.tilt);
+  updateCamera(dt);
+  if (marker.visible) marker.material.opacity = 0.5 + 0.25 * Math.sin(now / 120);
+  if (match.state !== 'menu') updateLiveHUD();
+  if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0) $('msg').classList.remove('show'); }
+
+  renderer.render(scene, camera);
+}
+
+// Debug/console hook (handy for tuning; not used by the game itself).
+window.PingPong = { match, rally, ball, player, aiRacket, input, AI_LEVELS, predictIntercept, startMatch, playerServe, PLAYER_CFG };
+
+showStartMenu();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
