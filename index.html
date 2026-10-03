@@ -49,7 +49,7 @@
   .center { padding: 4px 14px; background: rgba(255, 255, 255, 0.04); text-align: center; display: flex; flex-direction: column; justify-content: center; }
   .games { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .games .gp { color: var(--player); } .games .ga { color: var(--cpu); }
-  .center .label { font-size: 9px; letter-spacing: 0.14em; color: var(--muted); }
+  .center .label { font-size: 9px; letter-spacing: 0.14em; color: var(--muted); white-space: nowrap; }
   .infobar {
     display: flex; gap: 16px; font-size: 12px; background: var(--panel);
     padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted);
@@ -147,6 +147,10 @@
   table.stats td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
   table.stats td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
+  /* Touch devices and short landscape phones: the keyboard/mouse hint just gets in the way. */
+  @media (pointer: coarse), (max-height: 500px) {
+    #hint { display: none; }
+  }
   @media (max-width: 640px) {
     .levels { grid-template-columns: repeat(2, 1fr); }
     .side { padding: 4px 10px; } .side .pts { font-size: 26px; min-width: 32px; }
@@ -299,6 +303,10 @@ const SMASH = {
   safeHeight: 0.17,       // ball at least this far above the table top = clean smash
   lowRisk: 0.4,           // chance a smash off a low ball goes wrong
   shake: 0.035,           // camera shake amplitude (m)
+  window: 0.22,           // a fast swing still counts this long after its peak (sim seconds)
+  sweepTime: 0.2,         // during a fast swing, contact checks the path swept over this time
+  grace: 0.1,             // a fast swing right after a normal hit ("through the ball") upgrades it
+  sweepReach: 1.25,       // ...and accepts the ball slightly wider than a normal contact
 };
 
 const PLAYER_CFG = {
@@ -310,7 +318,7 @@ const PLAYER_CFG = {
   serveMaxX: 0.75,
   restY: 0.92,
   keySpeed: 2.6,          // m/s with keyboard
-  followRate: 28,         // racket smoothing toward the target (1/s)
+  followRate: 40,         // racket smoothing toward the target (1/s)
   heightRate: 30,
   maxPower: 1.2,
 };
@@ -574,6 +582,9 @@ const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerH
 camera.position.copy(CAM_BASE.pos);
 camera.lookAt(CAM_BASE.look);
 const camLook = CAM_BASE.look.clone();
+// Fixed copy of the gameplay camera, used to keep the player's racket inside the visible frame.
+const viewCam = camera.clone();
+viewCam.updateMatrixWorld(true);
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.45));
 scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x2a2a30, 0.6));
@@ -590,7 +601,7 @@ function onResize() {
   const w = window.innerWidth, h = window.innerHeight, aspect = w / h;
   // Widen the field of view on portrait screens so the table still fits.
   const fov = aspect < 1.2 ? Math.min(85, 52 * 1.2 / aspect) : 52;
-  camera.aspect = aspect; camera.fov = fov; camera.updateProjectionMatrix();
+  for (const cam of [camera, viewCam]) { cam.aspect = aspect; cam.fov = fov; cam.updateProjectionMatrix(); }
   renderer.setSize(w, h);
 }
 window.addEventListener('resize', onResize);
@@ -727,7 +738,7 @@ class Racket {
   integrateVelocity(dt) {
     this.last.copy(this.prev);
     const inst = new THREE.Vector3().subVectors(this.pos, this.prev).divideScalar(dt);
-    this.vel.lerp(inst, 1 - Math.exp(-14 * dt));
+    this.vel.lerp(inst, 1 - Math.exp(-20 * dt));
     this.prev.copy(this.pos);
   }
   /** Visual pose: position, face tilt, roll from lateral motion, swing animation. */
@@ -933,6 +944,7 @@ function updatePlayer(dt) {
   }
   input.target.x = clamp(input.target.x, PLAYER_CFG.minX, PLAYER_CFG.maxX);
   input.target.z = clamp(input.target.z, PLAYER_CFG.minZ, PLAYER_CFG.maxZ);
+  keepOnScreen(input.target);
 
   const kt = (keyDown('KeyE') ? 1 : 0) - (keyDown('KeyQ') ? 1 : 0);
   input.keyTilt += (kt - input.keyTilt) * (1 - Math.exp(-10 * dt));
@@ -953,7 +965,54 @@ function updatePlayer(dt) {
   r.pos.y += (Math.max(ty, minY) - r.pos.y) * (1 - Math.exp(-PLAYER_CFG.heightRate * dt));
   r.pos.y = Math.max(r.pos.y, minY);   // never through the table
   r.integrateVelocity(dt);
+  trackSwing(r, dt);
 }
+
+/** Pull a racket target back inside the camera frame (near corners of the reachable area are
+ *  outside the view, especially on wide or portrait phone screens). Checks the blade edge and
+ *  the bottom of the handle. */
+const _ndc = new THREE.Vector3();
+function keepOnScreen(t) {
+  const y = PLAYER_CFG.restY, blade = 0.12, handle = 0.26;
+  for (let i = 0; i < 40; i++) {         // too low on screen → step toward the table
+    _ndc.set(t.x, y - handle, t.z).project(viewCam);
+    if (_ndc.y >= -0.9) break;
+    t.z -= 0.03;
+  }
+  for (let i = 0; i < 60; i++) {         // past the left/right edge → pull toward the center
+    _ndc.set(t.x + Math.sign(t.x) * blade, y, t.z).project(viewCam);
+    if (Math.abs(_ndc.x) <= 0.93) break;
+    t.x *= 0.96;
+  }
+}
+
+/** Swing memory: peak recent swing speed (real m/s, sideways + forward) and the racket's recent
+ *  path. A swipe rarely peaks at the exact instant of contact, so both are kept briefly. */
+const swing = { peak: 0, peakAt: -1, vx: 0, path: [], tPrev: null, tvx: 0, tvz: 0 };
+function trackSwing(r, dt) {
+  // The finger/mouse (target) velocity registers a swipe immediately; the racket's own velocity
+  // lags it slightly because of smoothing. Use whichever is faster.
+  const t = input.target;
+  if (swing.tPrev) {
+    const k = 1 - Math.exp(-25 * dt);   // mouse/touch events arrive at 60–120 Hz: average them out
+    swing.tvx += ((t.x - swing.tPrev.x) / dt - swing.tvx) * k;
+    swing.tvz += ((t.z - swing.tPrev.z) / dt - swing.tvz) * k;
+  }
+  swing.tPrev = { x: t.x, z: t.z };
+  const ts = timeScale();
+  const racketSwing = Math.hypot(r.vel.x, Math.max(0, -r.vel.z));
+  const inputSwing = Math.hypot(swing.tvx, Math.max(0, -swing.tvz));
+  const now = Math.max(racketSwing, inputSwing) * ts;
+  if (now >= swing.peak || simTime - swing.peakAt > SMASH.window) {
+    swing.peak = now; swing.peakAt = simTime;
+    swing.vx = (inputSwing > racketSwing ? swing.tvx : r.vel.x) * ts;
+  }
+  swing.path.push({ x: r.pos.x, y: r.pos.y });
+  if (swing.path.length > Math.round(SMASH.sweepTime / PHYS.dt)) swing.path.shift();
+}
+/** Optional diagnostics (enable from the console: PingPong.debug.on = true). */
+const DEBUG = { on: false, log: [] };
+const recentSwing = () => (simTime - swing.peakAt <= SMASH.window ? swing.peak : 0);
 
 /** Contact test: did the ball pass through the racket's face plane this step (measured relative to
  *  the moving racket, so forward swings count) within `radius` of the blade center?
@@ -966,7 +1025,18 @@ function racketContact(r, radius, yWeight) {
   const lerp = (a, b) => a + (b - a) * t;
   const dx = lerp(ballPrev.x, ball.p.x) - lerp(r.last.x, r.pos.x);
   const dy = lerp(ballPrev.y, ball.p.y) - lerp(r.last.y, r.pos.y);
-  const d = Math.hypot(dx, dy * yWeight);
+  let d = Math.hypot(dx, dy * yWeight);
+  // Mid-swing, the racket sweeps a wide strip: also accept the ball where the racket just was.
+  if (d > radius && r.owner === 'player' && recentSwing() >= SMASH.minSwing) {
+    const bx = lerp(ballPrev.x, ball.p.x), by = lerp(ballPrev.y, ball.p.y);
+    let best = Infinity;
+    for (const q of swing.path) best = Math.min(best, Math.hypot(bx - q.x, (by - q.y) * yWeight));
+    if (best <= radius * SMASH.sweepReach) d = Math.min(best, radius);   // counts as a (just) clean contact
+  }
+  if (DEBUG.on && r.owner === 'player') {
+    DEBUG.log.push({ t: +simTime.toFixed(3), d: +d.toFixed(3), hit: d <= radius, canHit: canHit('player'), swing: +recentSwing().toFixed(2),
+      peakAge: +(simTime - swing.peakAt).toFixed(3), velX: +r.vel.x.toFixed(2), velZ: +r.vel.z.toFixed(2) });
+  }
   return d <= radius ? d : -1;
 }
 
@@ -984,8 +1054,10 @@ function playerHit(contactDist) {
   // Swing speed in real-world m/s (the racket follows the mouse in real time even when the sim is slowed).
   const sf = Math.max(0, -r.vel.z) * timeScale();   // forward swing speed (toward the net)
   const sl = r.vel.x * timeScale();                 // lateral swing speed
-  const swing = Math.hypot(sl, sf);                 // backward motion never counts as a swing
-  if (swing >= SMASH.minSwing || keyDown('ShiftLeft', 'ShiftRight')) return playerSmash(swing, sl);
+  // Backward motion never counts; a swing that peaked a moment ago still does.
+  const swingSpeed = Math.max(Math.hypot(sl, sf), recentSwing());
+  if (swingSpeed >= SMASH.minSwing) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl);
+  if (keyDown('ShiftLeft', 'ShiftRight')) return playerSmash(SMASH.minSwing, sl);
   const power = clamp(0.38 + sf * 0.085, 0.2, PLAYER_CFG.maxPower);
   const tilt = input.tilt;
 
@@ -1016,15 +1088,20 @@ function playerHit(contactDist) {
   match.stats.fastest = Math.max(match.stats.fastest, kmh);
   if (edge) showMessage('Edge!', '', 'warn', 0.7);
   registerHit('player', power);
+  pendingUpgrade = { hitTime: rally.lastHitTime, offX, x: ball.p.x, y: ball.p.y };
 }
 
-/** Smash: pace scales with swing speed, aimed deep toward the side you swing to. */
-function playerSmash(swingSpeed, sl) {
+/** Smash: pace scales with swing speed, aimed deep toward the side you swing to.
+ *  `contact` describes the moment of contact; for an upgrade (swing finished just after a
+ *  normal hit) it is the remembered contact, and the shot is re-solved from where the ball is now. */
+function playerSmash(swingSpeed, sl, contact = null) {
+  const upgrade = !!contact;
+  contact = contact || { offX: ball.p.x - player.pos.x, x: ball.p.x, y: ball.p.y };
   const swing = Math.max(swingSpeed, SMASH.minSwing);
   let vh = clamp(SMASH.minSpeed + (swing - SMASH.minSwing) * 1.2, SMASH.minSpeed, SMASH.maxSpeed);
-  let tx = clamp(ball.p.x * 0.2 + (ball.p.x - player.pos.x) * 2.4 + sl * 0.08, -0.65, 0.65);
+  let tx = clamp(contact.x * 0.2 + contact.offX * 2.4 + sl * 0.08, -0.65, 0.65);
   let tz = -rand(0.95, 1.25);
-  const high = ball.p.y - TABLE_TOP >= SMASH.safeHeight;
+  const high = contact.y - TABLE_TOP >= SMASH.safeHeight;
   let botched = false;
   if (!high && Math.random() < SMASH.lowRisk) {        // smashing a low ball: overhit long or wide
     botched = true;
@@ -1043,7 +1120,21 @@ function playerSmash(swingSpeed, sl) {
   cameraShake = SMASH.shake;
   showMessage('SMASH!', `${Math.round(kmh)} km/h${botched ? ' — too low!' : ''}`, botched ? 'bad' : 'warn', 0.9);
   Sound.smash();
-  registerHit('player', 1.2);
+  pendingUpgrade = null;
+  if (upgrade) aiOnOpponentHit();   // same stroke, new trajectory: the CPU has to re-read it
+  else registerHit('player', 1.2);
+}
+
+/** A normal hit that may still become a smash if the swipe peaks within SMASH.grace. */
+let pendingUpgrade = null;
+function checkSmashUpgrade() {
+  const u = pendingUpgrade;
+  if (!u) return;
+  if (!rally.live || rally.lastHitTime !== u.hitTime || simTime - u.hitTime > SMASH.grace || ball.p.z < 0.2) {
+    pendingUpgrade = null;
+    return;
+  }
+  if (recentSwing() >= SMASH.minSwing && swing.peakAt >= u.hitTime) playerSmash(recentSwing(), swing.vx, u);
 }
 
 function applyShot(shot) {
@@ -1412,8 +1503,7 @@ let swingPeak = 0;
 function updateLiveHUD() {
   // Swing speed (sideways + forward), held briefly at its peak so a swipe is readable.
   // Full bar = 1.5 × smash threshold.
-  const sf = Math.hypot(player.vel.x, Math.max(0, -player.vel.z)) * timeScale();
-  swingPeak = Math.max(sf, swingPeak * 0.9);
+  swingPeak = Math.max(recentSwing(), swingPeak * 0.9);
   const hot = swingPeak >= SMASH.minSwing;
   $('swing-fill').style.width = clamp(swingPeak / (SMASH.minSwing * 1.5), 0, 1) * 100 + '%';
   $('swing-fill').classList.toggle('hot', hot);
@@ -1615,10 +1705,11 @@ function stepLiveBall(dt) {
     if (rally.live) onFloor();
   }
   if (!rally.live) return;
+  checkSmashUpgrade();
 
-  if (canHit('player')) {
+  if (canHit('player') || (DEBUG.on && rally.lastHitter === 'ai')) {   // debug also logs pre-bounce crossings
     const d = racketContact(player, PLAYER_CFG.hitRadius, PLAYER_CFG.yWeight);
-    if (d >= 0) return playerHit(d);
+    if (d >= 0 && canHit('player')) return playerHit(d);
   }
   if (canHit('ai')) {
     if (racketContact(aiRacket, AI_COMMON.hitRadius, 1) >= 0) return aiHit();
@@ -1709,7 +1800,7 @@ function frame(now) {
 }
 
 // Debug/console hook (handy for tuning; not used by the game itself).
-window.PingPong = { match, rally, ball, player, aiRacket, input, AI_LEVELS, predictIntercept, startMatch, playerServe, PLAYER_CFG };
+window.PingPong = { debug: DEBUG, swing, match, rally, ball, player, aiRacket, input, AI_LEVELS, predictIntercept, startMatch, playerServe, PLAYER_CFG };
 
 showStartMenu();
 requestAnimationFrame(frame);
