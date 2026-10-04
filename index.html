@@ -17,12 +17,16 @@
     --text: #eef2f8;
     --muted: #9aa6b8;
   }
-  * { box-sizing: border-box; }
+  /* No text selection, iOS long-press callout/magnifier or tap flash anywhere: a long press is a held racket. */
+  * {
+    box-sizing: border-box;
+    user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  }
   html, body {
     margin: 0; height: 100%; overflow: hidden;
     background: #0d1016; color: var(--text);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    user-select: none; -webkit-user-select: none;
   }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
   .hidden { display: none !important; }
@@ -98,6 +102,7 @@
   .zone-out { position: absolute; top: 0; bottom: 0; right: 0; width: 12%; background: rgba(255, 80, 80, .55); }
   .gauge { position: relative; height: 10px; border-radius: 6px; background: linear-gradient(90deg, #3d8bff, rgba(255,255,255,.15) 50%, #ff8c42); }
   #spin-needle { position: absolute; top: -3px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: #fff; left: 50%; box-shadow: 0 0 6px #000; }
+  #tilt-needle { position: absolute; top: 2px; width: 8px; height: 6px; margin-left: -4px; border-radius: 3px; background: var(--gold); left: 50%; }
   .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 4px; }
   #hint {
     position: fixed; right: 12px; top: 70px; max-width: 280px; font-size: 12px; line-height: 1.45;
@@ -206,8 +211,8 @@
     <div class="bar"><div id="power-fill"></div><div class="zone-out"></div></div>
   </div>
   <div class="meter">
-    <div class="lbl">RACKET FACE / SPIN</div>
-    <div class="gauge"><div id="spin-needle"></div></div>
+    <div class="lbl">INCOMING SPIN</div>
+    <div class="gauge"><div id="spin-needle"></div><div id="tilt-needle" class="hidden"></div></div>
     <div class="ticks"><span>Back</span><span>Flat</span><span>Top</span></div>
   </div>
 </div>
@@ -223,15 +228,15 @@
     <div class="levels speeds" id="speeds"></div>
     <button class="btn" id="btn-start">Start Match</button>
     <div class="controls">
-      <b>Controls</b><br>
-      <kbd>Mouse</kbd> move racket · <b>swing forward</b> for power, sideways for direction &amp; sidespin<br>
-      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows move<br>
-      <b>Smash:</b> a quick short flick <b>forward/up</b> as you hit — straight up or diagonal (e.g. bottom-left → top-right aims right) — or hold <kbd>Shift</kbd>. Moving sideways to defend never smashes. Best on high balls.<br>
-      <b>Touch:</b> drag anywhere to move the racket · hold &amp; release to serve · ❚❚ to pause<br>
-      <kbd>Q</kbd>/<kbd>E</kbd> or <kbd>Wheel</kbd> tilt face: backspin / topspin<br>
-      <kbd>Space</kbd> / hold mouse: charge serve, release to serve (red zone = long)<br>
-      <kbd>P</kbd>/<kbd>Esc</kbd> pause · <kbd>H</kbd> bounce marker · <kbd>M</kbd> mute<br>
-      Hit the edge of the racket to angle the ball. You can only hit after the ball bounces on your side.
+      <b>Move:</b> <kbd>Mouse</kbd> / drag anywhere / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. Your feet (the disc on the floor) run at human speed; the racket reaches around them.<br>
+      <b>Strokes</b> — how you swipe as the ball arrives. Real physics: nothing aims the ball for you.<br>
+      &nbsp;· <b>hold still</b> = block · <b>swipe forward</b> = drive (faster = harder, more topspin)<br>
+      &nbsp;· <b>quick flick forward</b> (or <kbd>Shift</kbd>) = smash — lands off a high ball, flies long off a low one<br>
+      &nbsp;· <b>pull back</b> = push, the answer to backspin · swipe diagonally to aim left/right<br>
+      <b>Read the spin:</b> the <b>Incoming spin</b> gauge shows what the CPU put on the ball. Topspin → block or drive; backspin → push.<br>
+      <b>Serve:</b> hold <kbd>Space</kbd> / mouse / finger, release to toss (red zone = long). Swipe as the ball falls: forward = topspin, pull back = backspin.<br>
+      <kbd>Q</kbd>/<kbd>E</kbd> or <kbd>Wheel</kbd> fine-tune the racket face · <kbd>P</kbd>/<kbd>Esc</kbd>/❚❚ pause · <kbd>H</kbd> bounce marker · <kbd>M</kbd> mute<br>
+      <b>Rules:</b> let the ball bounce on your side first — touching it before is a volley and loses the point. Edge balls count; the side of the table doesn't.
     </div>
   </div>
 </div>
@@ -283,8 +288,33 @@ const PHYS = {
   spinDecay: 0.1,         // fraction of spin lost per second in flight
   tableRestitution: 0.88,
   tableGrip: 0.55,        // 0..1, how much of the contact slip friction removes on a bounce
+  edgeRestitution: 0.3,   // an edge ball skids off low...
+  edgeKick: 0.4,          // ...and is knocked outward (fraction of its impact speed)
   floorRestitution: 0.55,
   netDamping: 0.15,       // fraction of speed kept when the ball hits the net
+};
+
+/** Player strokes (see strokeFor). Swipe speeds are real m/s of finger/mouse movement. */
+const STROKE = {
+  gain: 3.2,              // racket speed per m/s of forward swipe (arm and wrist amplify the hand)
+  blockSpeed: 1.0,        // even a block pushes forward a little (m/s)
+  deepFrom: 0.4, deepPush: 2.5,   // further than deepFrom (m) behind the end line, blocks/pushes gain this much m/s per m
+  maxSwipe: 4.5,          // swipes faster than this add nothing
+  restitution: 0.8,       // normal rebound off the rubber
+  grip: 0.95,             // rubber grip: spin transfer at contact
+  tiltPitch: 0.25,        // manual tilt (Q/E/wheel) at full deflection (rad)
+  driveRise: 0.8,         // forward strokes travel low → high at this angle (rad): brushes topspin
+  pushSpeed: 2.6, pushRise: -0.1,   // push: short stroke forward and down under the ball
+  pushMin: 0.4,           // pull-back (m/s) needed to play a push
+  blockDepth: 0.65, driveDepth: 1.0, pushDepth: 0.65,   // reflex target depth past the net (m)
+  blockExpects: 10, driveExpects: -15, pushExpects: 180, // spin each stroke assumes (rad/s topspin, after the bounce)
+  spinFeel: 0.65,         // fraction of the opponent's spin the reflex senses anyway
+  aimCenter: 0.3,         // reflex aim x = ball x × aimCenter (a bit toward the middle)...
+  aimSwipe: 0.3,          // ...+ this much (m) per m/s of sideways swipe...
+  aimArc: 0.3,            // ...+ this much at the blade's edge (early/late contact)
+  aimMax: 0.95,           // the side lines are at ±0.76: swiping hard sideways can go wide
+  maxYaw: 0.7,
+  lateralGain: 0.2,       // sideways racket movement drags the ball (and adds sidespin)
 };
 /*</core>*/
 
@@ -292,29 +322,29 @@ const GAME = {
   pointsToWin: 11, winBy: 2, gamesToWin: 2,  // best of 3
   servesPerTurn: 2,                          // serve switches every 2 points (every point at deuce)
   pointDelay: 1.7, gameDelay: 2.8,           // seconds
-  // Simulation speed relative to real time. Physics stays physically correct; it just runs slower.
-  speeds: { slow: { label: 'Slow', scale: 0.65 }, normal: { label: 'Normal', scale: 0.8 }, real: { label: 'Real', scale: 1.0 } },
+  // Simulation speed relative to real time. Physics stays physically correct; it just runs slower/faster.
+  speeds: { slow: { label: 'Slow', scale: 0.8 }, real: { label: 'Real', scale: 1.0 }, fast: { label: 'Fast', scale: 1.2 } },
   rallyTimeout: 8,                           // safety: resolve a stuck rally
 };
 
-/** Physical reach limits shared by both rackets: a player stands behind the end line, so the
- *  racket can only reach a little way over the table, and it can't dip into the table top. */
+/** Physical reach limits shared by both players: a player stands behind the end line, so the
+ *  racket can only reach a little way over the table, and it can't dip into the table top.
+ *  The body runs (limited speed and acceleration); the arm reaches around it quickly. */
 const REACH = {
   overTable: 0.45,        // how far past the end line (toward the net) a racket can reach
   handleClearance: 0.27,  // blade center must be this high above the top when over the table
+  bodyBehind: 0.1,        // the body stays at least this far behind the end line
+  armX: 0.6,              // racket reach to either side of the body (m)
+  armZ: 0.55,             // racket reach in front of / behind the body (m)
 };
 
-/** Smash: a quick FORWARD flick of the racket at contact (finger/mouse moving up the screen —
- *  straight or diagonal, e.g. bottom-left → top-right), or Shift. Sideways moves (defending,
- *  chasing a wide ball) never smash. Flat, very fast, topspin; the flick's direction steers it.
- *  Safe on a high ball; a low ball is likely to fly long or wide. */
+/** Smash: the fast end of the forward swipe — a quick flick up the screen at contact (straight or
+ *  diagonal, e.g. bottom-left → top-right aims right), or Shift. Sideways moves (defending, chasing
+ *  a wide ball) never smash. It is the same physics as any stroke, just fast: off a high ball it
+ *  drives down onto the table; off a low ball it flies long or into the net. */
 const SMASH = {
-  minSwing: 2.8,          // speed (real m/s) of a forward-pointing flick that triggers a smash
+  minSwing: 2.8,          // speed (real m/s) of a forward-pointing flick that counts as a smash
   maxAngle: 60,           // flick must point within this many degrees of straight forward
-  minSpeed: 12, maxSpeed: 16,    // horizontal ball speed range (m/s), scaled by swing
-  topspin: 70,
-  safeHeight: 0.17,       // ball at least this far above the table top = clean smash
-  lowRisk: 0.4,           // chance a smash off a low ball goes wrong
   shake: 0.035,           // camera shake amplitude (m)
   window: 0.22,           // a fast swing still counts this long after its peak (sim seconds)
   sweepTime: 0.2,         // during a fast swing, contact checks the path swept over this time
@@ -331,20 +361,24 @@ const PLAYER_CFG = {
   serveMaxX: 0.75,
   restY: 0.92,
   keySpeed: 2.6,          // m/s with keyboard
-  followRate: 40,         // racket smoothing toward the target (1/s)
+  followRate: 40,         // racket (arm) smoothing toward the target (1/s)
   heightRate: 30,
-  maxPower: 1.2,
+  bodySpeed: 3.2,         // footwork: top speed (m/s) and acceleration (m/s²)
+  bodyAccel: 14,
   lungeSweep: 0.08,       // a fast-moving racket also meets balls it crossed this long ago (s)
+  strokeWindow: 0.12,     // a swipe still shapes the stroke this long after it peaks (sim s)
+  bladeRadius: 0.11,      // the real blade: touching the ball before its bounce (a volley) uses this
 };
 
 /** AI tuning, all difficulty levels in one object.
- *  speed: racket m/s · reactionMs: delay before reading the ball · aimError: aim + positioning noise
+ *  speed/accel: footwork m/s and m/s² (human range: even Expert can't cover a fast wide ball)
+ *  reactionMs: delay before reading the ball · aimError: aim + positioning noise
  *  power: shot pace · spin: 0..1 spin amount · mistakeRate: chance of an unforced error per shot */
 const AI_LEVELS = {
-  easy:   { label: 'Easy',   speed: 1.5, reactionMs: 350, aimError: 0.35, power: 0.6,  spin: 0,    mistakeRate: 0.25 },
-  medium: { label: 'Medium', speed: 2.6, reactionMs: 210, aimError: 0.18, power: 0.8,  spin: 0.35, mistakeRate: 0.13 },
-  hard:   { label: 'Hard',   speed: 4.0, reactionMs: 100, aimError: 0.08, power: 1.0,  spin: 0.7,  mistakeRate: 0.05 },
-  expert: { label: 'Expert', speed: 5.5, reactionMs: 60,  aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02 },
+  easy:   { label: 'Easy',   speed: 1.8, accel: 7,  reactionMs: 400, aimError: 0.35, power: 0.6,  spin: 0,    mistakeRate: 0.25 },
+  medium: { label: 'Medium', speed: 2.4, accel: 10, reactionMs: 280, aimError: 0.18, power: 0.8,  spin: 0.35, mistakeRate: 0.13 },
+  hard:   { label: 'Hard',   speed: 2.9, accel: 13, reactionMs: 190, aimError: 0.08, power: 1.0,  spin: 0.7,  mistakeRate: 0.05 },
+  expert: { label: 'Expert', speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02 },
 };
 const LEVEL_ORDER = ['easy', 'medium', 'hard', 'expert'];
 const LEVEL_BLURB = { easy: 'Slow & sloppy', medium: 'Steady', hard: 'Fast, spinny', expert: 'Ruthless' };
@@ -352,6 +386,8 @@ const LEVEL_BLURB = { easy: 'Slow & sloppy', medium: 'Steady', hard: 'Fast, spin
 const AI_COMMON = {
   hitRadius: 0.17, minX: -1.4, maxX: 1.4, minZ: -2.6, maxZ: -(TABLE.length / 2 - REACH.overTable), serveZ: -1.55,
   home: { x: 0, y: 0.92, z: -1.8 }, ySpeed: 3.5, reachDepth: 2.35,
+  armSpeed: 6,            // racket speed around the body (m/s)
+  recovery: 0.2,          // after hitting, the follow-through stops the feet this long (s)
 };
 
 const COLORS = { player: 0xe63946, ai: 0x2f80ed, table: 0x1b4f8f, ball: 0xff8c1a };
@@ -414,14 +450,30 @@ function stepBall(b, dt, ev) {
       Math.abs(p.x) <= HALF_W + R * 0.5 && Math.abs(p.z) <= HALF_L + R * 0.5) {
     p.y = TABLE_TOP + R;
     const impact = -v.y;
-    v.y = impact * PHYS.tableRestitution;
+    // Edge ball: the ball clips the table's top edge. Legal, but it skids off low and kicks outward.
+    const edge = Math.abs(p.x) > HALF_W - R * 0.3 || Math.abs(p.z) > HALF_L - R * 0.3;
+    v.y = impact * (edge ? PHYS.edgeRestitution : PHYS.tableRestitution);
     // Friction at the contact point: slip u = v_t + ω × r, with r = (0, -R, 0).
     // Impulse applied to a hollow sphere (I = 2/3 m R²) couples linear and angular velocity.
     const ux = v.x + R * w.z, uz = v.z - R * w.x;
     const dvx = -ux * 0.4 * PHYS.tableGrip, dvz = -uz * 0.4 * PHYS.tableGrip;
     v.x += dvx; v.z += dvz;
     w.x += -dvz * 1.5 / R; w.z += dvx * 1.5 / R;
-    ev.table = { side: p.z >= 0 ? 'player' : 'ai', x: p.x, z: p.z, speed: impact };
+    if (edge) {
+      if (Math.abs(p.x) > HALF_W - R * 0.3) v.x += Math.sign(p.x) * impact * PHYS.edgeKick;
+      if (Math.abs(p.z) > HALF_L - R * 0.3) v.z += Math.sign(p.z) * impact * PHYS.edgeKick;
+    }
+    ev.table = { side: p.z >= 0 ? 'player' : 'ai', x: p.x, z: p.z, speed: impact, edge };
+  }
+
+  // --- Side of the table (below the top surface): not a legal bounce, the ball just rebounds ---
+  if (p.y < TABLE_TOP && p.y > TABLE_TOP - TABLE.thickness - R) {
+    const inX = Math.abs(p.x) < HALF_W + R, inZ = Math.abs(p.z) < HALF_L + R;
+    if (inX && inZ) {
+      const wasInX = Math.abs(p.x - v.x * dt) < HALF_W + R, wasInZ = Math.abs(oz) < HALF_L + R;
+      if (!wasInX) { p.x = Math.sign(p.x) * (HALF_W + R); v.x = -v.x * 0.5; ev.side = true; }
+      else if (!wasInZ) { p.z = Math.sign(p.z) * (HALF_L + R); v.z = -v.z * 0.5; ev.side = true; }
+    }
   }
 
   // --- Floor ---
@@ -436,9 +488,9 @@ function stepBall(b, dt, ev) {
 
 /** Run a copy of the ball forward; onStep returns a value to stop early. */
 function simulate(b0, maxT, onStep) {
-  const b = cloneBall(b0), ev = { net: false, table: null, floor: null };
+  const b = cloneBall(b0), ev = { net: false, table: null, floor: null, side: false };
   for (let t = 0; t < maxT; t += PHYS.dt) {
-    ev.net = false; ev.table = null; ev.floor = null;
+    ev.net = false; ev.table = null; ev.floor = null; ev.side = false;
     stepBall(b, PHYS.dt, ev);
     const r = onStep(b, ev, t);
     if (r !== undefined) return r;
@@ -558,6 +610,121 @@ function predictIntercept(b0, sideSign, maxDepth, minDepth = 0) {
     return undefined;
   });
 }
+
+/** Player stroke, physics-driven: the swipe sets the racket's path and speed, the racket–ball
+ *  collision (with the real incoming spin) decides where the ball goes.
+ *  sl: sideways swipe, sf: forward swipe (negative = pulling back), both real m/s;
+ *  tilt: manual face tilt -1 open .. +1 closed (keyboard/wheel; 0 on touch);
+ *  arc: where the ball met the blade, -1 left edge .. +1 right edge (the arm swings in an arc,
+ *  so early/late contact angles the face sideways); ball: the incoming ball at contact;
+ *  unread: the part of its spin the opponent put on it (what the bounce added is expected).
+ *  Face angle = a trained player's reflex: the angle that lands this stroke at a normal depth
+ *  (height, pace, rising/falling and the bounce are judged). The reflex only senses part of the
+ *  opponent's spin (spinFeel) and otherwise assumes the spin the stroke is made for: a push
+ *  assumes backspin, blocks and drives a plain ball. Choosing the stroke is reading the spin —
+ *  the wrong one sends the ball long, short or into the net. Manual tilt adds on top.
+ *  Returns face normal n (toward the opponent, -Z), racket velocity vr, face pitch and yaw. */
+function strokeFor(sl, sf, tilt, arc, ball, unread) {
+  const S = STROKE, fwd = clamp(sf, 0, S.maxSwipe), back = clamp(-sf, 0, 2);
+  const push = back >= S.pushMin;   // a deliberate pull-back, not finger jitter
+  // Far behind the table even a block or push needs more pace to carry: the arm adds it by reflex.
+  const deep = Math.max(0, ball.p.z - HALF_L - S.deepFrom) * S.deepPush;
+  const speed = push ? S.pushSpeed + deep : Math.max(S.blockSpeed + deep, S.blockSpeed + S.gain * fwd);
+  const rise = push ? S.pushRise : S.driveRise;
+  const racketVel = yaw => ({
+    x: Math.sin(yaw) * Math.cos(rise) * speed + clamp(sl, -S.maxSwipe, S.maxSwipe) * S.lateralGain,
+    y: Math.sin(rise) * speed,
+    z: -Math.cos(yaw) * Math.cos(rise) * speed,
+  });
+  const depth = push ? S.pushDepth : S.blockDepth + (S.driveDepth - S.blockDepth) * clamp(fwd / 3, 0, 1);
+  // Aim: a little toward the middle, moved by the sideways swipe and early/late contact.
+  // Swiping too far sideways aims past the side line.
+  const aimX = clamp(ball.p.x * S.aimCenter + sl * S.aimSwipe + arc * S.aimArc, -S.aimMax, S.aimMax);
+  const expectTop = push ? -S.pushExpects : S.blockExpects + (S.driveExpects - S.blockExpects) * clamp(fwd / 1.8, 0, 1);
+  const h = Math.hypot(ball.v.x, ball.v.z) || 1, ew = spinVector(ball.v.x / h, ball.v.z / h, expectTop, 0);
+  const miss = 1 - S.spinFeel;   // the arm senses part of the opponent's spin; the rest is the stroke's assumption
+  const expected = { p: ball.p, v: ball.v, w: { x: ball.w.x - unread.x * miss + ew.x * miss, y: ball.w.y - unread.y * miss, z: ball.w.z - unread.z * miss + ew.z * miss } };
+  const land = (yaw, p) => { const b = cloneBall(expected); racketBounce(b, faceNormal(yaw, p), racketVel(yaw)); return reflexLanding(b); };
+
+  /** Opening the face carries the ball further, until it goes up so steeply it drops short: scan up
+   *  that rising branch for the first angle reaching the depth, then refine. Out of reach → best try. */
+  function solvePitch(yaw) {
+    let lo = -1.1, hi = null, best = -1.1, bestD = -Infinity;
+    for (let p = -1.1; p <= 0.9; p += 0.1) {
+      const d = land(yaw, p).d;
+      if (d >= depth) { hi = p; break; }
+      if (d > bestD) { bestD = d; best = p; }
+      lo = p;
+    }
+    if (hi === null) return best;
+    for (let i = 0; i < 7; i++) { const mid = (lo + hi) / 2; if (land(yaw, mid).d < depth) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
+  let yaw = Math.atan2(aimX - ball.p.x, ball.p.z + depth), pitch = solvePitch(yaw);
+  for (let i = 0; i < 2; i++) {   // correct the sideways aim for drift (incoming angle, sidespin)
+    const l = land(yaw, pitch);
+    if (!isFinite(l.d) || l.d <= 0) break;
+    yaw = clamp(yaw + Math.atan2(aimX - l.x, ball.p.z + depth), -S.maxYaw, S.maxYaw);
+    pitch = solvePitch(yaw);
+  }
+  pitch = clamp(pitch - tilt * S.tiltPitch, -1.2, 1);
+  return { n: faceNormal(yaw, pitch), vr: racketVel(yaw), pitch, yaw };
+}
+
+/** Racket face normal for a yaw (+ = toward +X) and pitch (+ = open, facing up), player side. */
+function faceNormal(yaw, pitch) {
+  return { x: Math.sin(yaw) * Math.cos(pitch), y: Math.sin(pitch), z: -Math.cos(yaw) * Math.cos(pitch) };
+}
+
+/** What is left, `t` seconds later, of spin `w0` put on the ball by a stroke: it decays in flight
+ *  and each table bounce removes part of the spin about the horizontal axes (see stepBall). */
+function carriedSpin(w0, t, bounces) {
+  const d = Math.exp(-PHYS.spinDecay * t), keep = Math.pow(1 - 0.6 * PHYS.tableGrip, bounces);
+  return { x: w0.x * d * keep, y: w0.y * d, z: w0.z * d * keep };
+}
+
+/** Where a struck ball first lands: d = how far past the net (m, along -Z; negative on its own
+ *  side, 0 in the net, the side of the table or under it, +∞ if it never comes down) and its x. */
+function reflexLanding(b0) {
+  const r = simulate(b0, 2, (b, ev) => {
+    if (ev.net || ev.side) return { d: 0, x: b.p.x };
+    if (ev.table) return { d: -ev.table.z, x: ev.table.x };
+    if (ev.floor) return { d: Math.abs(b.p.x) < HALF_W && Math.abs(b.p.z) < HALF_L ? 0 : -b.p.z, x: b.p.x };
+    return undefined;
+  });
+  return r || { d: Infinity, x: 0 };
+}
+
+/** Ball off a moving racket face: the normal part of the relative velocity rebounds (restitution),
+ *  rubber grip removes most of the slip at the contact point and turns it into spin. */
+function racketBounce(b, n, vr) {
+  const R = PHYS.radius, w = b.w;
+  const ux = b.v.x - vr.x, uy = b.v.y - vr.y, uz = b.v.z - vr.z;
+  const un = Math.min(0, ux * n.x + uy * n.y + uz * n.z);   // < 0: ball moving into the face
+  const tx = ux - un * n.x, ty = uy - un * n.y, tz = uz - un * n.z;
+  const rx = -R * n.x, ry = -R * n.y, rz = -R * n.z;          // ball center → contact point
+  const sx = tx + w.y * rz - w.z * ry, sy = ty + w.z * rx - w.x * rz, sz = tz + w.x * ry - w.y * rx;
+  const k = 0.4 * STROKE.grip;                                // hollow sphere: 0.4 of the slip stops it
+  const dvx = -sx * k, dvy = -sy * k, dvz = -sz * k;
+  const e = -STROKE.restitution * un;
+  b.v.x = vr.x + tx + dvx + e * n.x;
+  b.v.y = vr.y + ty + dvy + e * n.y;
+  b.v.z = vr.z + tz + dvz + e * n.z;
+  const c = 1.5 / (R * R);                                    // Δω = (r × Δv) / (2/3 R²)
+  w.x += c * (ry * dvz - rz * dvy); w.y += c * (rz * dvx - rx * dvz); w.z += c * (rx * dvy - ry * dvx);
+}
+
+/** Body movement with limited acceleration and top speed, braking in time to stop on the goal. */
+function moveBody(b, gx, gz, maxSpeed, accel, dt) {
+  const dx = gx - b.x, dz = gz - b.z, d = Math.hypot(dx, dz);
+  const want = Math.min(maxSpeed, Math.sqrt(2 * accel * d));
+  const wx = d > 1e-6 ? dx / d * want : 0, wz = d > 1e-6 ? dz / d * want : 0;
+  let ax = wx - b.vx, az = wz - b.vz;
+  const am = Math.hypot(ax, az), maxDv = accel * dt;
+  if (am > maxDv) { ax *= maxDv / am; az *= maxDv / am; }
+  b.vx += ax; b.vz += az;
+  b.x += b.vx * dt; b.z += b.vz * dt;
+}
 /*</core>*/
 
 function randn() {   // standard normal (Box–Muller)
@@ -597,9 +764,12 @@ const CAM_BASE = { pos: new THREE.Vector3(0, 1.85, 3.15), look: new THREE.Vector
 // camera never strays too close to the table or too far back.
 // Narrow (portrait) screens see less width, so the camera follows more closely and sits a little
 // higher, looking further down to use the screen's height.
+// Desktop (mouse) gets the phone-portrait camera height and angle — the whole table seen from
+// above — with the wide screen's sideways follow.
 const CAM_FOLLOW = {
-  wide:   { pos: 0.55, look: 0.35, y: 0,    z: 0,    lookY: 0,     lookZ: 0 },
-  narrow: { pos: 0.9,  look: 0.7,  y: 0.35, z: 0.15, lookY: -0.12, lookZ: 0.35 },
+  wide:    { pos: 0.55, look: 0.35, y: 0,    z: 0,    lookY: 0,     lookZ: 0 },
+  narrow:  { pos: 0.9,  look: 0.7,  y: 0.35, z: 0.15, lookY: -0.12, lookZ: 0.35 },
+  desktop: { pos: 0.55, look: 0.35, y: 0.35, z: 0.15, lookY: -0.12, lookZ: 0.35, fov: 58 },
   refZ: 1.7,              // racket depth at which the camera sits at its base distance
   depth: 0.75,            // fraction of the racket's near/far movement the camera follows
   depthMin: -0.3,         // furthest the camera moves toward the table (m)
@@ -610,13 +780,14 @@ const CAM_FOLLOW = {
 };
 /** Gameplay camera pose for a racket at (x, z). */
 function cameraPoseFor(x, z, outPos, outLook) {
-  const f = camera.aspect < 1 ? CAM_FOLLOW.narrow : CAM_FOLLOW.wide;
+  const f = camera.aspect < 1 ? CAM_FOLLOW.narrow : isDesktop ? CAM_FOLLOW.desktop : CAM_FOLLOW.wide;
   const dz = clamp((z - CAM_FOLLOW.refZ) * CAM_FOLLOW.depth, CAM_FOLLOW.depthMin, CAM_FOLLOW.depthMax);
   outPos.set(CAM_BASE.pos.x + x * f.pos,
              CAM_BASE.pos.y + f.y + Math.max(0, dz) * CAM_FOLLOW.depthRise,
              CAM_BASE.pos.z + f.z + dz);
   outLook.set(x * f.look, CAM_BASE.look.y + f.lookY, CAM_BASE.look.z + f.lookZ + dz * CAM_FOLLOW.lookDepth);
 }
+const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.05, 60);
 camera.position.copy(CAM_BASE.pos);
 camera.lookAt(CAM_BASE.look);
@@ -639,8 +810,9 @@ scene.add(sun);
 
 function onResize() {
   const w = window.innerWidth, h = window.innerHeight, aspect = w / h;
-  // Widen the field of view on portrait screens so the table still fits.
-  const fov = aspect < 1.2 ? Math.min(85, 52 * 1.2 / aspect) : 52;
+  // Widen the field of view on portrait screens so the table still fits; desktop zooms out a bit.
+  const base = isDesktop ? CAM_FOLLOW.desktop.fov : 52;
+  const fov = aspect < 1.2 ? Math.max(base, Math.min(85, 52 * 1.2 / aspect)) : base;
   for (const cam of [camera, viewCam]) { cam.aspect = aspect; cam.fov = fov; cam.updateProjectionMatrix(); }
   renderer.setSize(w, h);
 }
@@ -797,6 +969,21 @@ class Racket {
 const player = new Racket('player', COLORS.player, { x: 0, y: PLAYER_CFG.restY, z: 1.8 });
 const aiRacket = new Racket('ai', COLORS.ai, AI_COMMON.home);
 
+/** Where each player's feet are (XZ) and how fast they're moving; see moveBody. A soft disc on the
+ *  floor shows it, so you can see why the racket can't reach a ball yet. */
+const playerBody = { x: 0, z: 1.8, vx: 0, vz: 0 };
+const aiBody = { x: 0, z: AI_COMMON.home.z, vx: 0, vz: 0 };
+function makeFeetMarker(color) {
+  const m = new THREE.Mesh(new THREE.CircleGeometry(0.2, 32),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2;
+  m.position.y = 0.006;
+  scene.add(m);
+  return m;
+}
+const feet = { player: makeFeetMarker(COLORS.player), ai: makeFeetMarker(COLORS.ai) };
+function placeBody(body, x, z) { Object.assign(body, { x, z, vx: 0, vz: 0 }); }
+
 /* =====================================================================
    BALL — mesh with a marker dot (to show spin), blob shadow, bounce marker
    ===================================================================== */
@@ -938,6 +1125,10 @@ canvas.addEventListener('wheel', e => {
   input.wheelTilt = clamp(input.wheelTilt - e.deltaY * 0.0015, -1, 1);
 }, { passive: false });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
+// iOS Safari ignores the CSS above on a long press over the canvas and still shows the selection
+// magnifier. Cancelling the native touch stops it; pointer events (used for all input) still fire.
+canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+document.addEventListener('selectstart', e => e.preventDefault());
 window.addEventListener('blur', () => { input.keys.clear(); if (isPlaying() && !match.paused) togglePause(); });
 // Mobile: switching apps or locking the screen pauses the game.
 document.addEventListener('visibilitychange', () => { if (document.hidden && isPlaying() && !match.paused) togglePause(); });
@@ -967,10 +1158,11 @@ function releaseCharge() {
   if (!input.charging) return;
   input.charging = false;
   if (match.paused || match.state !== 'serve' || match.server !== 'player') return;
-  playerServe(currentCharge());
+  beginToss('player', currentCharge());
 }
 
-/** Player racket: follows the target in XZ; height auto-tracks an incoming ball. */
+/** Player: the feet run toward the target (limited speed/acceleration, behind the end line), the
+ *  racket follows the target as far as the arm reaches; height auto-tracks an incoming ball. */
 function updatePlayer(dt) {
   let kx = 0, kz = 0;
   if (keyDown('KeyA', 'ArrowLeft')) kx -= 1;
@@ -990,16 +1182,22 @@ function updatePlayer(dt) {
   input.keyTilt += (kt - input.keyTilt) * (1 - Math.exp(-10 * dt));
   input.tilt = clamp(input.wheelTilt + input.keyTilt, -1, 1);
 
-  const serving = match.state === 'serve' && match.server === 'player';
+  const serving = (match.state === 'serve' || match.state === 'toss') && match.server === 'player';
   const r = player, k = 1 - Math.exp(-PLAYER_CFG.followRate * dt);
   const tx = serving ? clamp(input.target.x, -PLAYER_CFG.serveMaxX, PLAYER_CFG.serveMaxX) : input.target.x;
   const tz = serving ? clamp(input.target.z, PLAYER_CFG.serveMinZ, PLAYER_CFG.serveMaxZ) : input.target.z;
-  r.pos.x += (tx - r.pos.x) * k;
-  r.pos.z += (tz - r.pos.z) * k;
+  const body = playerBody;
+  moveBody(body, tx, Math.max(tz, HALF_L + REACH.bodyBehind), PLAYER_CFG.bodySpeed, PLAYER_CFG.bodyAccel, dt);
+  if (!(serving && match.state === 'toss')) {   // during the toss the racket waits under the ball
+    r.pos.x += (clamp(tx, body.x - REACH.armX, body.x + REACH.armX) - r.pos.x) * k;
+    r.pos.z += (clamp(tz, body.z - REACH.armZ, body.z + REACH.armZ) - r.pos.z) * k;
+  }
 
+  // Height: meet the ball after its bounce. Before the bounce, wait at the height it will have
+  // then — tracking the ball itself would put the racket in its path (a volley loses the point).
   let ty = PLAYER_CFG.restY;
   if (rally.live && rally.lastHitter === 'ai' && ball.v.z > 0 && ball.p.z > -0.3) {
-    ty = clamp(ball.p.y, TABLE_TOP + 0.06, 1.7);
+    ty = clamp(canHit('player') ? ball.p.y : rally.expectY, TABLE_TOP + 0.06, 1.7);
   }
   const minY = racketMinY(r.pos.x, r.pos.z);
   r.pos.y += (Math.max(ty, minY) - r.pos.y) * (1 - Math.exp(-PLAYER_CFG.heightRate * dt));
@@ -1033,8 +1231,6 @@ function keepOnScreen(t) {
   }
 }
 
-/** Swing memory: peak recent swing speed (real m/s, sideways + forward) and the racket's recent
- *  path. A swipe rarely peaks at the exact instant of contact, so both are kept briefly. */
 /** Smash intent of a racket motion (vx sideways, fwd = speed toward the net): its speed if it
  *  points mostly forward (within SMASH.maxAngle), otherwise 0 — so sideways moves never count. */
 const FORWARD_RATIO = Math.tan((90 - SMASH.maxAngle) * Math.PI / 180);
@@ -1042,7 +1238,10 @@ function smashIntent(vx, fwd) {
   return fwd > 0 && fwd >= FORWARD_RATIO * Math.abs(vx) ? Math.hypot(vx, fwd) : 0;
 }
 
-const swing = { peak: 0, peakAt: -1, vx: 0, path: [], tPrev: null, tvx: 0, tvz: 0 };
+/** Swing memory (real m/s): the peak recent smash flick (peak speed, its sideways vx and forward
+ *  vf), the strongest recent swipe of any direction (sl, sf: it sets the stroke), and the racket's
+ *  recent path. A swipe rarely peaks at the exact instant of contact, so all are kept briefly. */
+const swing = { peak: 0, peakAt: -1, vx: 0, vf: 0, sl: 0, sf: 0, strokeMag: 0, strokeAt: -1, path: [], tPrev: null, tvx: 0, tvz: 0 };
 function trackSwing(r, dt) {
   // The finger/mouse (target) velocity registers a swipe immediately; the racket's own velocity
   // lags it slightly because of smoothing. Use whichever is faster.
@@ -1060,18 +1259,25 @@ function trackSwing(r, dt) {
   if (now >= swing.peak || simTime - swing.peakAt > SMASH.window) {
     swing.peak = now; swing.peakAt = simTime;
     swing.vx = (inputSwing > racketSwing ? swing.tvx : r.vel.x) * ts;
+    swing.vf = -(inputSwing > racketSwing ? swing.tvz : r.vel.z) * ts;
+  }
+  const fromInput = Math.hypot(swing.tvx, swing.tvz) >= Math.hypot(r.vel.x, r.vel.z);
+  const sl = (fromInput ? swing.tvx : r.vel.x) * ts, sf = -(fromInput ? swing.tvz : r.vel.z) * ts;
+  const mag = Math.hypot(sl * 0.5, sf);   // forward/back counts more than sideways
+  if (mag >= swing.strokeMag || simTime - swing.strokeAt > PLAYER_CFG.strokeWindow) {
+    swing.sl = sl; swing.sf = sf; swing.strokeMag = mag; swing.strokeAt = simTime;
   }
   swing.path.push({ x: r.pos.x, y: r.pos.y, t: simTime });
   if (swing.path.length > Math.round(SMASH.sweepTime / PHYS.dt)) swing.path.shift();
 }
 /** Optional diagnostics (enable from the console: PingPong.debug.on = true). */
-const DEBUG = { on: false, log: [] };
+const DEBUG = { on: false, log: [], strokes: [] };
 const recentSwing = () => (simTime - swing.peakAt <= SMASH.window ? swing.peak : 0);
 
 /** Contact test: did the ball pass through the racket's face plane this step (measured relative to
  *  the moving racket, so forward swings count) within `radius` of the blade center?
  *  Returns the off-center distance at contact, or -1 for no contact. */
-function racketContact(r, radius, yWeight) {
+function racketContact(r, radius, yWeight, sweep = true) {
   const f = r.owner === 'player' ? 1 : -1;   // the ball travels toward +Z to reach the player
   const rel0 = (ballPrev.z - r.last.z) * f, rel1 = (ball.p.z - r.pos.z) * f;
   if (!(rel0 < 0 && rel1 >= 0)) return -1;
@@ -1083,7 +1289,7 @@ function racketContact(r, radius, yWeight) {
   // A moving racket sweeps a strip: also accept the ball where the racket just was.
   // A smash flick sweeps generously; any other quick move (e.g. lunging sideways to defend)
   // gets a short window so a racket that just swept across the ball's line still meets it.
-  if (d > radius && r.owner === 'player') {
+  if (sweep && d > radius && r.owner === 'player') {
     const smashing = recentSwing() >= SMASH.minSwing;
     const since = simTime - (smashing ? SMASH.sweepTime : PLAYER_CFG.lungeSweep);
     const reach = radius * (smashing ? SMASH.sweepReach : 1);
@@ -1099,102 +1305,77 @@ function racketContact(r, radius, yWeight) {
   return d <= radius ? d : -1;
 }
 
-/** Topspin component of the ball's spin relative to its direction of travel (rad/s). */
-function incomingTopspin(b) {
-  const h = Math.hypot(b.v.x, b.v.z) || 1;
-  const dx = b.v.x / h, dz = b.v.z / h;
-  return b.w.x * dz - b.w.z * dx;
+/** The swipe that makes the stroke (real m/s; sf > 0 forward, < 0 pulling back). A forward flick
+ *  fast enough to smash is remembered a little longer (SMASH.window) than other swipes. */
+function strokeSwipe() {
+  if (recentSwing() >= SMASH.minSwing) return { sl: swing.vx, sf: swing.vf };
+  if (simTime - swing.strokeAt <= PLAYER_CFG.strokeWindow) return { sl: swing.sl, sf: swing.sf };
+  return { sl: 0, sf: 0 };
 }
 
-/** Player stroke: swing speed → power, lateral swing + contact point → direction,
- *  face tilt + brushing → top/backspin, lateral swing → sidespin. */
+/** Opponent's spin still on the ball (see strokeFor's `unread`). */
+const unreadSpin = () => carriedSpin(rally.shotW, simTime - rally.lastHitTime, rally.shotBounces);
+
+/** Strike `b` (the ball at contact) with the player's racket. Frame hits (contact near the blade
+ *  edge) knock the face off at random and lose pace. Returns what the stroke was. */
+function strikeBall(b, sl, sf, unread, offX, contactDist) {
+  const st = strokeFor(sl, sf, input.tilt, clamp(offX / PLAYER_CFG.hitRadius, -1, 1), b, unread);
+  const edge = contactDist / PLAYER_CFG.hitRadius > 0.85;
+  if (edge) {
+    st.n = faceNormal(st.yaw + rand(-0.35, 0.35), st.pitch + rand(-0.3, 0.3));
+    st.vr.x *= 0.6; st.vr.y *= 0.6; st.vr.z *= 0.6;
+  }
+  racketBounce(b, st.n, st.vr);
+  return { edge, smash: smashIntent(sl, sf) >= SMASH.minSwing };
+}
+
+/** Player stroke at contact: the swipe and the physics decide the shot (see strokeFor). */
 function playerHit(contactDist) {
-  const r = player;
-  // Swing speed in real-world m/s (the racket follows the mouse in real time even when the sim is slowed).
-  const sf = Math.max(0, -r.vel.z) * timeScale();   // forward swing speed (toward the net)
-  const sl = r.vel.x * timeScale();                 // lateral swing speed
-  // Only forward-pointing flicks count; one that peaked a moment ago still does.
-  const swingSpeed = Math.max(smashIntent(sl, sf), recentSwing());
-  if (swingSpeed >= SMASH.minSwing) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl);
-  if (keyDown('ShiftLeft', 'ShiftRight')) return playerSmash(SMASH.minSwing, sl);
-  const power = clamp(0.38 + sf * 0.085, 0.2, PLAYER_CFG.maxPower);
-  const tilt = input.tilt;
-
-  // Incoming topspin makes the return fly long unless the face is closed (and vice versa).
-  const depthShift = (incomingTopspin(ball) / 150) * 0.3 - tilt * 0.12;
-  let tz = -(0.3 + power * 0.95 + depthShift);
-  // Contact off-center angles the ball (Pong-style), plus lateral swing.
-  const offX = ball.p.x - r.pos.x;
-  let tx = clamp(ball.p.x * 0.2 + offX * 2.4 + sl * 0.09, -1.1, 1.1);
-  const top = clamp(tilt + sf * 0.045, -1, 1.2) * 130;
-  const side = clamp(sl * 7, -50, 50);
-  let vh = 3.2 + power * 5;
-
-  let edge = false;
-  if (contactDist / PLAYER_CFG.hitRadius > 0.85) {   // frame/edge hit: unpredictable
-    edge = true;
-    tx += rand(-0.5, 0.5); tz -= rand(-0.15, 0.3); vh *= 0.85;
-  }
-  let shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
-  // Mild assist: if the planned stroke would find the net, take a little pace off.
-  for (let i = 0; i < 3 && shot.land && shot.land.net; i++) {
-    vh *= 0.88;
-    shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
-  }
-  applyShot(shot);
-  r.swing = 1;
-  const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
-  match.stats.fastest = Math.max(match.stats.fastest, kmh);
-  if (edge) showMessage('Edge!', '', 'warn', 0.7);
-  registerHit('player', power);
-  pendingUpgrade = { hitTime: rally.lastHitTime, offX, x: ball.p.x, y: ball.p.y };
-}
-
-/** Smash: pace scales with swing speed, aimed deep toward the side you swing to.
- *  `contact` describes the moment of contact; for an upgrade (swing finished just after a
- *  normal hit) it is the remembered contact, and the shot is re-solved from where the ball is now. */
-function playerSmash(swingSpeed, sl, contact = null) {
-  const upgrade = !!contact;
-  contact = contact || { offX: ball.p.x - player.pos.x, x: ball.p.x, y: ball.p.y };
-  const swing = Math.max(swingSpeed, SMASH.minSwing);
-  let vh = clamp(SMASH.minSpeed + (swing - SMASH.minSwing) * 1.2, SMASH.minSpeed, SMASH.maxSpeed);
-  // The flick's direction leads the aim (diagonal right → right); contact point adds a little.
-  let tx = clamp(contact.x * 0.3 + contact.offX * 0.6 + sl * 0.25, -0.65, 0.65);
-  let tz = -rand(0.95, 1.25);
-  const high = contact.y - TABLE_TOP >= SMASH.safeHeight;
-  let botched = false;
-  if (!high && Math.random() < SMASH.lowRisk) {        // smashing a low ball: overhit long or wide
-    botched = true;
-    if (Math.random() < 0.5) tz -= rand(0.25, 0.5); else tx = Math.sign(tx || 1) * rand(0.85, 1.0);
-  }
-  let shot = solveShot(ball.p, { x: tx, z: tz }, vh, SMASH.topspin + input.tilt * 40, clamp(sl * 5, -30, 30));
-  if (shot.land && shot.land.net && high) {            // a high ball has room: flatten a little
-    vh *= 0.9;
-    shot = solveShot(ball.p, { x: tx, z: tz }, vh, SMASH.topspin, 0);
-  }
-  applyShot(shot);
+  let { sl, sf } = strokeSwipe();
+  if (keyDown('ShiftLeft', 'ShiftRight')) sf = Math.max(sf, SMASH.minSwing * 1.15);
+  const contact = { ball: cloneBall(ball), unread: unreadSpin(), offX: ball.p.x - player.pos.x, contactDist };
+  const shot = strikeBall(ball, sl, sf, contact.unread, contact.offX, contactDist);
+  if (DEBUG.on) DEBUG.strokes.push({ in: contact.ball, unread: contact.unread, sl, sf, offX: contact.offX, contactDist, out: cloneBall(ball), t: simTime });
   player.swing = 1;
-  const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
-  match.stats.fastest = Math.max(match.stats.fastest, kmh);
-  match.stats.smashes++;
-  cameraShake = SMASH.shake;
-  showMessage('SMASH!', `${Math.round(kmh)} km/h${botched ? ' — too low!' : ''}`, botched ? 'bad' : 'warn', 0.9);
-  Sound.smash();
-  pendingUpgrade = null;
-  if (upgrade) aiOnOpponentHit();   // same stroke, new trajectory: the CPU has to re-read it
-  else registerHit('player', 1.2);
+  announceStroke(shot);
+  registerHit('player', shot.smash ? 1.2 : clamp(0.35 + Math.max(0, sf) * 0.2, 0.3, 1));
+  pendingUpgrade = shot.smash ? null : { hitTime: rally.lastHitTime, ...contact };
 }
 
-/** A normal hit that may still become a smash if the swipe peaks within SMASH.grace. */
+function announceStroke(shot) {
+  const kmh = Math.hypot(ball.v.x, ball.v.y, ball.v.z) * 3.6;
+  match.stats.fastest = Math.max(match.stats.fastest, kmh);
+  if (shot.smash) {
+    match.stats.smashes++;
+    cameraShake = SMASH.shake;
+    showMessage('SMASH!', `${Math.round(kmh)} km/h`, 'warn', 0.9);
+    Sound.smash();
+  } else if (shot.edge) showMessage('Edge!', 'off the frame', 'warn', 0.7);
+}
+
+/** A swipe often peaks just after the ball leaves the racket: if a smash flick arrives within
+ *  SMASH.grace of a normal hit, replay that contact as a smash and fast-forward the ball. */
 let pendingUpgrade = null;
 function checkSmashUpgrade() {
   const u = pendingUpgrade;
   if (!u) return;
-  if (!rally.live || rally.lastHitTime !== u.hitTime || simTime - u.hitTime > SMASH.grace || ball.p.z < 0.2) {
+  if (!rally.live || rally.lastHitTime !== u.hitTime || simTime - u.hitTime > SMASH.grace) {
     pendingUpgrade = null;
     return;
   }
-  if (recentSwing() >= SMASH.minSwing && swing.peakAt >= u.hitTime) playerSmash(recentSwing(), swing.vx, u);
+  if (recentSwing() < SMASH.minSwing || swing.peakAt < u.hitTime) return;
+  pendingUpgrade = null;
+  const b = cloneBall(u.ball), ev = { net: false, table: null, floor: null };
+  const shot = strikeBall(b, swing.vx, swing.vf, u.unread, u.offX, u.contactDist);
+  for (let t = u.hitTime; t < simTime; t += PHYS.dt) {
+    stepBall(b, PHYS.dt, ev);
+    if (ev.net) rally.netTouched = true;
+  }
+  if (ev.table || ev.floor) return;   // can't rewrite a ball that already landed
+  setBall(b.p, b.v, b.w);
+  rally.shotW = { ...b.w };
+  announceStroke(shot);
+  aiOnOpponentHit();   // same stroke, new trajectory: the CPU has to re-read it
 }
 
 function applyShot(shot) {
@@ -1206,7 +1387,7 @@ function applyShot(shot) {
    AI — predicts the intercept, moves there at limited speed after a
    reaction delay, aims for corners with level-scaled error and mistakes.
    ===================================================================== */
-const ai = { racket: aiRacket, plan: null, serveAt: 0, serveX: 0 };
+const ai = { racket: aiRacket, plan: null, serveAt: 0, serveX: 0, recoverUntil: 0 };
 const levelCfg = () => AI_LEVELS[match.levelKey];
 
 function aiOnOpponentHit() {
@@ -1238,7 +1419,7 @@ function computeAIPlan() {
 function updateAI(dt) {
   const cfg = levelCfg(), r = aiRacket;
   let goal = { x: ball.p.x * 0.3, y: AI_COMMON.home.y, z: AI_COMMON.home.z };   // drift home, shading the ball
-  if (match.state === 'serve' && match.server === 'ai') {
+  if ((match.state === 'serve' || match.state === 'toss') && match.server === 'ai') {
     goal = { x: ai.serveX, y: 0.88, z: AI_COMMON.serveZ };
   } else if (ai.plan) {
     if (simTime >= ai.plan.readyAt && (!ai.plan.computed || simTime >= ai.plan.nextUpdate)) computeAIPlan();
@@ -1246,11 +1427,15 @@ function updateAI(dt) {
     else if (ai.plan.point) goal = ai.plan.point;
     else goal = { x: ball.p.x * 0.5, y: AI_COMMON.home.y, z: AI_COMMON.home.z };
   }
-  // Move in XZ at the level's top speed; height adjusts with its own limit.
-  const dx = goal.x - r.pos.x, dz = goal.z - r.pos.z, d = Math.hypot(dx, dz);
-  if (d > 1e-4) {
-    const step = Math.min(d, cfg.speed * dt);
-    r.pos.x += dx / d * step; r.pos.z += dz / d * step;
+  // Feet run toward the goal with the level's speed and acceleration (they stop during the
+  // follow-through after a hit); the arm moves the racket quickly within reach of the body.
+  const body = aiBody, recovering = simTime < ai.recoverUntil;
+  moveBody(body, recovering ? body.x : goal.x, Math.min(recovering ? body.z : goal.z, -(HALF_L + REACH.bodyBehind)), cfg.speed, cfg.accel, dt);
+  const ax = clamp(goal.x, body.x - REACH.armX, body.x + REACH.armX) - r.pos.x;
+  const az = clamp(goal.z, body.z - REACH.armZ, body.z + REACH.armZ) - r.pos.z, d = Math.hypot(ax, az);
+  if (d > 1e-4 && !(match.state === 'toss' && match.server === 'ai')) {
+    const step = Math.min(d, AI_COMMON.armSpeed * dt);
+    r.pos.x += ax / d * step; r.pos.z += az / d * step;
   }
   const dy = Math.max(goal.y, racketMinY(goal.x, goal.z)) - r.pos.y;
   r.pos.y += clamp(dy, -AI_COMMON.ySpeed * dt, AI_COMMON.ySpeed * dt);
@@ -1263,16 +1448,21 @@ function aiHit() {
   const cfg = levelCfg();
   const speedIn = Math.hypot(ball.v.x, ball.v.y, ball.v.z);
   const spinIn = Math.hypot(ball.w.x, ball.w.y, ball.w.z);
-  // Fast or spinny balls raise the chance of an error.
-  const pressure = clamp((speedIn - 6) / 8, 0, 1) * 0.6 + clamp(spinIn / 200, 0, 0.6);
+  // Fast or spinny balls, and being stretched (racket far from the body, or still running),
+  // raise the chance of an error and take pace off the return.
+  const stretch = clamp(Math.hypot((aiRacket.pos.x - aiBody.x) / REACH.armX, (aiRacket.pos.z - aiBody.z) / REACH.armZ) - 0.6, 0, 0.6)
+    + clamp(Math.hypot(aiBody.vx, aiBody.vz) / cfg.speed - 0.5, 0, 0.5);
+  const pressure = clamp((speedIn - 6) / 8, 0, 1) * 0.6 + clamp(spinIn / 250, 0, 0.6) + stretch;
   const mistake = Math.random() < cfg.mistakeRate * (1 + pressure * 1.5);
 
   const sideSign = Math.random() < 0.5 ? -1 : 1;
   let tx = sideSign * 0.62 * (1 - cfg.aimError) + rand(-1, 1) * cfg.aimError * 0.6;   // corners
   let tz = clamp(0.75 + cfg.power * 0.4 + rand(-1, 1) * cfg.aimError * 0.5, 0.45, 1.27);
-  let vh = 3.4 + cfg.power * 4.5 + Math.random() * 0.6;
-  let top = cfg.spin * rand(0.6, 1) * 140;
-  if (Math.random() < 0.2) top *= -0.5;                                                // occasional chop
+  let vh = (3.4 + cfg.power * 4.5 + Math.random() * 0.6) * (1 - stretch * 0.35);
+  // Topspin drives, sometimes a slower chop (heavy backspin: push it back). Better players spin harder.
+  const chop = Math.random() < 0.2;
+  const top = chop ? -rand(0.55, 1) * (90 + 110 * cfg.spin) : rand(0.5, 1) * (50 + 130 * cfg.spin);
+  if (chop) vh *= 0.8;
   const side = rand(-1, 1) * cfg.spin * 40;
 
   let kind = mistake ? (Math.random() < 0.4 ? 'long' : Math.random() < 0.5 ? 'wide' : 'net') : null;
@@ -1288,24 +1478,50 @@ function aiHit() {
   applyShot(shot);
   aiRacket.tilt = clamp(top / 140, -1, 1);
   aiRacket.swing = 1;
+  ai.recoverUntil = simTime + AI_COMMON.recovery;
   registerHit('ai', 0.4 + cfg.power * 0.5);
 }
 
-function aiServe() {
+function aiServeCharge() {
   const cfg = levelCfg();
-  let charge = clamp(0.35 + cfg.power * 0.35 + rand(-0.08, 0.08), 0.05, 0.9);
-  if (Math.random() < cfg.mistakeRate * 0.4) charge = rand(0.97, 1.0);   // serve fault: long
+  if (Math.random() < cfg.mistakeRate * 0.4) return rand(0.97, 1.0);   // serve fault: long
+  return clamp(0.35 + cfg.power * 0.35 + rand(-0.08, 0.08), 0.05, 0.9);
+}
+
+function aiServe(charge) {
+  const cfg = levelCfg();
   const tx = (Math.random() < 0.5 ? -1 : 1) * (0.2 + 0.4 * (1 - cfg.aimError));
-  const top = cfg.spin * (Math.random() < 0.5 ? -1 : 1) * 80;
+  const top = (Math.random() < 0.5 ? -1 : 1) * rand(0.5, 1) * (40 + 120 * cfg.spin);
   const side = cfg.spin * rand(-1, 1) * 40;
-  aiRacket.tilt = top / 140;
+  aiRacket.tilt = clamp(top / 140, -1, 1);
   doServe('ai', charge, top, side, tx);
 }
 
+/** Player serve, struck as the tossed ball falls. The swipe while it falls sets the spin:
+ *  forward = topspin, pull back = backspin, sideways = sidespin (plus Q/E/wheel tilt). */
 function playerServe(charge) {
-  const vx = player.vel.x * timeScale();
-  const tx = clamp(player.pos.x * 0.7 + vx * 0.05, -0.6, 0.6);
-  doServe('player', charge, input.tilt * 90, clamp(vx * 8, -40, 40), tx);
+  const { sl, sf } = strokeSwipe();
+  const tx = clamp(player.pos.x * 0.7 + sl * 0.05, -0.6, 0.6);
+  const top = clamp(input.tilt * 90 + (sf > 0 ? sf * 40 : sf * 70), -150, 120);
+  doServe('player', charge, top, clamp(sl * 8, -40, 40), tx);
+}
+
+/** Serve toss (ITTF rule: thrown up at least 16 cm from an open palm, struck as it falls). */
+const TOSS_HEIGHT = 0.3;
+function beginToss(who, charge) {
+  match.state = 'toss';
+  match.toss = { who, charge, strikeY: ball.p.y };
+  setBall(ball.p, { x: 0, y: Math.sqrt(2 * PHYS.gravity * TOSS_HEIGHT), z: 0 });
+  updateHUD();
+}
+function stepToss(dt) {
+  Object.assign(ballPrev, ball.p);
+  const ev = stepEvents;
+  ev.net = false; ev.table = null; ev.floor = null;
+  stepBall(ball, dt, ev);
+  if (ball.v.y < 0 && ball.p.y <= match.toss.strikeY) {
+    if (match.toss.who === 'player') playerServe(match.toss.charge); else aiServe(match.toss.charge);
+  }
 }
 
 /** Serve: ball must bounce once on the server's half, then on the receiver's half.
@@ -1328,8 +1544,9 @@ function doServe(who, charge, top, side, tx) {
    ===================================================================== */
 const match = {
   levelKey: 'medium',
-  speedKey: 'normal',
-  state: 'menu',          // menu | serve | rally | pointOver | matchOver
+  speedKey: 'real',
+  state: 'menu',          // menu | serve | toss | rally | pointOver | matchOver
+  toss: null,             // { who, charge, strikeY } while the serve toss is in the air
   paused: false,
   points: [0, 0],         // [player, ai]
   games: [0, 0],
@@ -1339,11 +1556,14 @@ const match = {
   timer: 0, after: null,  // delayed transition
   stats: null,
 };
-const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, lastHitTime: 0 };
+const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, lastHitTime: 0,
+  shotW: { x: 0, y: 0, z: 0 }, shotBounces: 0,   // spin the last stroke put on the ball, table bounces since
+  shotTop: 0,                                     // ...its topspin (+) / backspin (-) part, rad/s
+  expectY: 0.92 };                                // height the player's racket waits at before the bounce
 const idx = who => (who === 'player' ? 0 : 1);
 const other = who => (who === 'player' ? 'ai' : 'player');
 const nameOf = who => (who === 'player' ? 'You' : 'CPU');
-const isPlaying = () => ['serve', 'rally', 'pointOver'].includes(match.state);
+const isPlaying = () => ['serve', 'toss', 'rally', 'pointOver'].includes(match.state);
 
 function newStats() {
   return { pointsWon: [0, 0], longestRally: 0, winners: 0, errors: 0, serveFaults: [0, 0], aces: 0, fastest: 0, serves: 0, smashes: 0 };
@@ -1364,6 +1584,8 @@ function startMatch(levelKey) {
   $('hint').classList.remove('hidden');
   player.pos.set(0, PLAYER_CFG.restY, 1.8);
   aiRacket.pos.set(AI_COMMON.home.x, AI_COMMON.home.y, AI_COMMON.home.z);
+  placeBody(playerBody, 0, 1.8);
+  placeBody(aiBody, AI_COMMON.home.x, AI_COMMON.home.z);
   input.target.x = 0; input.target.z = 1.8;
   setupServe();
   showMessage('Game 1', `vs ${AI_LEVELS[levelKey].label} CPU`, 'neutral', 1.4);
@@ -1382,8 +1604,11 @@ function setupServe() {
   match.server = currentServer();
   match.state = 'serve';
   match.rallyCount = 0;
-  Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false });
+  Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0 });
+  match.toss = null;
   ai.plan = null;
+  ai.recoverUntil = 0;
+  pendingUpgrade = null;
   marker.visible = false;
   input.charging = false;
   if (match.server === 'ai') {
@@ -1414,6 +1639,10 @@ function registerHit(who, intensity) {
   rally.bounceCount = 0;
   rally.netTouched = false;
   rally.lastHitTime = simTime;
+  rally.shotW = { ...ball.w };
+  rally.shotBounces = 0;
+  const h = Math.hypot(ball.v.x, ball.v.z) || 1;   // topspin component about the direction of travel
+  rally.shotTop = (ball.w.x * ball.v.z - ball.w.z * ball.v.x) / h;
   match.rallyCount++;
   Sound.hit(intensity);
   if (who === 'player') {
@@ -1424,6 +1653,8 @@ function registerHit(who, intensity) {
     const m = showMarker ? predictBounce(ball, 1) : null;
     marker.visible = !!m;
     if (m) marker.position.set(m.x, TABLE_TOP + 0.003, m.z);
+    const meet = predictIntercept(ball, 1, 2.5, PLAYER_CFG.minZ);
+    rally.expectY = meet ? meet.y : PLAYER_CFG.restY;
   }
   updateHUD();
 }
@@ -1554,12 +1785,12 @@ function updateHUD() {
   $('power-wrap').classList.toggle('hidden', !serving);
   $('swing-wrap').classList.toggle('hidden', serving);
   $('hint').innerHTML = serving
-    ? '<b>Your serve.</b> Hold <b>Space</b> or the mouse button, release to serve. Avoid the red zone. Racket position aims; <b>Q/E</b> adds spin.'
-    : '<b>Mouse/WASD</b> move · <b>swing forward</b> for power · <b>quick flick forward/up</b> or <b>Shift</b> = smash · <b>Q/E/Wheel</b> spin · <b>P</b> pause';
+    ? '<b>Your serve.</b> Hold <b>Space</b> or the mouse button, release to toss (avoid the red zone). Swipe as it falls: forward = topspin, back = backspin.'
+    : '<b>Still</b> = block · <b>swipe forward</b> = drive · <b>flick</b>/<b>Shift</b> = smash · <b>pull back</b> = push (vs backspin) · <b>Q/E/Wheel</b> face · <b>P</b> pause';
 }
 
 /** Per-frame HUD bits: serve power bar and spin gauge. */
-let swingPeak = 0;
+let swingPeak = 0, spinShown = 0;
 function updateLiveHUD() {
   // Swing speed (sideways + forward), held briefly at its peak so a swipe is readable.
   // Full bar = 1.5 × smash threshold.
@@ -1570,7 +1801,12 @@ function updateLiveHUD() {
   $('swing-label').classList.toggle('hot', hot);
   $('swing-label').textContent = hot ? 'SMASH!' : 'flick forward to smash';
   $('power-fill').style.width = (input.charging ? currentCharge() * 100 : 0) + '%';
-  $('spin-needle').style.left = (50 + input.tilt * 45) + '%';
+  // Incoming spin (what the CPU put on the ball): pick your stroke from it.
+  const incoming = rally.live && rally.lastHitter === 'ai' ? clamp(rally.shotTop / 180, -1, 1) : 0;
+  spinShown += (incoming - spinShown) * 0.25;
+  $('spin-needle').style.left = (50 + spinShown * 45) + '%';
+  $('tilt-needle').style.left = (50 + input.tilt * 45) + '%';
+  $('tilt-needle').classList.toggle('hidden', Math.abs(input.tilt) < 0.02);
 }
 
 function hideAllMenus() {
@@ -1745,20 +1981,25 @@ const Sound = {
    MAIN LOOP — fixed-timestep physics, interpolated rendering
    ===================================================================== */
 let simTime = 0, accumulator = 0, lastFrame = performance.now();
-const stepEvents = { net: false, table: null, floor: null };
+const stepEvents = { net: false, table: null, floor: null, side: false };
 
 /** Ball physics + collisions + rule events + racket contacts for one fixed step. */
 function stepLiveBall(dt) {
   Object.assign(ballPrev, ball.p);
   const ev = stepEvents;
-  ev.net = false; ev.table = null; ev.floor = null;
+  ev.net = false; ev.table = null; ev.floor = null; ev.side = false;
   stepBall(ball, dt, ev);
 
   if (ev.net) { Sound.bounce('net', 1); if (rally.live) rally.netTouched = true; }
+  if (ev.side) Sound.bounce('net', 1);
   if (ev.table) {
     if (ev.table.speed > 0.4) Sound.bounce('table', ev.table.speed);
     if (ev.table.side === 'player') marker.visible = false;
-    if (rally.live) onTableBounce(ev.table.side);
+    if (rally.live) {
+      rally.shotBounces++;
+      if (ev.table.edge) showMessage('Edge ball!', 'clipped the edge — it counts', 'warn', 0.9);
+      onTableBounce(ev.table.side);
+    }
   }
   if (ev.floor) {
     if (ev.floor.speed > 0.5) Sound.bounce('floor', ev.floor.speed);
@@ -1766,6 +2007,7 @@ function stepLiveBall(dt) {
   }
   if (!rally.live) return;
   checkSmashUpgrade();
+  if (checkVolley()) return;
 
   if (canHit('player') || (DEBUG.on && rally.lastHitter === 'ai')) {   // debug also logs pre-bounce crossings
     const d = racketContact(player, PLAYER_CFG.hitRadius, PLAYER_CFG.yWeight);
@@ -1775,6 +2017,28 @@ function stepLiveBall(dt) {
     if (racketContact(aiRacket, AI_COMMON.hitRadius, 1) >= 0) return aiHit();
   }
   if (simTime - rally.lastHitTime > GAME.rallyTimeout) onFloor();   // safety net
+}
+
+/** Volley: touching the ball before it has bounced on your side. Over the table it's an
+ *  obstruction (point to the opponent); past the end or side lines it was going out anyway, so
+ *  the shot that sent it there loses. Only the real blade counts, not the generous hit zone. */
+function checkVolley() {
+  for (const [who, r] of [['player', player], ['ai', aiRacket]]) {
+    if (rally.lastHitter !== other(who) || !(rally.serveStage > 0 || rally.bounceCount === 0)) continue;
+    if ((who === 'player') !== (ball.p.z > 0)) continue;
+    if (racketContact(r, PLAYER_CFG.bladeRadius, 1, false) < 0) continue;
+    racketBounce(ball, { x: 0, y: 0, z: who === 'player' ? -1 : 1 }, { x: 0, y: 0, z: 0 });
+    Sound.hit(0.3);
+    if (Math.abs(ball.p.x) <= HALF_W && Math.abs(ball.p.z) <= HALF_L) {
+      endPoint(other(who), 'Volley — hit before the bounce', 'error');
+    } else {
+      const why = Math.abs(ball.p.x) > HALF_W ? 'went wide' : 'went long';
+      if (rally.serveStage > 0) serveFault(`Serve ${why}`);
+      else endPoint(who, `Out — ${why === 'went wide' ? 'wide' : 'long'}`, 'error');
+    }
+    return true;
+  }
+  return false;
 }
 
 /** Attract mode behind the start menu: the ball bounces on the table. */
@@ -1796,7 +2060,9 @@ function fixedUpdate(dt) {
   updateAI(dt);
   if (match.state === 'serve') {
     holdBallForServe();
-    if (match.server === 'ai' && simTime >= ai.serveAt) aiServe();
+    if (match.server === 'ai' && simTime >= ai.serveAt) beginToss('ai', aiServeCharge());
+  } else if (match.state === 'toss') {
+    stepToss(dt);
   } else {
     stepLiveBall(dt);
   }
@@ -1848,8 +2114,14 @@ function frame(now) {
 
   const alpha = running ? accumulator / PHYS.dt : 1;
   renderBall(alpha, running ? dt : 0);
-  player.updateMesh(dt, match.state === 'menu' ? 0 : input.tilt);
+  // The face visibly closes with a forward swipe and opens on a pull-back (plus manual tilt).
+  const swipeTilt = simTime - swing.strokeAt <= PLAYER_CFG.strokeWindow ? clamp(swing.sf, -2, 3) * 0.3 : 0;
+  player.updateMesh(dt, match.state === 'menu' ? 0 : clamp(input.tilt + swipeTilt, -1, 1));
   aiRacket.updateMesh(dt, aiRacket.tilt);
+  const showFeet = match.state !== 'menu';
+  feet.player.visible = feet.ai.visible = showFeet;
+  feet.player.position.set(playerBody.x, 0.006, playerBody.z);
+  feet.ai.position.set(aiBody.x, 0.006, aiBody.z);
   updateCamera(dt);
   if (marker.visible) marker.material.opacity = 0.5 + 0.25 * Math.sin(now / 120);
   if (match.state !== 'menu') updateLiveHUD();
@@ -1859,7 +2131,8 @@ function frame(now) {
 }
 
 // Debug/console hook (handy for tuning; not used by the game itself).
-window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiRacket, input, AI_LEVELS, predictIntercept, startMatch, playerServe, PLAYER_CFG };
+window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiRacket, input, AI_LEVELS, predictIntercept, startMatch, playerServe, PLAYER_CFG,
+  STROKE, playerBody, aiBody, togglePause, get simTime() { return simTime; } };
 
 showStartMenu();
 requestAnimationFrame(frame);
