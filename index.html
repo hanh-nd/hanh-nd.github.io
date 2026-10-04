@@ -47,11 +47,13 @@
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     font-variant-numeric: tabular-nums; --row: 34px;
   }
-  .sb-row { display: flex; align-items: stretch; height: var(--row); }
-  .sb-row + .sb-row { border-top: 1px solid var(--border); }
-  .sb-row > span { display: flex; align-items: center; justify-content: center; }
+  #scorebug { display: grid; grid-template-columns: repeat(5, auto); }
+  .sb-row { display: contents; }   /* cells sit in the scorebug's grid, so both rows share column widths */
+  .sb-row > span { display: flex; align-items: center; justify-content: center; height: var(--row); }
+  .sb-row.cpu > span { border-top: 1px solid var(--border); }
   .sb-team { width: 4px; } .you .sb-team { background: var(--player); } .cpu .sb-team { background: var(--cpu); }
-  .sb-name { width: 56px; justify-content: flex-start !important; padding-left: 10px; font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+  .sb-name { justify-content: flex-start !important; padding: 0 6px 0 10px; font-size: 12px; font-weight: 800; letter-spacing: .12em; white-space: nowrap; }
+  .sb-name small { margin-left: 5px; font-size: .78em; font-weight: 700; letter-spacing: .04em; color: var(--muted); }
   .sb-srv { width: 16px; }
   .sb-srv i { width: 7px; height: 7px; border-radius: 50%; background: transparent; transition: all .2s; }
   .sb-srv i.on { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
@@ -155,7 +157,7 @@
 
   /* Large screens: a slightly bigger scorebug. */
   @media (min-width: 1400px) and (min-height: 800px) {
-    #scorebug { --row: 40px; } .sb-pts { font-size: 25px; width: 50px; } .sb-name { font-size: 14px; width: 64px; }
+    #scorebug { --row: 40px; } .sb-pts { font-size: 25px; width: 50px; } .sb-name { font-size: 14px; }
     .sb-games { font-size: 15px; width: 32px; } .tag { font-size: 12px; }
   }
   /* Touch devices and small screens: the keyboard/mouse hint just gets in the way. */
@@ -169,7 +171,7 @@
   @media (max-height: 500px) {
     #topbar { top: 6px; }
     #scorebug { --row: 26px; }
-    .sb-pts { font-size: 17px; width: 36px; } .sb-name { font-size: 11px; width: 48px; }
+    .sb-pts { font-size: 17px; width: 36px; } .sb-name { font-size: 11px; }
     .meter { width: 170px; padding: 4px 9px 6px; }
     #btn-pause { width: 38px; height: 38px; }
     #msg { top: 45%; }
@@ -184,7 +186,7 @@
   <div class="hud-col">
     <div id="scorebug" aria-label="Score">
       <div class="sb-row you"><span class="sb-team"></span><span class="sb-name">YOU</span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
-      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name">CPU</span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
+      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name">CPU<small id="cpu-level"></small></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
     </div>
     <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span></div>
     <div class="meter hidden" id="power-wrap">
@@ -341,17 +343,17 @@ const PLAYER_CFG = {
 };
 
 /** AI tuning, all difficulty levels in one object.
- *  speed/accel: footwork m/s and m/s² (human range: even Expert can't cover a fast wide ball)
+ *  speed/accel: footwork m/s and m/s² (human range: even Hard can't cover a fast wide ball)
  *  reactionMs: delay before reading the ball · aimError: aim + positioning noise
  *  power: shot pace · spin: 0..1 spin amount · mistakeRate: chance of an unforced error per shot
  *  smash: chance of smashing a ball that sits up high (see AI_COMMON.smashHeight) */
 const AI_LEVELS = {
-  medium: { label: 'Medium', speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.25 },
-  hard:   { label: 'Hard',   speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.45 },
-  expert: { label: 'Expert', speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.7 },
+  easy:   { label: 'Easy',   speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.25 },
+  medium: { label: 'Medium', speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.45 },
+  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.7 },
 };
-const LEVEL_ORDER = ['medium', 'hard', 'expert'];
-const LEVEL_BLURB = { medium: 'Steady', hard: 'Fast, spinny', expert: 'Ruthless' };
+const LEVEL_ORDER = ['easy', 'medium', 'hard'];
+const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruthless' };
 
 const AI_COMMON = {
   hitRadius: 0.17, minX: -1.4, maxX: 1.4, minZ: -2.6, maxZ: -(TABLE.length / 2 - REACH.overTable), serveZ: -1.55,
@@ -1471,7 +1473,7 @@ function doServe(who, charge, top, side, tx) {
    RULES — serves, faults, lets, scoring, serve rotation, games, match
    ===================================================================== */
 const match = {
-  levelKey: 'medium',
+  levelKey: 'easy',
   speedKey: 'real',
   state: 'menu',          // menu | serve | toss | rally | pointOver | matchOver
   toss: null,             // { who, charge, strikeY } while the serve toss is in the air
@@ -1512,6 +1514,7 @@ function startMatch(levelKey) {
   placeBody(aiBody, AI_COMMON.home.x, AI_COMMON.home.z);
   input.target.x = 0; input.target.z = 1.8;
   setupServe();
+  $('cpu-level').textContent = `(${AI_LEVELS[levelKey].label.toLowerCase()})`;
   showMessage('Game 1', `vs ${AI_LEVELS[levelKey].label} CPU`, 'neutral', 1.4);
 }
 
