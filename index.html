@@ -31,50 +31,51 @@
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
   .hidden { display: none !important; }
 
-  /* ---------- Top bar: meter · scoreboard + info · pause ----------
-     Everything sits at the top: the player's racket lives at the bottom, where overlays would hide it.
-     Wide screens: one row (meter left, scoreboard centered, pause right). Narrow screens: the
-     scoreboard and pause share the first row, the info bar and meter get full-width rows below. */
+  /* ---------- HUD: broadcast-style scorebug (top-left) · pause (top-right) ----------
+     Minimal, high-contrast, at the top (the racket lives at the bottom). Secondary info appears only
+     when it matters: serve power while you serve, DEUCE / GAME POINT tags, a rally counter in long
+     rallies. Level and speed are in the pause menu. */
   #topbar {
     position: fixed; top: 12px; left: 12px; right: 12px; z-index: 5; pointer-events: none;
-    display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 6px 12px;
-    grid-template-areas: "meter score pause" ". info hint";
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
   }
-  #scoreboard { grid-area: score; }
-  .infobar { grid-area: info; justify-self: center; }
-  #meters { grid-area: meter; justify-self: start; }
-  #btn-pause { grid-area: pause; justify-self: end; }
-  #hint { grid-area: hint; justify-self: end; }
-  .scoreboard {
-    display: flex; align-items: stretch; background: var(--panel);
-    border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  .hud-col { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+  .hud-col.right { align-items: flex-end; }
+  #scorebug {
+    border-radius: 12px; overflow: hidden; background: rgba(10, 13, 20, 0.82);
+    border: 1px solid var(--border); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    font-variant-numeric: tabular-nums; --row: 34px;
   }
-  .side { display: flex; align-items: center; gap: 10px; padding: 6px 16px; }
-  .side.you { border-left: 4px solid var(--player); }
-  .side.cpu { border-right: 4px solid var(--cpu); }
-  .side .name { font-size: 12px; font-weight: 800; letter-spacing: 0.15em; color: var(--muted); }
-  .side .pts { font-size: 34px; font-weight: 800; min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; }
-  .serve-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.14); transition: all .2s; }
-  .serve-dot.on { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
-  .center { padding: 4px 14px; background: rgba(255, 255, 255, 0.04); text-align: center; display: flex; flex-direction: column; justify-content: center; }
-  .games { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
-  .games .gp { color: var(--player); } .games .ga { color: var(--cpu); }
-  .center .label { font-size: 9px; letter-spacing: 0.14em; color: var(--muted); white-space: nowrap; }
-  .infobar {
-    display: flex; gap: 16px; font-size: 12px; background: var(--panel); white-space: nowrap;
-    padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted);
+  .sb-row { display: flex; align-items: stretch; height: var(--row); }
+  .sb-row + .sb-row { border-top: 1px solid var(--border); }
+  .sb-row > span { display: flex; align-items: center; justify-content: center; }
+  .sb-team { width: 4px; } .you .sb-team { background: var(--player); } .cpu .sb-team { background: var(--cpu); }
+  .sb-name { width: 56px; justify-content: flex-start !important; padding-left: 10px; font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+  .sb-srv { width: 16px; }
+  .sb-srv i { width: 7px; height: 7px; border-radius: 50%; background: transparent; transition: all .2s; }
+  .sb-srv i.on { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+  .sb-games { width: 28px; font-size: 13px; font-weight: 700; color: var(--muted); background: rgba(255, 255, 255, 0.04); }
+  .sb-pts { width: 42px; font-size: 21px; font-weight: 900; background: rgba(255, 255, 255, 0.09); }
+  .bump { animation: bump .45s ease-out; }
+  @keyframes bump { 0% { transform: scale(1.35); color: var(--gold); } 100% { transform: scale(1); } }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag {
+    font-size: 11px; font-weight: 800; letter-spacing: .1em; padding: 3px 9px; border-radius: 999px;
+    background: rgba(10, 13, 20, 0.82); border: 1px solid var(--border); color: var(--text); white-space: nowrap;
   }
-  .infobar b { color: var(--text); }
+  .tag.player { background: var(--player); border-color: transparent; }
+  .tag.ai { background: var(--cpu); border-color: transparent; }
+  .tag.deuce { background: var(--gold); color: #10131a; border-color: transparent; }
 
   /* ---------- On-screen pause button (touch devices have no P/Esc) ---------- */
   #btn-pause {
-    pointer-events: auto; width: 48px; height: 48px;
-    border-radius: 12px; border: 1px solid var(--border); background: var(--panel); color: var(--text);
-    font-size: 18px; font-weight: 800; cursor: pointer; touch-action: manipulation;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    pointer-events: auto; width: 44px; height: 44px; display: grid; place-items: center;
+    border-radius: 12px; border: 1px solid var(--border); background: rgba(10, 13, 20, 0.82); color: var(--text);
+    cursor: pointer; touch-action: manipulation; padding: 0;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   }
+  #btn-pause svg { width: 16px; height: 16px; }
   #btn-pause:active { background: rgba(255,255,255,.15); }
 
   /* ---------- Center messages ("Point!", "Fault") ---------- */
@@ -93,19 +94,19 @@
   #msg.neutral #msg-main { color: #fff; }
   @keyframes pop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-  /* ---------- Meter (swing during rallies, serve power while serving) and hint ---------- */
-  .meter { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 7px 11px; width: 230px; }
-  .meter .lbl { font-size: 10px; letter-spacing: .12em; color: var(--muted); margin-bottom: 6px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bar { position: relative; height: 10px; border-radius: 6px; background: rgba(255,255,255,.1); overflow: hidden; }
+  /* ---------- Serve power (only while you serve) and the desktop serve hint ---------- */
+  .meter {
+    background: rgba(10, 13, 20, 0.82); border: 1px solid var(--border); border-radius: 10px;
+    padding: 6px 10px 8px; width: 200px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  .meter .lbl { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: .12em; color: var(--muted); margin-bottom: 5px; font-weight: 800; white-space: nowrap; }
+  .meter .lbl em { font-style: normal; color: #ff8a8a; letter-spacing: .06em; }
+  .bar { position: relative; height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
   #power-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #57e389, #ffd23f); }
-  #swing-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #57e389; transition: background .1s; }
-  #swing-fill.hot { background: #ff5a3c; box-shadow: 0 0 12px #ff5a3c; }
-  .smash-mark { position: absolute; top: 0; bottom: 0; left: 66.6%; width: 2px; background: rgba(255,255,255,.7); }
-  #swing-label.hot { color: #ff7a5c; font-weight: 800; }
-  .zone-out { position: absolute; top: 0; bottom: 0; right: 0; width: 12%; background: rgba(255, 80, 80, .55); }
+  .zone-out { position: absolute; top: 0; bottom: 0; right: 0; width: 12%; background: rgba(255, 80, 80, .7); }
   #hint {
-    max-width: 280px; font-size: 12px; line-height: 1.45;
-    color: var(--muted); background: var(--panel); border: 1px solid var(--border);
+    max-width: 260px; font-size: 12px; line-height: 1.45;
+    color: var(--muted); background: rgba(10, 13, 20, 0.82); border: 1px solid var(--border);
     border-radius: 10px; padding: 8px 12px;
   }
   #hint b { color: var(--text); }
@@ -125,7 +126,7 @@
   .card h1 .r { color: var(--player); } .card h1 .b { color: var(--cpu); }
   .card h2 { margin: 0 0 12px; font-size: 28px; }
   .card p.sub { margin: 0 0 18px; color: var(--muted); }
-  .levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+  .levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
   .row-label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: -4px 0 8px; font-weight: 700; }
   .levels.speeds { grid-template-columns: repeat(3, 1fr); }
   .level-btn {
@@ -152,42 +153,25 @@
   table.stats td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
   table.stats td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-  /* Touch devices and short landscape phones: the keyboard/mouse hint just gets in the way. */
-  @media (pointer: coarse), (max-height: 500px) {
-    #hint { display: none; }
+  /* Large screens: a slightly bigger scorebug. */
+  @media (min-width: 1400px) and (min-height: 800px) {
+    #scorebug { --row: 40px; } .sb-pts { font-size: 25px; width: 50px; } .sb-name { font-size: 14px; width: 64px; }
+    .sb-games { font-size: 15px; width: 32px; } .tag { font-size: 12px; }
   }
-  /* Narrow screens (phones in portrait, small windows): stack below the scoreboard row.
-     Short landscape phones keep the single row (below) — they have width but no height to spare. */
-  @media (max-width: 860px) and (min-height: 501px) {
-    #topbar { left: 8px; right: 8px; top: 8px; grid-template-columns: 1fr auto; gap: 6px 8px;
-      grid-template-areas: "score pause" "info info" "meter meter"; }
-    #scoreboard { justify-self: center; }
-    #meters { justify-self: center; }
-    .meter { width: min(280px, 100%); }
+  /* Touch devices and small screens: the keyboard/mouse hint just gets in the way. */
+  @media (pointer: coarse), (max-height: 500px), (max-width: 640px) {
     #hint { display: none; }
   }
   @media (max-width: 640px) {
-    .levels { grid-template-columns: repeat(2, 1fr); }
-    .side { padding: 4px 10px; } .side .pts { font-size: 26px; min-width: 32px; }
-    .side .name { display: none; }
-    .infobar { gap: 12px; font-size: 11px; padding: 4px 12px; }
-    #btn-pause { width: 44px; height: 44px; }
+    #topbar { top: 8px; left: 8px; right: 8px; }
   }
-  /* Very narrow phones (≤ 380 px): tighten the scoreboard so the pause button fits beside it. */
-  @media (max-width: 380px) {
-    .side { padding: 4px 6px; gap: 6px; } .side .pts { font-size: 22px; min-width: 26px; }
-    .center { padding: 4px 8px; } .center .label { letter-spacing: .04em; font-size: 8px; }
-    .infobar { gap: 8px; font-size: 10px; padding: 4px 10px; }
-  }
-  /* Short landscape phones: compact everything to keep the table visible. */
+  /* Short landscape phones: smaller rows to keep the table visible. */
   @media (max-height: 500px) {
-    #topbar { top: 6px; gap: 4px 8px; }
-    .meter { width: 170px; padding: 5px 9px; }
-    .meter .lbl { font-size: 9px; margin-bottom: 4px; }
-    .side { padding: 4px 10px; } .side .name { display: none; }
-    .side .pts { font-size: 24px; min-width: 30px; } .games { font-size: 16px; }
-    .infobar { font-size: 11px; padding: 3px 10px; }
-    #btn-pause { width: 40px; height: 40px; }
+    #topbar { top: 6px; }
+    #scorebug { --row: 26px; }
+    .sb-pts { font-size: 17px; width: 36px; } .sb-name { font-size: 11px; width: 48px; }
+    .meter { width: 170px; padding: 4px 9px 6px; }
+    #btn-pause { width: 38px; height: 38px; }
     #msg { top: 45%; }
   }
 </style>
@@ -197,32 +181,21 @@
 
 <!-- ===== HUD ===== -->
 <div id="topbar" class="hidden">
-  <div class="scoreboard" id="scoreboard">
-    <div class="side you"><span class="name">YOU</span><span id="score-p" class="pts">0</span><span id="serve-p" class="serve-dot"></span></div>
-    <div class="center">
-      <div class="games"><span class="gp" id="games-p">0</span> – <span class="ga" id="games-a">0</span></div>
-      <div class="label">GAMES · BEST OF 3</div>
+  <div class="hud-col">
+    <div id="scorebug" aria-label="Score">
+      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name">YOU</span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
+      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name">CPU</span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
     </div>
-    <div class="side cpu"><span id="serve-a" class="serve-dot"></span><span id="score-a" class="pts">0</span><span class="name">CPU</span></div>
-  </div>
-  <div class="infobar">
-    <span>Level <b id="hud-level">-</b></span>
-    <span>Server <b id="hud-server">-</b></span>
-    <span>Rally <b id="hud-rally">0</b></span>
-    <span>Speed <b id="hud-speed">-</b></span>
-  </div>
-  <div id="meters">
-    <div class="meter" id="swing-wrap">
-      <div class="lbl">SWING · <span id="swing-label">flick = smash</span></div>
-      <div class="bar"><div id="swing-fill"></div><div class="smash-mark"></div></div>
-    </div>
-    <div class="meter" id="power-wrap">
-      <div class="lbl">SERVE POWER · <span>red = long</span></div>
+    <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span></div>
+    <div class="meter hidden" id="power-wrap">
+      <div class="lbl"><span>SERVE POWER</span><em>red = long</em></div>
       <div class="bar"><div id="power-fill"></div><div class="zone-out"></div></div>
     </div>
   </div>
-  <button id="btn-pause" aria-label="Pause">❚❚</button>
-  <div id="hint" class="hidden"></div>
+  <div class="hud-col right">
+    <button id="btn-pause" aria-label="Pause"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
+    <div id="hint" class="hidden"></div>
+  </div>
 </div>
 
 <div id="msg"><div id="msg-main"></div><div id="msg-sub"></div></div>
@@ -255,6 +228,7 @@
 <div id="menu-pause" class="menu hidden">
   <div class="card" style="max-width:380px;text-align:center">
     <h2>Paused</h2>
+    <p class="sub" id="pause-info"></p>
     <button class="btn" id="btn-resume">Resume</button>
     <button class="btn alt" id="btn-restart">Restart Match</button>
     <button class="btn alt" id="btn-quit">Main Menu</button>
@@ -369,21 +343,24 @@ const PLAYER_CFG = {
 /** AI tuning, all difficulty levels in one object.
  *  speed/accel: footwork m/s and m/s² (human range: even Expert can't cover a fast wide ball)
  *  reactionMs: delay before reading the ball · aimError: aim + positioning noise
- *  power: shot pace · spin: 0..1 spin amount · mistakeRate: chance of an unforced error per shot */
+ *  power: shot pace · spin: 0..1 spin amount · mistakeRate: chance of an unforced error per shot
+ *  smash: chance of smashing a ball that sits up high (see AI_COMMON.smashHeight) */
 const AI_LEVELS = {
-  easy:   { label: 'Easy',   speed: 1.8, accel: 7,  reactionMs: 400, aimError: 0.35, power: 0.6,  spin: 0,    mistakeRate: 0.25 },
-  medium: { label: 'Medium', speed: 2.4, accel: 10, reactionMs: 280, aimError: 0.18, power: 0.8,  spin: 0.35, mistakeRate: 0.13 },
-  hard:   { label: 'Hard',   speed: 2.9, accel: 13, reactionMs: 190, aimError: 0.08, power: 1.0,  spin: 0.7,  mistakeRate: 0.05 },
-  expert: { label: 'Expert', speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02 },
+  medium: { label: 'Medium', speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.25 },
+  hard:   { label: 'Hard',   speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.45 },
+  expert: { label: 'Expert', speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.7 },
 };
-const LEVEL_ORDER = ['easy', 'medium', 'hard', 'expert'];
-const LEVEL_BLURB = { easy: 'Slow & sloppy', medium: 'Steady', hard: 'Fast, spinny', expert: 'Ruthless' };
+const LEVEL_ORDER = ['medium', 'hard', 'expert'];
+const LEVEL_BLURB = { medium: 'Steady', hard: 'Fast, spinny', expert: 'Ruthless' };
 
 const AI_COMMON = {
   hitRadius: 0.17, minX: -1.4, maxX: 1.4, minZ: -2.6, maxZ: -(TABLE.length / 2 - REACH.overTable), serveZ: -1.55,
   home: { x: 0, y: 0.92, z: -1.8 }, ySpeed: 3.5, reachDepth: 2.35,
   armSpeed: 6,            // racket speed around the body (m/s)
   recovery: 0.2,          // after hitting, the follow-through stops the feet this long (s)
+  smashHeight: 0.5,       // the CPU may smash a ball it meets at least this high above the table (m) —
+                          // a real pop-up; most balls are met 0.25–0.45 m up
+  smashMiss: 0.08,        // chance a CPU smash flies long
 };
 
 const COLORS = { player: 0xe63946, ai: 0x2f80ed, table: 0x1b4f8f, ball: 0xff8c1a };
@@ -1382,6 +1359,7 @@ function aiHit() {
     + clamp(Math.hypot(aiBody.vx, aiBody.vz) / cfg.speed - 0.5, 0, 0.5);
   const pressure = clamp((speedIn - 6) / 8, 0, 1) * 0.6 + clamp(spinIn / 250, 0, 0.6) + stretch;
   const mistake = Math.random() < cfg.mistakeRate * (1 + pressure * 1.5);
+  if (!mistake && ball.p.y - TABLE_TOP >= AI_COMMON.smashHeight && Math.random() < cfg.smash) return aiSmash();
 
   const sideSign = Math.random() < 0.5 ? -1 : 1;
   let tx = sideSign * 0.62 * (1 - cfg.aimError) + rand(-1, 1) * cfg.aimError * 0.6;   // corners
@@ -1408,6 +1386,28 @@ function aiHit() {
   aiRacket.swing = 1;
   ai.recoverUntil = simTime + AI_COMMON.recovery;
   registerHit('ai', 0.4 + cfg.power * 0.5);
+}
+
+/** CPU smash on a ball that sits up: flat and fast (same pace as the player's), into a corner.
+ *  Sometimes it flies long. Stepping back and blocking can return it. */
+function aiSmash() {
+  let vh = rand(SMASH.minSpeed, SMASH.maxSpeed);
+  const tx = (Math.random() < 0.5 ? -1 : 1) * rand(0.3, 0.62);
+  const long = Math.random() < AI_COMMON.smashMiss;
+  const tz = long ? HALF_L + rand(0.1, 0.4) : rand(0.9, 1.25);
+  let shot = solveShot(ball.p, { x: tx, z: tz }, vh, SMASH.topspin, 0);
+  if (!long && shot.land && shot.land.net) {
+    vh *= 0.85;
+    shot = solveShot(ball.p, { x: tx, z: tz }, vh, SMASH.topspin, 0);
+  }
+  applyShot(shot);
+  aiRacket.tilt = 0.6;
+  aiRacket.swing = 1;
+  ai.recoverUntil = simTime + AI_COMMON.recovery * 1.5;
+  match.stats.cpuSmashes++;
+  showMessage('SMASH!', `${Math.round(Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6)} km/h`, 'bad', 0.9);
+  Sound.smash();
+  registerHit('ai', 1.2);
 }
 
 function aiServeCharge() {
@@ -1493,7 +1493,7 @@ const nameOf = who => (who === 'player' ? 'You' : 'CPU');
 const isPlaying = () => ['serve', 'toss', 'rally', 'pointOver'].includes(match.state);
 
 function newStats() {
-  return { pointsWon: [0, 0], longestRally: 0, winners: 0, errors: 0, serveFaults: [0, 0], aces: 0, fastest: 0, serves: 0, smashes: 0 };
+  return { pointsWon: [0, 0], longestRally: 0, winners: 0, errors: 0, serveFaults: [0, 0], aces: 0, fastest: 0, serves: 0, smashes: 0, cpuSmashes: 0 };
 }
 
 function startMatch(levelKey) {
@@ -1506,7 +1506,6 @@ function startMatch(levelKey) {
   match.after = null; match.timer = 0;
   hideAllMenus();
   $('topbar').classList.remove('hidden');
-  $('hint').classList.remove('hidden');
   player.pos.set(0, PLAYER_CFG.restY, 1.8);
   aiRacket.pos.set(AI_COMMON.home.x, AI_COMMON.home.y, AI_COMMON.home.z);
   placeBody(playerBody, 0, 1.8);
@@ -1700,36 +1699,51 @@ function showMessage(main, sub = '', tone = 'neutral', duration = 1.4) {
   msgTimer = duration;
 }
 
-function updateHUD() {
-  $('score-p').textContent = match.points[0];
-  $('score-a').textContent = match.points[1];
-  $('games-p').textContent = match.games[0];
-  $('games-a').textContent = match.games[1];
-  $('serve-p').classList.toggle('on', match.server === 'player');
-  $('serve-a').classList.toggle('on', match.server === 'ai');
-  $('hud-level').textContent = AI_LEVELS[match.levelKey].label;
-  $('hud-server').textContent = nameOf(match.server);
-  $('hud-rally').textContent = match.rallyCount;
-  $('hud-speed').textContent = GAME.speeds[match.speedKey].label;
-  const serving = match.state === 'serve' && match.server === 'player';
-  $('power-wrap').classList.toggle('hidden', !serving);
-  $('swing-wrap').classList.toggle('hidden', serving);
-  $('hint').innerHTML = serving
-    ? '<b>Your serve.</b> Hold <b>Space</b> or the mouse button, release to toss (avoid the red zone). Swipe as it falls: forward = topspin, back = backspin.'
-    : '<b>Still</b> = block · <b>swipe forward</b> = drive · <b>flick</b>/<b>Shift</b> = smash · <b>pull back</b> = push (vs backspin) · <b>Q/E/Wheel</b> spin · <b>P</b> pause';
+/** Set a scorebug number; a changed value gets a short "bump" so the eye catches it. */
+function setScore(id, value) {
+  const el = $(id), text = String(value);
+  if (el.textContent === text) return;
+  el.textContent = text;
+  el.classList.remove('bump');
+  void el.offsetWidth;   // restart the animation
+  el.classList.add('bump');
 }
 
-/** Per-frame HUD bits: swing meter and serve power bar. */
-let swingPeak = 0;
+/** DEUCE / GAME POINT / MATCH POINT, as broadcast graphics show them; null otherwise. */
+function pointSituation() {
+  const n = GAME.pointsToWin, [p, a] = match.points;
+  if (p >= n - 1 && a >= n - 1 && p === a) return { text: 'DEUCE', cls: 'deuce' };
+  for (const who of ['player', 'ai']) {
+    const mine = match.points[idx(who)], theirs = match.points[idx(other(who))];
+    if (mine >= n - 1 && mine > theirs) {
+      const matchPoint = match.games[idx(who)] === GAME.gamesToWin - 1;
+      return { text: `${matchPoint ? 'MATCH' : 'GAME'} POINT · ${who === 'player' ? 'YOU' : 'CPU'}`, cls: who };
+    }
+  }
+  return null;
+}
+
+function updateHUD() {
+  setScore('score-p', match.points[0]);
+  setScore('score-a', match.points[1]);
+  setScore('games-p', match.games[0]);
+  setScore('games-a', match.games[1]);
+  $('serve-p').classList.toggle('on', match.server === 'player');
+  $('serve-a').classList.toggle('on', match.server === 'ai');
+  const situation = isPlaying() ? pointSituation() : null, tag = $('tag-point');
+  tag.classList.toggle('hidden', !situation);
+  if (situation) { tag.textContent = situation.text; tag.className = 'tag ' + situation.cls; }
+  const rally = $('tag-rally');
+  rally.classList.toggle('hidden', match.rallyCount < 4);
+  rally.textContent = `RALLY ${match.rallyCount}`;
+  const serving = match.state === 'serve' && match.server === 'player';
+  $('power-wrap').classList.toggle('hidden', !serving);
+  $('hint').classList.toggle('hidden', !serving);
+  $('hint').innerHTML = '<b>Your serve.</b> Hold <b>Space</b> or the mouse button, release to toss — avoid the red zone. Swipe as it falls: forward = topspin, back = backspin.';
+}
+
+/** Per-frame HUD bit: the serve power bar. */
 function updateLiveHUD() {
-  // Swing speed (sideways + forward), held briefly at its peak so a swipe is readable.
-  // Full bar = 1.5 × smash threshold.
-  swingPeak = Math.max(recentSwing(), swingPeak * 0.9);
-  const hot = swingPeak >= SMASH.minSwing;
-  $('swing-fill').style.width = clamp(swingPeak / (SMASH.minSwing * 1.5), 0, 1) * 100 + '%';
-  $('swing-fill').classList.toggle('hot', hot);
-  $('swing-label').classList.toggle('hot', hot);
-  $('swing-label').textContent = hot ? 'SMASH!' : 'flick = smash';
   $('power-fill').style.width = (input.charging ? currentCharge() * 100 : 0) + '%';
 }
 
@@ -1773,7 +1787,6 @@ function showStartMenu() {
   rally.live = false;
   marker.visible = false;
   $('topbar').classList.add('hidden');
-  $('hint').classList.add('hidden');
   $('menu-start').classList.remove('hidden');
   setBall({ x: 0, y: 1.3, z: 0.5 });
 }
@@ -1782,6 +1795,8 @@ function togglePause() {
   if (!isPlaying()) return;
   match.paused = !match.paused;
   input.charging = false;
+  $('pause-info').textContent = `${AI_LEVELS[match.levelKey].label} CPU · ${GAME.speeds[match.speedKey].label} speed · `
+    + `Game ${match.games[0] + match.games[1] + 1}: You ${match.points[0]} – ${match.points[1]} CPU`;
   $('menu-pause').classList.toggle('hidden', !match.paused);
 }
 
@@ -1796,7 +1811,7 @@ function showEndMenu(winner) {
     ['Your errors (net / out)', s.errors],
     ['Serve faults (you / CPU)', `${s.serveFaults[0]} / ${s.serveFaults[1]}`],
     ['Aces (both)', s.aces],
-    ['Smashes', s.smashes],
+    ['Smashes (you / CPU)', `${s.smashes} / ${s.cpuSmashes}`],
     ['Fastest shot', `${Math.round(s.fastest)} km/h`],
   ];
   $('end-stats').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
@@ -1804,7 +1819,6 @@ function showEndMenu(winner) {
   next.disabled = lvl >= LEVEL_ORDER.length - 1;
   next.textContent = next.disabled ? 'Max Level' : `Next Level: ${AI_LEVELS[LEVEL_ORDER[lvl + 1]].label}`;
   $('topbar').classList.add('hidden');
-  $('hint').classList.add('hidden');
   $('menu-end').classList.remove('hidden');
 }
 
@@ -2048,7 +2062,7 @@ function frame(now) {
 
 // Debug/console hook (handy for tuning; not used by the game itself).
 window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiRacket, input, AI_LEVELS, predictIntercept, startMatch, playerServe, PLAYER_CFG,
-  playerBody, aiBody, togglePause, get simTime() { return simTime; } };
+  playerBody, aiBody, togglePause, updateHUD, get simTime() { return simTime; } };
 
 showStartMenu();
 requestAnimationFrame(frame);
