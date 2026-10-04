@@ -2653,7 +2653,11 @@ function watchTourMatch(r, i) {
 
 buildMenus();
 // Browsers start audio only after a user gesture: the first click anywhere (even a menu tab) starts it.
-document.addEventListener('pointerdown', () => Sound.init());
+// iOS counts only the end of a touch (touchend / pointerup / click) as a gesture that can start
+// audio, not the press itself — listen to all of them.
+for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) document.addEventListener(ev, () => Sound.init(), true);
+// Back on the tab: try to resume straight away (works on most browsers; on iOS the next tap does it).
+document.addEventListener('visibilitychange', () => { if (!document.hidden) Sound.init(); });
 $('btn-start').addEventListener('click', startQuick);
 $('btn-tour-new').addEventListener('click', () => { Sound.init(); newTournament(selTier); showTourHub(); });
 $('btn-tour-continue').addEventListener('click', () => { Sound.init(); showTourHub(); });
@@ -2680,13 +2684,22 @@ $('btn-menu').addEventListener('click', showStartMenu);
    ===================================================================== */
 const Sound = {
   ctx: null, master: null, noise: null, muted: false,
+  /** Start audio, or bring it back. Call from a user gesture: browsers (iOS above all) only
+   *  start audio from a tap or click. After a tab switch, iOS leaves the context 'interrupted'
+   *  and it often never resumes, so it is replaced with a fresh one. */
   init() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    if (this.ctx) {
+      if (this.ctx.state === 'running') return;
+      if (this.ctx.state !== 'interrupted' && this.ctx.state !== 'closed') { this.ctx.resume().catch(() => {}); return; }
+      this.ctx.close().catch(() => {});
+      this.ctx = null;
+    }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     this.ctx = new AC();
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.6;
+    this.master.gain.value = this.muted ? 0 : 0.6;
     // A limiter at the end of the chain: many sounds at once (hits, smashes, fanfares) never clip.
     const lim = this.ctx.createDynamicsCompressor();
     lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.25;
