@@ -230,6 +230,7 @@
     .opp-flag { font-size: 32px; }
     .card { padding: 20px 18px; }
   }
+  .tag.adapt { background: var(--cpu); border-color: transparent; }
   table.stats { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 14px; }
   table.stats td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
   table.stats td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -268,7 +269,7 @@
       <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
       <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
     </div>
-    <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span></div>
+    <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span><span id="tag-adapt" class="tag adapt hidden"></span></div>
     <div class="meter hidden" id="power-wrap">
       <div class="lbl"><span>SERVE POWER</span><em>red = long</em></div>
       <div class="bar"><div id="power-fill"></div><div class="zone-out"></div></div>
@@ -353,7 +354,9 @@
       <b>Strokes</b> — how you swipe as the ball arrives:<br>
       &nbsp;· <b>hold still</b> = block · <b>swipe forward</b> = drive (faster = harder, more topspin)<br>
       &nbsp;· <b>quick flick forward</b> = smash — safe on a ball that sits up high; a low, fast or spinny ball can still go long or into the net. A gentler flick is safer<br>
-      &nbsp;· <b>pull back</b> = push (backspin) · hit off-center or swipe sideways to angle the ball<br>
+      &nbsp;· <b>pull back</b> = push (backspin) — pull back <b>harder</b> for a long push · hit off-center or swipe sideways to angle the ball toward a corner<br>
+      &nbsp;· <b>short touch</b>: step in and meet a slow ball <b>over the table</b>, holding still — it drops just over the net and bounces twice. The CPU can't attack it<br>
+      <b>Scout your opponents:</b> every style plays two <b>patterns</b> (a racket wind-up warns of the key shot), some players have a <b>signature shot</b> (the racket glows), and the CPU <b>targets</b> where you keep missing (🎯 in the HUD).<br>
       <b>Read the spin</b> from the CPU's racket face and the ball's dots: topspin → block or drive; backspin (a chop) → push. The wrong stroke drifts long or short — a hard drive can fly out.<br>
       <b>Serve:</b> hold mouse / finger, release to toss (red zone = long). Swipe as the ball falls: forward = topspin, pull back = backspin.<br>
       <kbd>Wheel</kbd> tilts the face: backspin / topspin · on-screen buttons: ❚❚ pause, 🔊 mute<br>
@@ -471,6 +474,17 @@ const PLAYER_CFG = {
   maxPower: 1.2,
   pushMin: 0.4,           // pull-back (m/s) that plays a push
   pushPower: 0.3,
+  longPush: 0.12,         // a harder pull-back pushes deeper: power per m/s beyond pushMin...
+  longPushMax: 0.35,      // ...up to this much
+  // Short touch: a ball met over the table (closer to the net than touchZ), slower than
+  // touchMaxSpeed, with the racket held still (forward swipe under touchMaxFwd, no pull-back) is
+  // dropped low over the net with backspin (flight time `time`), so it would bounce twice on the
+  // far half. Checked in a headless sim: it bounces twice every time, rises ~0.23 m after its first
+  // bounce, the second bounce is ~1.05 m from the net — the opponent has to reach in over the table
+  // and meets it low (~0.15 m), so it can return it but not attack it.
+  touchZ: 1.15, touchMaxSpeed: 7, touchMaxFwd: 0.8,
+  touch: { depth: 0.4, time: 0.45, top: -120 },
+  cornerX: 0.66,          // corner aim saturates here (soft), so an overshot sideways swipe stays on
   spinRead: 60,           // spin a stroke handles (rad/s): drives/blocks topspin, pushes backspin;
                           // more or less than that shifts the return long/short
   lungeSweep: 0.08,       // a fast-moving racket also meets balls it crossed this long ago (s)
@@ -483,11 +497,13 @@ const PLAYER_CFG = {
  *  reactionMs: delay before reading the ball · aimError: aim + positioning noise
  *  power: shot pace · spin: 0..1 spin amount · mistakeRate: chance of an unforced error per shot
  *  smash: chance of smashing a ball that sits up high (see AI_COMMON.smashHeight) ·
- *  smashError: hand error of its smash, relative to the player's (AIM.smash) */
+ *  smashError: hand error of its smash, relative to the player's (AIM.smash) ·
+ *  pattern: chance of playing one of its style's patterns in a point (STYLE_PATTERNS) ·
+ *  adapt: at most this share of its shots goes at the zone where you keep missing (ADAPT) */
 const AI_LEVELS = {
-  easy:   { label: 'Easy',   speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.35, smashError: 1.9 },
-  medium: { label: 'Medium', speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.6,  smashError: 1.45 },
-  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.85, smashError: 1.15 },
+  easy:   { label: 'Easy',   speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.35, smashError: 1.9,  pattern: 0.55, adapt: 0.35 },
+  medium: { label: 'Medium', speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.6,  smashError: 1.45, pattern: 0.7,  adapt: 0.5 },
+  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.85, smashError: 1.15, pattern: 0.8,  adapt: 0.6 },
 };
 const LEVEL_ORDER = ['easy', 'medium', 'hard'];
 const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruthless' };
@@ -512,6 +528,79 @@ const AI_STYLES = {
     chop: 0.35, chopSpin: 1.3, top: 1.15, side: 2.3, power: 0.9, smash: 0.8, mistake: 1.1, depth: 0.1, wide: 1, short: 0.22, serveBack: 0.5, reaction: 1, take: 'top' },
 };
 const STYLE_ORDER = ['allround', 'attacker', 'defender', 'blocker', 'wizard'];
+
+/** Tactical patterns, two per style: small multi-shot plans a CPU picks at the start of a point
+ *  (c.pattern) and plays hit by hit, so its habits can be learned — and broken. The key shot is
+ *  telegraphed by a wind-up of the racket. A mistake or a smash still comes first.
+ *  steps: intents for its rally hits in order (its first hit = the return of serve, or the third
+ *  ball when it served); fields, all optional (unset = the style's usual random choice):
+ *    side: 'bh' | 'fh' | 'mid' — your backhand / forehand / body (players are right-handed) ·
+ *          'switch' — away from its previous shot · 'open' — away from your racket
+ *    depth: 'short' (a drop shot, if you can reach it) | 'long' · pace: × its usual pace
+ *    spin: 'top' (heavy) | 'chop' | 'flat' | 'float' (looks like a chop, carries no spin)
+ *    key: the shot the pattern builds up to (wind-up tell; seeing it scouts the pattern)
+ *  serve: its serve when the pattern starts on its serve ({ long | short, back, side });
+ *  needsServe: only picked when it serves · loop: repeat the steps until the point ends. */
+const STYLE_PATTERNS = {
+  allround: [
+    { id: 'allround-corners', name: 'Corner to corner', counter: 'Get back to the middle after every shot — the next ball goes to the other corner.',
+      steps: [{ side: 'bh' }, { side: 'switch', key: true }], loop: true },
+    { id: 'allround-long-serve', name: 'Long serve, then the forehand', counter: 'Return the long serve to its middle — the third ball goes hard to your forehand.',
+      serve: { long: true, side: 'bh' }, steps: [{ side: 'fh', spin: 'top', pace: 1.15, key: true }], needsServe: true },
+  ],
+  attacker: [
+    { id: 'attacker-short-loop', name: 'Short serve, loop the third ball', counter: 'Answer its short backspin serve with a short touch — no long ball, nothing to loop.',
+      serve: { short: true, back: true }, steps: [{ side: 'bh', spin: 'top', depth: 'long', pace: 1.2, key: true }], needsServe: true },
+    { id: 'attacker-hammer', name: 'Hammer the backhand, then the forehand', counter: 'After two balls to your backhand, cover your forehand.',
+      steps: [{ side: 'bh', spin: 'top' }, { side: 'bh', spin: 'top', pace: 1.1 }, { side: 'fh', spin: 'top', pace: 1.25, key: true }] },
+  ],
+  defender: [
+    { id: 'defender-chop-counter', name: 'Chop, chop, counter', counter: 'After two chops, expect a sudden topspin counter — block it, don\'t push it.',
+      steps: [{ spin: 'chop', depth: 'long' }, { spin: 'chop', depth: 'long' }, { spin: 'top', side: 'switch', pace: 1.3, key: true }] },
+    { id: 'defender-float', name: 'Heavy chop, then a float', counter: 'Every second chop carries no spin — when the racket winds up, drive it instead of pushing.',
+      steps: [{ spin: 'chop', depth: 'long' }, { spin: 'float', depth: 'long', key: true }], loop: true },
+  ],
+  blocker: [
+    { id: 'blocker-wide-body', name: 'Wide, wide, at your body', counter: 'After two wide blocks, step aside — the third comes straight at you.',
+      steps: [{ side: 'bh', spin: 'flat' }, { side: 'fh', spin: 'flat' }, { side: 'mid', spin: 'flat', pace: 1.2, key: true }] },
+    { id: 'blocker-drop-deep', name: 'Drop shot, then deep', counter: 'After you step in for its drop shot, step straight back — the next block comes deep.',
+      steps: [{ depth: 'short', spin: 'flat' }, { depth: 'long', side: 'switch', spin: 'flat', pace: 1.25, key: true }] },
+  ],
+  wizard: [
+    { id: 'wizard-short-short-long', name: 'Short, short, long', counter: 'After two short balls, stay ready for a fast long one.',
+      steps: [{ depth: 'short' }, { depth: 'short' }, { depth: 'long', spin: 'top', pace: 1.3, key: true }] },
+    { id: 'wizard-spin-switch', name: 'Backspin serve, topspin follow', counter: 'Push its backspin serve short — the follow-up is a heavy topspin to your backhand.',
+      serve: { back: true }, steps: [{ side: 'bh', spin: 'top', pace: 1.15, key: true }], needsServe: true },
+  ],
+};
+const PATTERN_BY_ID = Object.fromEntries(Object.values(STYLE_PATTERNS).flat().map(p => [p.id, p]));
+
+/** Signature shots of headline players: a tell (the racket glows in the signature's color, the
+ *  ball trails it), a call-out the first time it's played in a match, and a counter to learn.
+ *  chance: how often it's played when it can be. Effects: see aiHit / aiServe / playerHit. */
+const SIGNATURES = {
+  'phantom-chop': { owner: 'Joo Se-hyuk', kind: 'chop', name: 'Phantom Chop', color: 0x8fe3ff, chance: 0.35,
+    tell: 'His racket winds up and glows ice-blue.',
+    counter: 'Pull back HARD for a long push — a normal push or a drive dies in the net.' },
+  'mozart-serve': { owner: 'Jan-Ove Waldner', kind: 'sidespin', name: 'Mozart Serve', color: 0xffd23f, chance: 0.45,
+    tell: 'A gold glow, and the racket leans hard to one side as he serves.',
+    counter: 'Swipe sideways AGAINST the lean as you return, or the spin carries your ball wide.' },
+  'chorei-counter': { owner: 'Tomokazu Harimoto', kind: 'blocker', name: 'Chorei Counter', color: 0xff7a1a, chance: 0.55, minSpeed: 8,
+    tell: 'An orange glow as your fast ball comes in.',
+    counter: 'It feeds on your pace: push or touch short instead of driving — or get back to the middle.' },
+};
+const SIGNATURE_OF = Object.fromEntries(Object.entries(SIGNATURES).map(([id, s]) => [s.owner, id]));
+
+/** Adaptation within a match (vs you only, never in watch mode, never from the score): the CPU
+ *  remembers the kind of shot you missed (zone = your side × short / backspin / topspin), aims a
+ *  capped share of its shots there (AI_LEVELS.adapt), says so, and switches plans every few points. */
+const ADAPT = {
+  decay: 0.8,             // every point, miss weights fade to this fraction
+  returned: 0.35,         // a clean return of a zone takes this off its weight
+  minWeight: 1.6,         // a zone needs this weight (about 2 recent misses) to be targeted
+  hold: [3, 4],           // points a target is held before switching
+  rest: 2,                // points without a target when nothing new stands out
+};
 
 /** Tournament field: world, Olympic and World Cup champions, men and women (styles are loose
  *  caricatures of their game). short = scorebug name. Rackets avoid the player's red. */
@@ -778,9 +867,9 @@ function predictBounce(b0, sideSign) {
 /** Predict where a racket should meet the ball: after it bounces on `sideSign`'s half
  *  (earlier bounces on the other half, e.g. a serve's first bounce, are skipped),
  *  at the top of the bounce (or where it passes maxDepth from the net). The racket can't reach
- *  closer to the net than minDepth, so a short ball is met where it comes within reach. */
-function predictIntercept(b0, sideSign, maxDepth, minDepth = 0) {
-  let bounced = false;
+ *  closer to the net than minDepth, so a short ball is met where it comes within reach.
+ *  bounced: the ball has already made that bounce (the next one would be its second). */
+function predictIntercept(b0, sideSign, maxDepth, minDepth = 0, bounced = false) {
   return simulate(b0, 3, (b, ev, t) => {
     if (ev.floor) return null;
     if (ev.table) {
@@ -1220,6 +1309,11 @@ class Racket {
     this.vel = new THREE.Vector3();
     this.swing = 0;      // 1 → 0 swing animation timer
     this.tilt = 0;       // face angle, -1 open (backspin) .. +1 closed (topspin)
+    // CPU tells (bots have no body, so the racket shows them): a wind-up before a pattern's key
+    // shot or a signature, a pulsing glow for a signature, a lean for a sidespin serve.
+    this.windTarget = 0; this.wind = 0;
+    this.glowColor = null; this.glowHex = 0; this.glow = 0;
+    this.lean = 0;       // blade top leans toward world +X (1) / -X (-1)
     scene.add(this.mesh);
   }
   setColor(color) {
@@ -1239,10 +1333,18 @@ class Racket {
     const s = this.swing > 0 ? Math.sin((1 - this.swing) * Math.PI) : 0;
     const isAI = this.owner === 'ai';
     const dir = isAI ? 1 : -1;  // forward direction along Z
-    this.mesh.position.set(this.pos.x, this.pos.y, this.pos.z + dir * s * 0.07);
-    const roll = clamp(-this.vel.x * 0.08, -0.6, 0.6);
-    const pitch = (isAI ? 1 : -1) * (tilt * 0.45 + s * 0.5);
+    this.wind += (this.windTarget - this.wind) * Math.min(1, dt * 12);
+    const w = this.wind;        // wound up: pulled back, raised high, face cocked
+    this.mesh.position.set(this.pos.x, this.pos.y + w * 0.12, this.pos.z + dir * (s * 0.07 - w * 0.15));
+    const roll = clamp(-this.vel.x * 0.08, -0.6, 0.6) + (isAI ? 1 : -1) * this.lean * 0.7;
+    const pitch = (isAI ? 1 : -1) * (tilt * 0.45 + s * 0.5 - w * 0.55);
     this.mesh.rotation.set(pitch, isAI ? Math.PI : 0, roll);
+    const g = this.glowColor != null ? 0.95 + 0.3 * Math.sin(performance.now() / 85) : 0;
+    this.glow += (g - this.glow) * Math.min(1, dt * 16);
+    this.mesh.scale.setScalar(1.35 * (1 + 0.3 * clamp(this.glow, 0, 1)));   // a glowing racket swells too: it reads from the far end
+    const em = this.mesh.userData.front.emissive;
+    if (this.glowColor != null) this.glowHex = this.glowColor;   // keep the color while it fades
+    em.setHex(this.glow > 0.01 ? this.glowHex : 0).multiplyScalar(this.glow);
   }
 }
 
@@ -1301,9 +1403,12 @@ function updateTrail(p) {
   trailPos.copyWithin(3, 0, (TRAIL_N - 1) * 3);
   trailPos[0] = p.x; trailPos[1] = p.y; trailPos[2] = p.z;
   trailGeo.attributes.position.needsUpdate = true;
-  const fast = rally.live && Math.hypot(ball.v.x, ball.v.y, ball.v.z) > 9.5;
+  // Fast balls (smashes) trail orange; a signature shot trails in its own color.
+  const bs = rally.botShot, sig = rally.live && bs && bs.sig && rally.lastHitter === bs.by ? SIGNATURES[bs.sig] : null;
+  const fast = sig || (rally.live && Math.hypot(ball.v.x, ball.v.y, ball.v.z) > 9.5);
   if (fast && !trail.visible) for (let i = 3; i < TRAIL_N * 3; i++) trailPos[i] = trailPos[i % 3];   // restart cleanly
-  trail.visible = fast;
+  trail.material.color.setHex(sig ? sig.color : 0xffb347);
+  trail.visible = !!fast;
 }
 
 function setBall(p, v = { x: 0, y: 0, z: 0 }, w = { x: 0, y: 0, z: 0 }) {
@@ -1577,18 +1682,36 @@ function playerHit(contactDist) {
   const swingSpeed = Math.max(smashIntent(sl, sf), recentSwing());
   if (swingSpeed >= SMASH.minSwing) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl, contact);
   const push = sf <= -PLAYER_CFG.pushMin, fwd = Math.max(0, sf);
-  const power = push ? PLAYER_CFG.pushPower : clamp(0.38 + fwd * 0.085, 0.2, PLAYER_CFG.maxPower);
+  // Short touch: a slow ball met over the table with a still racket drops just over the net.
+  const touch = !push && fwd < PLAYER_CFG.touchMaxFwd && ball.p.z < PLAYER_CFG.touchZ && contact.speedIn < PLAYER_CFG.touchMaxSpeed;
+  const longPush = push ? clamp((-sf - PLAYER_CFG.pushMin) * PLAYER_CFG.longPush, 0, PLAYER_CFG.longPushMax) : 0;
+  const power = push ? PLAYER_CFG.pushPower + longPush : clamp(0.38 + fwd * 0.085, 0.2, PLAYER_CFG.maxPower);
   const tilt = input.tilt;
+  const sig = rally.botShot && rally.botShot.sig;
 
-  const misread = contact.topIn - (push ? -PLAYER_CFG.spinRead : PLAYER_CFG.spinRead);
-  const depthShift = clamp(misread / 150 * 0.4, -0.45, 0.45) - tilt * 0.12;
+  const misread = contact.topIn - (push || touch ? -PLAYER_CFG.spinRead : PLAYER_CFG.spinRead);
+  let depthShift = clamp(misread / 150 * 0.4, -0.45, 0.45) - tilt * 0.12;
+  if (sig === 'phantom-chop' && !push) depthShift -= 0.2;   // only a push gets under that much backspin
   let tz = -(0.3 + power * 0.95 + depthShift);
-  // Contact off-center angles the ball (Pong-style), plus lateral swing.
+  // Contact off-center angles the ball (Pong-style), plus lateral swing; the aim eases into the
+  // corner (softAim) so an overshot swipe stays on the table.
   const offX = contact.offX;
-  let tx = clamp(ball.p.x * 0.2 + offX * 2.4 + sl * 0.09, -1.1, 1.1);
-  const top = push ? -clamp(0.6 - sf * 0.2, 0.6, 1) * 130 : clamp(tilt + fwd * 0.25, -1, 1.2) * 130;
+  let tx = softAim(ball.p.x * 0.2 + offX * 2.4 + sl * 0.12);
+  let top = push ? -clamp(0.6 - sf * 0.2, 0.6, 1) * 130 : clamp(tilt + fwd * 0.25, -1, 1.2) * 130;
   const side = clamp(sl * 7, -50, 50);
   let vh = 3.2 + power * 5;
+  if (touch) {
+    const t = PLAYER_CFG.touch;
+    tz = -clamp(t.depth + depthShift * 0.3, 0.25, 0.6);   // the incoming spin still nudges it
+    tx *= 0.8; top = t.top + tilt * 40;                     // an open face (wheel) adds backspin
+    vh = Math.hypot(tx - ball.p.x, tz - ball.p.z) / t.time;
+  }
+  // Mozart Serve: its sidespin carries your return toward the side the racket leaned to, unless
+  // you swipe sideways against it.
+  if (sig === 'mozart-serve' && rally.botShot.lean) {
+    const lean = rally.botShot.lean;
+    tx += lean * 0.4 * (1 - clamp(-sl * lean / 1.2, 0, 1));
+  }
 
   let edge = false;
   if (contactDist / PLAYER_CFG.hitRadius > 0.85) {   // frame/edge hit: unpredictable
@@ -1608,9 +1731,14 @@ function playerHit(contactDist) {
   const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
   match.stats.fastest = Math.max(match.stats.fastest, kmh);
   if (edge) showMessage('Edge!', 'off the edge of your racket', 'warn', 0.7);
-  registerHit('player', power);
+  else if (touch && !match.stats.touches) showMessage('Short touch', 'it bounces twice on their side', 'neutral', 0.9);
+  if (touch) match.stats.touches++;
+  registerHit('player', touch ? 0.2 : power);
   pendingUpgrade = { hitTime: rally.lastHitTime, contact };
 }
+
+/** Corner aim that eases into the corner instead of running off the table. */
+const softAim = x => PLAYER_CFG.cornerX * Math.tanh(x / PLAYER_CFG.cornerX);
 
 /** The moment of contact, as the stroke error needs it (see strokeError). */
 function contactOf(contactDist) {
@@ -1647,7 +1775,7 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   match.stats.smashes++;
   cameraShake = SMASH.shake;
   const miss = smashMissReason(shot, contact, err);
-  showMessage('SMASH!', `${Math.round(kmh)} km/h${miss ? ` — ${miss}` : ''}`, miss ? 'bad' : 'warn', 0.9);
+  showMessage('SMASH!', `${Math.round(kmh)} km/h${miss ? ` — ${miss}` : ''}`, miss ? 'bad' : 'warn', 0.9, 2);
   Sound.smash();
   pendingUpgrade = null;
   if (upgrade) aiOnOpponentHit(ai);   // same stroke, new trajectory: the CPU has to re-read it
@@ -1690,8 +1818,16 @@ function applyShot(shot) {
  *  one plays the near end ('player'). s is the sign of its half: the same code plays either end
  *  by mirroring Z, so "depth" below means distance from the net (s * z). */
 function makeAI(owner, racket, body) {
-  return { owner, racket, body, s: owner === 'ai' ? -1 : 1, level: 'easy', style: 'allround', plan: null, serveAt: 0, serveX: 0, recoverUntil: 0 };
+  return { owner, racket, body, s: owner === 'ai' ? -1 : 1, level: 'easy', style: 'allround', name: '', plan: null, serveAt: 0, serveX: 0, recoverUntil: 0,
+    pattern: null,        // { def, step }: this point's pattern (separate from plan, which every hit wipes)
+    intent: null,         // what its next stroke will be, decided when the opponent hits (tells show it)
+    serveIntent: null,    // its serve this point (a pattern's serve or a signature serve)
+    lastSide: 0,          // X side of its previous shot this point ('switch')
+    sigThisPoint: false, sigShown: false,
+    adapt: newAdapt() };
 }
+/** Per-match adaptation state (see ADAPT): decayed miss weights per zone and the current target. */
+function newAdapt() { return { zoneMiss: {}, target: null, heldPoints: 0, hold: ADAPT.hold[0], rest: 0 }; }
 const ai = makeAI('ai', aiRacket, aiBody);
 const nearAI = makeAI('player', player, playerBody);
 /** The CPU that plays `who`'s end, or null when it's you. */
@@ -1700,9 +1836,97 @@ const levelCfg = c => AI_LEVELS[c.level];
 const styleCfg = c => AI_STYLES[c.style];
 /** Z of a point at `depth` on c's half, kept within the CPU's reach. */
 const reachZ = (c, depth) => c.s * clamp(depth, -AI_COMMON.maxZ, -AI_COMMON.minZ);
+const signatureOf = c => SIGNATURE_OF[c.name] || null;
+/** Is c adapting to you? Only the far CPU, only when you play it. */
+const adapting = c => c === ai && !match.watch;
 
 function aiOnOpponentHit(c) {
   c.plan = { readyAt: simTime + levelCfg(c).reactionMs * styleCfg(c).reaction / 1000, computed: false, nextUpdate: 0, point: null, err: null };
+  if (!c.intent) c.intent = decideIntent(c);
+}
+
+/** This point's pattern, if it plays one (serving: patterns that start on its serve are likelier). */
+function pickPattern(c, serving) {
+  if (Math.random() >= levelCfg(c).pattern) return null;
+  const pats = STYLE_PATTERNS[c.style].filter(p => serving || !p.needsServe);
+  const weights = pats.map(p => (serving && p.needsServe ? 1.5 : 1));
+  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+  const def = pats.find((p, i) => (r -= weights[i]) < 0) || pats[0];
+  return { def, step: 0 };
+}
+
+/** Set up c's point: pick a pattern and its serve (or a signature serve). Called in setupServe. */
+function aiStartPoint(c) {
+  Object.assign(c, { intent: null, serveIntent: null, lastSide: 0, sigThisPoint: false });
+  const serving = match.server === c.owner;
+  c.pattern = pickPattern(c, serving);
+  if (!serving) return;
+  if (signatureOf(c) === 'mozart-serve' && Math.random() < SIGNATURES['mozart-serve'].chance) {
+    c.serveIntent = { sig: 'mozart-serve', lean: Math.random() < 0.5 ? -1 : 1 };
+    c.sigThisPoint = true;
+  } else if (c.pattern && c.pattern.def.serve) {
+    c.serveIntent = { ...c.pattern.def.serve };
+  }
+}
+
+/** What c's next stroke will be, decided as the opponent strikes (so the tell can show it while
+ *  the ball comes): a signature, else its pattern's next step, then — vs you — a capped bias
+ *  toward the zone where you keep missing. The mistake roll and the smash check (aiHit) still
+ *  come first. */
+function decideIntent(c) {
+  const sigId = signatureOf(c);
+  if (sigId && !c.sigThisPoint) {
+    const sg = SIGNATURES[sigId], speedIn = Math.hypot(ball.v.x, ball.v.y, ball.v.z);
+    if (sigId === 'phantom-chop' && Math.random() < sg.chance) {
+      c.sigThisPoint = true;
+      return { sig: sigId, spin: 'chop', depth: 'long', key: true };
+    }
+    if (sigId === 'chorei-counter' && speedIn >= sg.minSpeed && Math.random() < sg.chance) {
+      c.sigThisPoint = true;
+      return { sig: sigId, spin: 'flat', side: 'open', depth: 'long', pace: 1.35, key: true };
+    }
+  }
+  let intent = null;
+  const p = c.pattern;
+  if (p && (p.def.loop || p.step < p.def.steps.length)) {
+    intent = { ...p.def.steps[p.step % p.def.steps.length], pattern: p.def.id };
+  }
+  const a = c.adapt;
+  if (adapting(c) && a.target && Math.random() < levelCfg(c).adapt) {
+    const [side, kind] = a.target.split('-');
+    intent = { ...(intent || {}), side, adapt: true };
+    if (kind === 'short') { intent.depth = 'short'; }
+    else { intent.spin = kind === 'chop' ? 'chop' : 'top'; if (intent.depth === 'short') delete intent.depth; }
+  }
+  return intent;
+}
+
+/** The racket's tells for what c is about to do (see Racket.updateMesh). */
+function aiTells(c) {
+  const r = c.racket;
+  const serving = (match.state === 'serve' || match.state === 'toss') && match.server === c.owner;
+  const it = serving ? c.serveIntent : rally.live && c.plan ? c.intent : null;   // from the moment it decides
+  r.windTarget = !serving && it && (it.key || it.sig) ? 1 : 0;
+  r.glowColor = it && it.sig ? SIGNATURES[it.sig].color : null;
+  r.lean = serving && it && it.lean ? it.lean : 0;
+}
+
+/** Bookkeeping after c played a stroke: tag it on the rally (adaptation, scouting, signature
+ *  trail), advance its pattern, and scout what you just saw. */
+function noteAIShot(c, intent, tx, top, short) {
+  const rel = tx * c.s;   // > 0: toward the opponent's backhand side
+  const zone = `${rel > 0.25 ? 'bh' : rel < -0.25 ? 'fh' : 'mid'}-${short ? 'short' : top < 0 ? 'chop' : 'drive'}`;
+  const it = intent || {};
+  rally.botShot = { by: c.owner, zone, sig: it.sig || null, lean: it.lean || 0 };
+  rally.answering = null;
+  c.lastSide = Math.sign(tx) || 1;
+  c.intent = null;
+  if (it.pattern && c.pattern && c.pattern.def.id === it.pattern) {
+    c.pattern.step++;
+    if (it.key) scoutPattern(c, c.pattern.def);
+    if (!c.pattern.def.loop && c.pattern.step >= c.pattern.def.steps.length) c.pattern = null;
+  }
+  if (it.sig) scoutSignature(c, it.sig);
 }
 
 /** Predict the intercept and add this shot's positioning error. Re-run a few times per second
@@ -1730,8 +1954,9 @@ function computeAIPlan(c) {
 /** Where the CPU meets the ball, by style: at the top of the bounce ('top'), early on the rise
  *  ('rise', a blocker) or late and deep as it drops ('drop', a defender's chop). */
 function aiIntercept(c, take) {
-  if (take === 'top') return predictIntercept(ball, c.s, AI_COMMON.reachDepth, -AI_COMMON.maxZ);
-  let bounced = false;
+  // Re-planned after the ball's bounce on c's half: the next bounce would be its second.
+  let bounced = rally.serveStage === 0 && rally.lastHitter !== c.owner && rally.bounceCount >= 1;
+  if (take === 'top') return predictIntercept(ball, c.s, AI_COMMON.reachDepth, -AI_COMMON.maxZ, bounced);
   return simulate(ball, 3, (b, ev, t) => {
     if (ev.floor) return null;
     const pt = { x: b.p.x, y: b.p.y, z: b.p.z, t };
@@ -1775,6 +2000,7 @@ function updateAI(c, dt) {
   r.pos.z = reachZ(c, c.s * r.pos.z);
   r.pos.y = Math.max(r.pos.y, racketMinY(r.pos.x, r.pos.z));
   r.integrateVelocity(dt);
+  aiTells(c);
 }
 
 function aiHit(c) {
@@ -1792,21 +2018,45 @@ function aiHit(c) {
   const sitsUp = clamp((ball.p.y - TABLE_TOP - AI_COMMON.smashHeight) / AI_COMMON.smashFull, 0, 1);
   if (!mistake && speedIn < AI_COMMON.smashSlow && Math.random() < Math.min(1, cfg.smash * st.smash) * sitsUp) return aiSmash(c, speedIn);
 
-  const sideSign = Math.random() < 0.5 ? -1 : 1, power = cfg.power * st.power;
+  // Its plan for this stroke (pattern step, signature, adaptive bias — see decideIntent).
+  const it = c.intent || {};
+  // A ball met over the table (a short ball) leaves no room to swing: a push or a touch, not an attack.
+  const overTable = c.s * ball.p.z < HALF_L - 0.1;
+  const pace = overTable ? Math.min(it.pace || 1, 0.85) : it.pace || 1;
+  const power = cfg.power * st.power;
+  const oppBody = c.owner === 'ai' ? playerBody : aiBody, oppRacket = c.owner === 'ai' ? player : aiRacket;
+  // Side: a pattern's choice (the opponent's backhand is on c.s's side), else a coin flip.
+  let sideSign = it.side === 'bh' ? c.s : it.side === 'fh' ? -c.s
+    : it.side === 'switch' && c.lastSide ? -c.lastSide
+    : it.side === 'open' && Math.abs(oppRacket.pos.x) > 0.1 ? -Math.sign(oppRacket.pos.x)
+    : Math.random() < 0.5 ? -1 : 1;
   let tx = sideSign * Math.min(0.68, 0.62 * st.wide) * (1 - cfg.aimError) + rand(-1, 1) * cfg.aimError * 0.6;   // corners
-  let tz = clamp(0.75 + power * 0.4 + rand(-1, 1) * cfg.aimError * 0.5, 0.45, 1.27);
-  let vh = (3.4 + power * 4.5 + Math.random() * 0.6) * (1 - stretch * 0.35);
+  if (it.side === 'mid') { tx = clamp(oppBody.x, -0.4, 0.4) + rand(-1, 1) * cfg.aimError * 0.6; sideSign = Math.sign(tx) || 1; }   // at the body
+  let tz = it.depth === 'long' ? clamp(1.12 + rand(-1, 1) * cfg.aimError * 0.4, 1.0, 1.27)
+    : clamp(0.75 + power * 0.4 + rand(-1, 1) * cfg.aimError * 0.5, 0.45, 1.27);
+  let vh = (3.4 + power * 4.5 + Math.random() * 0.6) * (1 - stretch * 0.35) * pace;
+  if (overTable) vh *= 0.65;
   // Topspin drives, sometimes a slower chop (heavy backspin: push it back) — how often depends on
-  // the style. Better players spin harder.
-  const chop = Math.random() < st.chop;
-  const top = chop ? -rand(0.55, 1) * (90 + 110 * cfg.spin) * st.chopSpin : rand(0.5, 1) * (50 + 130 * cfg.spin) * st.top;
+  // the style, or on the plan. Better players spin harder.
+  const chop = it.spin ? it.spin === 'chop' || it.spin === 'float' : Math.random() < st.chop || (overTable && Math.random() < 0.6);
+  let top = chop ? -rand(0.55, 1) * (90 + 110 * cfg.spin) * st.chopSpin : rand(0.5, 1) * (50 + 130 * cfg.spin) * st.top;
+  const shownTop = top;   // a float looks just like a chop on the racket face...
+  if (it.spin === 'top') top = rand(0.8, 1) * (50 + 130 * cfg.spin) * Math.max(st.top, 1);
+  if (it.spin === 'flat') top = rand(15, 35);
+  if (it.spin === 'float') top = -rand(5, 15);   // ...but carries almost no spin
+  if (it.sig === 'phantom-chop') top = -rand(0.92, 1) * (300 + 60 * cfg.spin);
+  if (overTable && chop && !it.sig) top *= 0.6;
   if (chop) { vh *= 0.8; tz = Math.max(tz, 0.95); }   // chops are slow and deep
+  if (it.sig === 'chorei-counter') vh = Math.min(vh, 11);
   const side = rand(-1, 1) * cfg.spin * 40 * st.side;
   // A short drop shot, just over the net (only if the opponent can reach it before its second bounce).
-  if (!mistake && Math.random() < st.short) {
+  if (!mistake && (it.depth === 'short' || (!it.depth && Math.random() < st.short))) {
     const drop = solveShot(ball.p, { x: tx * 0.7, z: toward * rand(0.5, 0.7) }, vh * 0.6, top * 0.5, side);
     const meet = drop.land && !drop.land.net && predictIntercept({ p: { ...ball.p }, v: drop.v, w: drop.w }, toward, 2.5, PLAYER_CFG.minZ);
-    if (meet && toward * meet.z >= PLAYER_CFG.minZ - 0.02) return aiPlay(c, drop, top * 0.5, 0.3);
+    if (meet && toward * meet.z >= PLAYER_CFG.minZ - 0.02) {
+      aiPlay(c, drop, it.spin === 'float' ? shownTop * 0.5 : top * 0.5, 0.3);
+      return noteAIShot(c, it, tx * 0.7, top * 0.5, true);
+    }
   }
 
   let kind = mistake ? (Math.random() < 0.4 ? 'long' : Math.random() < 0.5 ? 'wide' : 'net') : null;
@@ -1819,7 +2069,8 @@ function aiHit(c) {
     shot = solveShot(ball.p, { x: tx, z: toward * tz }, vh, top, side);
   }
   if (kind === 'net') shot.v.y -= rand(1.2, 2.2);
-  aiPlay(c, shot, top, 0.4 + power * 0.5);
+  aiPlay(c, shot, it.spin === 'float' ? shownTop : top, 0.4 + power * 0.5);
+  noteAIShot(c, it, tx, top, false);
 }
 function aiPlay(c, shot, top, intensity) {
   applyShot(shot);
@@ -1856,9 +2107,10 @@ function aiSmash(c, speedIn) {
   c.recoverUntil = simTime + AI_COMMON.recovery * 1.5;
   match.stats[c.owner === 'ai' ? 'cpuSmashes' : 'smashes']++;
   const kmh = match.watch ? trackFastest(shot) : Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
-  showMessage('SMASH!', `${match.watch ? nameOf(c.owner) + ' · ' : ''}${Math.round(kmh)} km/h`, match.watch ? 'warn' : 'bad', 0.9);
+  showMessage('SMASH!', `${match.watch ? nameOf(c.owner) + ' · ' : ''}${Math.round(kmh)} km/h`, match.watch ? 'warn' : 'bad', 0.9, 2);
   Sound.smash();
   registerHit(c.owner, 1.2);
+  noteAIShot(c, null, tx, SMASH.topspin, false);   // a smash replaces the planned stroke (the pattern waits)
 }
 
 function aiServeCharge(c) {
@@ -1868,13 +2120,22 @@ function aiServeCharge(c) {
 }
 
 function aiServe(c, charge) {
-  const cfg = levelCfg(c), st = styleCfg(c);
-  const tx = (Math.random() < 0.5 ? -1 : 1) * (0.2 + 0.4 * (1 - cfg.aimError));
-  const back = Math.random() < st.serveBack;
-  const top = (back ? -st.chopSpin : st.top) * rand(0.5, 1) * (40 + 120 * cfg.spin);
-  const side = cfg.spin * rand(-1, 1) * 40 * st.side;
+  const cfg = levelCfg(c), st = styleCfg(c), si = c.serveIntent || {};
+  const sideSign = si.side === 'bh' ? c.s : si.side === 'fh' ? -c.s : Math.random() < 0.5 ? -1 : 1;
+  let tx = sideSign * (0.2 + 0.4 * (1 - cfg.aimError));
+  const fault = charge >= 0.95;   // a rolled serve fault (aiServeCharge) still happens
+  if (!fault && si.long) charge = rand(0.72, 0.78);
+  if (!fault && si.short) charge = rand(0.1, 0.18);
+  const back = si.back ?? Math.random() < st.serveBack;
+  let top = (back ? -st.chopSpin : st.top) * rand(0.5, 1) * (40 + 120 * cfg.spin);
+  let side = cfg.spin * rand(-1, 1) * 40 * st.side;
+  if (si.sig === 'mozart-serve') {   // half-long, heavy sidespin the way the racket leaned
+    if (!fault) charge = rand(0.2, 0.3);
+    top = -rand(20, 40); side = si.lean * rand(150, 175); tx = -si.lean * rand(0.25, 0.4);
+  }
   c.racket.tilt = clamp(top / 140, -1, 1);
   doServe(c.owner, charge, top, side, tx);
+  noteAIShot(c, si, tx, top, !!si.short);
 }
 
 /** Player serve, struck as the tossed ball falls. The swipe while it falls sets the spin:
@@ -1944,7 +2205,9 @@ const match = {
 };
 const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, lastHitTime: 0,
   shotW: { x: 0, y: 0, z: 0 }, shotBounces: 0,   // spin the last stroke put on the ball, table bounces since
-  expectY: 0.92 };                                // height the player's racket waits at before the bounce
+  expectY: 0.92,                                  // height the player's racket waits at before the bounce
+  botShot: null,      // the CPU's last stroke: { by, zone, sig, lean } (adaptation, scouting, signature trail)
+  answering: null };  // that stroke while your return of it is in the air (a clean return or a miss?)
 const idx = who => (who === 'player' ? 0 : 1);
 const other = who => (who === 'player' ? 'ai' : 'player');
 /** The opponent: 'CPU' in a quick match, a named player in the tournament. */
@@ -1957,13 +2220,15 @@ const nameOf = who => (who === 'player' ? home.short : opp.short);
 const isPlaying = () => ['serve', 'toss', 'rally', 'pointOver'].includes(match.state);
 
 function newStats() {
-  return { pointsWon: [0, 0], longestRally: 0, winners: 0, errors: 0, serveFaults: [0, 0], aces: 0, fastest: 0, serves: 0, smashes: 0, cpuSmashes: 0 };
+  return { pointsWon: [0, 0], longestRally: 0, winners: 0, errors: 0, serveFaults: [0, 0], aces: 0, fastest: 0, serves: 0, smashes: 0, cpuSmashes: 0,
+    touches: 0, patterns: {}, sigSeen: 0, sigBeaten: 0 };
 }
 
 /** Set who you play: a quick-match CPU (level + style) or a tournament entrant. */
 function setOpponent(o) {
   Object.assign(opp, { name: o.name, short: o.short || o.name, flag: o.flag || '', color: o.color });
   match.levelKey = ai.level = o.level; match.styleKey = ai.style = o.style;
+  ai.name = o.name;
   aiRacket.setColor(o.color);
   document.documentElement.style.setProperty('--cpu', hex(o.color));
   setCrowdColors('ai', o.color);
@@ -1972,6 +2237,7 @@ function setOpponent(o) {
 function setHome(e) {
   Object.assign(home, e ? { name: e.name, short: e.short, flag: e.flag, color: e.color } : { name: 'You', short: 'You', flag: match.mode === 'tour' ? YOU_FLAG : '', color: COLORS.player });   // your flag: tournament only
   if (e) { nearAI.level = e.level; nearAI.style = e.style; }
+  nearAI.name = e ? e.name : '';
   player.setColor(home.color);
   document.documentElement.style.setProperty('--player', e ? hex(e.color) : '');
   setCrowdColors('player', home.color);
@@ -1986,6 +2252,8 @@ function startMatch() {
   match.paused = false;
   syncPauseButton();
   match.stats = newStats();
+  for (const c of [ai, nearAI]) { c.adapt = newAdapt(); c.sigShown = false; Object.assign(c.racket, { windTarget: 0, glowColor: null, lean: 0 }); }
+  pendingCallouts = [];
   match.after = null; match.timer = 0;
   hideAllMenus();
   $('topbar').classList.remove('hidden');
@@ -2008,13 +2276,13 @@ function startMatch() {
     $('sb-head').textContent = `${match.watch ? '▶ Watching · ' : ''}${tier.label} · ${round} · Best of ${bo}`;
     setAttendance(tier.crowd[r]);
     setBoardText(tier.label);
-    showMessage(round, match.watch ? `${home.flag} ${home.name} vs ${opp.flag} ${opp.name}` : `vs ${opp.flag} ${opp.name} — ${style}`, 'neutral', 2.2);
+    showMessage(round, match.watch ? `${home.flag} ${home.name} vs ${opp.flag} ${opp.name}` : `vs ${opp.flag} ${opp.name} — ${style}`, 'neutral', 2.2, 3);
     crowdReact(null, 0.9);
   } else {
     $('sb-head').textContent = `Quick match · Best of ${bo}`;
     setAttendance(0.35);
     setBoardText('Open');
-    showMessage('Game 1', `vs ${AI_LEVELS[levelKey].label} CPU · ${style}`, 'neutral', 1.6);
+    showMessage('Game 1', `vs ${AI_LEVELS[levelKey].label} CPU · ${style}`, 'neutral', 1.6, 3);
     crowdReact(null, 0.5);
   }
 }
@@ -2032,9 +2300,11 @@ function setupServe(first = false) {
   match.server = currentServer();
   match.state = 'serve';
   match.rallyCount = 0;
-  Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0 });
+  Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0, botShot: null, answering: null });
   match.toss = null;
   for (const c of [ai, nearAI]) { c.plan = null; c.recoverUntil = 0; }
+  aiStartPoint(ai);
+  if (match.watch) aiStartPoint(nearAI);
   pendingUpgrade = null;
   marker.visible = false;
   input.charging = false;
@@ -2073,6 +2343,7 @@ function registerHit(who, intensity) {
   Sound.hit(intensity);
   const self = botFor(who), opponent = botFor(other(who));
   if (self) self.plan = null;
+  if (isYou(who)) rally.answering = rally.botShot;   // your return of the CPU's last stroke
   if (opponent) aiOnOpponentHit(opponent);
   if (who === 'player') {
     marker.visible = false;
@@ -2103,8 +2374,18 @@ function onTableBounce(side) {
     endPoint(other(side), rally.netTouched ? 'hit it into the net' : 'hit it onto {own} side', 'error');
   } else {
     rally.bounceCount++;
+    if (rally.bounceCount === 1 && rally.answering) returnedClean(rally.answering);
     if (rally.bounceCount >= 2) endPoint(rally.lastHitter, 'let it bounce twice', 'miss');
   }
+}
+
+/** Your return of a CPU stroke landed: that zone counts as handled (adaptation), and a returned
+ *  signature shot counts as beaten. */
+function returnedClean(shot) {
+  rally.answering = null;
+  const w = ai.adapt.zoneMiss;
+  if (w[shot.zone]) w[shot.zone] = Math.max(0, w[shot.zone] - ADAPT.returned);
+  if (shot.sig) beatSignature(ai, shot.sig);
 }
 
 function onFloor() {
@@ -2128,7 +2409,7 @@ function serveFault(why) {
 
 function callLet() {
   rally.live = false;
-  showMessage('Let', 'The serve clipped the net — serve again', 'warn', 1.3);
+  showMessage('Let', 'The serve clipped the net — serve again', 'warn', 1.3, 3);
   schedule(GAME.pointDelay, setupServe);
 }
 
@@ -2150,11 +2431,12 @@ function endPoint(winner, why, kind) {
   if (winner === 'player' && kind === 'miss') s.winners++;
   if (loser === 'player' && kind === 'error') s.errors++;
   if (winner === match.server && kind === 'miss' && match.rallyCount === 1) s.aces++;
+  if (adapting(ai)) adaptAfterPoint(ai, winner, kind);
 
   const youWon = winner === 'player';
   const tone = match.watch ? 'neutral' : youWon ? 'good' : 'bad';
-  if (kind === 'fault') showMessage('Fault', `${say(loser, why)} — ${isYou(winner) ? 'your point' : `point to ${nameOf(winner)}`}`, tone, 1.5);
-  else showMessage(isYou(winner) ? 'Your point' : `${nameOf(winner)}'s point`, say(loser, why), tone, 1.5);
+  if (kind === 'fault') showMessage('Fault', `${say(loser, why)} — ${isYou(winner) ? 'your point' : `point to ${nameOf(winner)}`}`, tone, 1.5, 3);
+  else showMessage(isYou(winner) ? 'Your point' : `${nameOf(winner)}'s point`, say(loser, why), tone, 1.5, 3);
   Sound.point(youWon);
   // The crowd: long rallies and big points get them more excited.
   const big = pointSituation() ? 0.25 : 0;
@@ -2163,6 +2445,34 @@ function endPoint(winner, why, kind) {
   updateHUD();
   schedule(GAME.pointDelay, afterPoint);
 }
+
+/** Adaptation, after each point vs you: miss weights fade; a point you lost on the CPU's stroke
+ *  (you didn't return it, or your return went out / into the net) counts against its zone. A
+ *  target is held for a few points, then it switches to another zone or rests — so it never just
+ *  hammers your worst shot. */
+function adaptAfterPoint(c, winner, kind) {
+  const a = c.adapt, shot = rally.botShot;
+  for (const z in a.zoneMiss) a.zoneMiss[z] *= ADAPT.decay;
+  if (winner === c.owner && kind !== 'fault' && shot && shot.by === c.owner) a.zoneMiss[shot.zone] = (a.zoneMiss[shot.zone] || 0) + 1;
+  a.heldPoints++;
+  if (a.target && a.heldPoints < a.hold) return;
+  if (!a.target && a.rest > 0) { a.rest--; return; }
+  const best = Object.entries(a.zoneMiss).filter(([z, w]) => z !== a.target && w >= ADAPT.minWeight).sort((x, y) => y[1] - x[1])[0];
+  const was = a.target;
+  a.heldPoints = 0;
+  if (best) {
+    a.target = best[0];
+    a.hold = ADAPT.hold[0] + Math.floor(Math.random() * (ADAPT.hold[1] - ADAPT.hold[0] + 1));
+    queueCallout('🎯 New plan', `${nameOf(c.owner)} is targeting ${zoneText(a.target)} — you've been missing there`, 'bad');
+  } else if (was) {
+    a.target = null;
+    a.rest = ADAPT.rest;
+    queueCallout('Plan dropped', `${nameOf(c.owner)} stops targeting ${zoneText(was)}`, 'neutral');
+  }
+}
+const ZONE_SIDE = { bh: 'backhand', fh: 'forehand', mid: 'body' };
+const ZONE_KIND = { drive: 'topspin', chop: 'backspin', short: 'short balls' };
+const zoneText = z => { const [sd, k] = z.split('-'); return `your ${ZONE_SIDE[sd]} with ${ZONE_KIND[k]}`; };
 
 function afterPoint() {
   const [p, a] = match.points;
@@ -2175,7 +2485,7 @@ function afterPoint() {
   if (match.games[idx(winner)] >= match.gamesToWin) return endMatch(winner);
   const gameNo = match.games[0] + match.games[1];
   showMessage(isYou(winner) ? `You win game ${gameNo}` : `${nameOf(winner)} wins game ${gameNo}`,
-    `${home.short} ${p} – ${a} ${opp.short} · Games ${match.games[0]} – ${match.games[1]}`, match.watch ? 'neutral' : winner === 'player' ? 'good' : 'bad', 2.4);
+    `${home.short} ${p} – ${a} ${opp.short} · Games ${match.games[0]} – ${match.games[1]}`, match.watch ? 'neutral' : winner === 'player' ? 'good' : 'bad', 2.4, 3);
   Sound.fanfare(winner === 'player');
   crowdReact(winner, 1);
   setTimeout(startWave, 900);
@@ -2183,7 +2493,7 @@ function afterPoint() {
     match.points = [0, 0];
     match.gameStarter = other(match.gameStarter);   // alternate first server each game
     setupServe();
-    showMessage(`Game ${match.games[0] + match.games[1] + 1}`, `${nameOf(match.server)} ${isYou(match.server) ? 'serve' : 'serves'} first`, 'neutral', 1.4);
+    showMessage(`Game ${match.games[0] + match.games[1] + 1}`, `${nameOf(match.server)} ${isYou(match.server) ? 'serve' : 'serves'} first`, 'neutral', 1.4, 3);
   });
 }
 
@@ -2203,9 +2513,13 @@ function schedule(delay, fn) { match.timer = delay; match.after = fn; }
    UI — HUD, messages, menus
    ===================================================================== */
 const $ = id => document.getElementById(id);
-let msgTimer = 0;
+let msgTimer = 0, msgPriority = 0;
 
-function showMessage(main, sub = '', tone = 'neutral', duration = 1.4) {
+/** Center message. A message showing can't be replaced by a less important one (priority:
+ *  1 = info, edge balls · 2 = smashes, signature call-outs · 3 = points, games, the match). */
+function showMessage(main, sub = '', tone = 'neutral', duration = 1.4, priority = 1) {
+  if (msgTimer > 0 && priority < msgPriority) return;
+  msgPriority = priority;
   const el = $('msg');
   $('msg-main').textContent = main;
   $('msg-sub').textContent = sub;
@@ -2213,6 +2527,16 @@ function showMessage(main, sub = '', tone = 'neutral', duration = 1.4) {
   void el.offsetWidth;   // restart the pop animation
   el.className = 'show ' + tone;
   msgTimer = duration;
+}
+
+/** Call-outs that can wait (adaptation, a newly scouted pattern): shown one at a time while a
+ *  serve is being set up and no other message is up. */
+let pendingCallouts = [];
+function queueCallout(main, sub, tone = 'neutral') { if (pendingCallouts.length < 3) pendingCallouts.push({ main, sub, tone }); }
+function showCallouts() {
+  if (!pendingCallouts.length || msgTimer > 0 || match.state !== 'serve') return;
+  const c = pendingCallouts.shift();
+  showMessage(c.main, c.sub, c.tone, 2, 2);
 }
 
 /** Set a scorebug number; a changed value gets a short "bump" so the eye catches it. */
@@ -2252,6 +2576,10 @@ function updateHUD() {
   const rally = $('tag-rally');
   rally.classList.toggle('hidden', match.rallyCount < 4);
   rally.textContent = `RALLY ${match.rallyCount}`;
+  // Adaptation is visible: what the CPU is going after right now.
+  const target = isPlaying() && adapting(ai) ? ai.adapt.target : null, adapt = $('tag-adapt');
+  adapt.classList.toggle('hidden', !target);
+  if (target) adapt.textContent = `🎯 ${zoneText(target).replace('your ', '').toUpperCase()}`;
   const serving = match.state === 'serve' && isYou(match.server);
   $('power-wrap').classList.toggle('hidden', !serving);
   $('hint').classList.toggle('hidden', !serving);
@@ -2272,6 +2600,44 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* not saved */ } },
 };
+/** Scouting knowledge, recorded silently in the browser (not shown in the UI; lost quietly if
+ *  storage is blocked): per style, the
+ *  patterns you've seen (patterns are per style, so watching or playing any player of a style
+ *  counts); per player, their signature — seen yet, and how often you've returned it. */
+const SCOUT_KEY = 'pp3d.scout';
+const scout = (() => {
+  const v = store.get(SCOUT_KEY, null);
+  return v && typeof v === 'object' && v.styles && v.players ? v : { styles: {}, players: {} };
+})();
+const saveScout = () => store.set(SCOUT_KEY, scout);
+const styleCard = st => (scout.styles[st] ||= { seen: [] });
+const playerCard = name => (scout.players[name] ||= { seenSignature: false, beatSignature: 0 });
+
+/** c just played the key shot of a pattern: count it, and scout it the first time. */
+function scoutPattern(c, def) {
+  match.stats.patterns[def.id] = (match.stats.patterns[def.id] || 0) + 1;
+  const card = styleCard(c.style);
+  if (card.seen.includes(def.id)) return;
+  card.seen.push(def.id);
+  saveScout();
+}
+/** c just played its signature: announce it the first time in a match, scout it the first time ever. */
+function scoutSignature(c, id) {
+  const sg = SIGNATURES[id], card = playerCard(sg.owner), first = !card.seenSignature;
+  if (c === ai) match.stats.sigSeen++;
+  if (first) { card.seenSignature = true; saveScout(); }
+  if (c.sigShown) return;   // later in the match: only the tell
+  c.sigShown = true;
+  showMessage(`★ ${sg.name}`, `${nameOf(c.owner)}'s signature — ${sg.counter}`, 'warn', 2.6, 2);
+}
+/** You returned a signature shot. */
+function beatSignature(c, id) {
+  const sg = SIGNATURES[id], card = playerCard(sg.owner);
+  card.beatSignature++;
+  saveScout();
+  match.stats.sigBeaten++;
+}
+
 const quick = { level: 'easy', style: 'allround' };   // quick-match choices
 let selTier = 'pro', uiMode = 'quick';
 
@@ -2372,7 +2738,7 @@ function cycleFastForward() {
   watchSpeed = WATCH_SPEEDS[(WATCH_SPEEDS.indexOf(watchSpeed) + 1) % WATCH_SPEEDS.length];
   store.set('pp3d.watchSpeed', watchSpeed);
   syncFastForward();
-  showMessage(watchSpeed === 1 ? 'Normal speed' : `⏩ ${watchSpeed}× speed`, '', 'neutral', 0.8);
+  showMessage(watchSpeed === 1 ? 'Normal speed' : `⏩ ${watchSpeed}× speed`, '', 'neutral', 0.8, 3);
 }
 /** The pause button shows ▶ while paused (it resumes), ❚❚ while playing. */
 function syncPauseButton() {
@@ -2423,6 +2789,7 @@ function showEndMenu(winner) {
     ['Aces (both)', s.aces],
     [`Smashes (you / ${o})`, `${s.smashes} / ${s.cpuSmashes}`],
     ['Fastest shot', `${Math.round(s.fastest)} km/h`],
+    ['Your short touches', s.touches],
   ];
   if (!match.watch) $('end-stats').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
   $('btn-continue').classList.toggle('hidden', !tourMode);
@@ -2712,7 +3079,7 @@ const Sound = {
   toggleMute() {
     this.muted = !this.muted;
     if (this.master) this.master.gain.value = this.muted ? 0 : 0.6;
-    showMessage(this.muted ? 'Muted' : 'Sound on', '', 'neutral', 0.8);
+    showMessage(this.muted ? 'Muted' : 'Sound on', '', 'neutral', 0.8, 3);
     $('mute-x').style.display = this.muted ? '' : 'none';
     $('mute-wave').style.display = this.muted ? 'none' : '';
     $('btn-mute').setAttribute('aria-label', this.muted ? 'Unmute' : 'Mute');
@@ -2801,14 +3168,17 @@ function stepLiveBall(dt) {
   checkSmashUpgrade();
   if (checkVolley()) return;
 
+  // Over the table the blade can't dip low (racketMinY): like yours, the CPU's contact is lenient
+  // vertically there, so it can reach in for a short ball.
+  const botYWeight = Math.abs(ball.p.z) < HALF_L ? PLAYER_CFG.yWeight : 1;
   if (match.watch) {
-    if (canHit('player') && racketContact(player, AI_COMMON.hitRadius, 1, false) >= 0) return aiHit(nearAI);
+    if (canHit('player') && racketContact(player, AI_COMMON.hitRadius, botYWeight, false) >= 0) return aiHit(nearAI);
   } else if (canHit('player') || (DEBUG.on && rally.lastHitter === 'ai')) {   // debug also logs pre-bounce crossings
     const d = racketContact(player, PLAYER_CFG.hitRadius, PLAYER_CFG.yWeight);
     if (d >= 0 && canHit('player')) return playerHit(d);
   }
   if (canHit('ai')) {
-    if (racketContact(aiRacket, AI_COMMON.hitRadius, 1) >= 0) return aiHit(ai);
+    if (racketContact(aiRacket, AI_COMMON.hitRadius, botYWeight) >= 0) return aiHit(ai);
   }
   if (simTime - rally.lastHitTime > GAME.rallyTimeout) onFloor();   // safety net
 }
@@ -2919,13 +3289,15 @@ function frame(now) {
   if (match.state !== 'menu') updateLiveHUD();
   updateCrowd(dt, now / 1000);
   if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0) $('msg').classList.remove('show'); }
+  if (match.state !== 'menu' && !match.paused) showCallouts();
 
   renderer.render(scene, camera);
 }
 
 // Debug/console hook (handy for tuning; not used by the game itself).
 window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiRacket, input, AI_LEVELS, predictIntercept, startMatch, playerServe, PLAYER_CFG,
-  playerBody, aiBody, togglePause, updateHUD, endMatch, showTourHub, Sound, get tour() { return tour; }, get simTime() { return simTime; } };
+  playerBody, aiBody, togglePause, updateHUD, endMatch, showTourHub, Sound, ai, nearAI, scout, watchTourMatch, newTournament, playTourMatch,
+  get tour() { return tour; }, get simTime() { return simTime; } };
 
 showStartMenu();
 requestAnimationFrame(frame);
