@@ -31,12 +31,20 @@
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
   .hidden { display: none !important; }
 
-  /* ---------- Scoreboard ---------- */
-  #hud {
-    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
-    pointer-events: none; z-index: 5;
+  /* ---------- Top bar: meter · scoreboard + info · pause ----------
+     Everything sits at the top: the player's racket lives at the bottom, where overlays would hide it.
+     Wide screens: one row (meter left, scoreboard centered, pause right). Narrow screens: the
+     scoreboard and pause share the first row, the info bar and meter get full-width rows below. */
+  #topbar {
+    position: fixed; top: 12px; left: 12px; right: 12px; z-index: 5; pointer-events: none;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 6px 12px;
+    grid-template-areas: "meter score pause" ". info hint";
   }
+  #scoreboard { grid-area: score; }
+  .infobar { grid-area: info; justify-self: center; }
+  #meters { grid-area: meter; justify-self: start; }
+  #btn-pause { grid-area: pause; justify-self: end; }
+  #hint { grid-area: hint; justify-self: end; }
   .scoreboard {
     display: flex; align-items: stretch; background: var(--panel);
     border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
@@ -55,14 +63,14 @@
   .games .gp { color: var(--player); } .games .ga { color: var(--cpu); }
   .center .label { font-size: 9px; letter-spacing: 0.14em; color: var(--muted); white-space: nowrap; }
   .infobar {
-    display: flex; gap: 16px; font-size: 12px; background: var(--panel);
+    display: flex; gap: 16px; font-size: 12px; background: var(--panel); white-space: nowrap;
     padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted);
   }
   .infobar b { color: var(--text); }
 
   /* ---------- On-screen pause button (touch devices have no P/Esc) ---------- */
   #btn-pause {
-    position: fixed; top: 12px; right: 12px; z-index: 7; width: 48px; height: 48px;
+    pointer-events: auto; width: 48px; height: 48px;
     border-radius: 12px; border: 1px solid var(--border); background: var(--panel); color: var(--text);
     font-size: 18px; font-weight: 800; cursor: pointer; touch-action: manipulation;
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
@@ -85,14 +93,9 @@
   #msg.neutral #msg-main { color: #fff; }
   @keyframes pop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-  /* ---------- Meters (serve power / swing + spin gauge) and hints ----------
-     Kept at the top of the screen: the player's racket lives at the bottom, where overlays would hide it. */
-  #bottom {
-    position: fixed; top: 12px; left: 12px;
-    display: flex; flex-direction: column; gap: 8px; pointer-events: none; z-index: 5;
-  }
-  .meter { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 7px 11px; width: 180px; }
-  .meter .lbl { font-size: 10px; letter-spacing: .14em; color: var(--muted); margin-bottom: 6px; font-weight: 700; }
+  /* ---------- Meter (swing during rallies, serve power while serving) and hint ---------- */
+  .meter { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 7px 11px; width: 230px; }
+  .meter .lbl { font-size: 10px; letter-spacing: .12em; color: var(--muted); margin-bottom: 6px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bar { position: relative; height: 10px; border-radius: 6px; background: rgba(255,255,255,.1); overflow: hidden; }
   #power-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #57e389, #ffd23f); }
   #swing-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #57e389; transition: background .1s; }
@@ -100,14 +103,10 @@
   .smash-mark { position: absolute; top: 0; bottom: 0; left: 66.6%; width: 2px; background: rgba(255,255,255,.7); }
   #swing-label.hot { color: #ff7a5c; font-weight: 800; }
   .zone-out { position: absolute; top: 0; bottom: 0; right: 0; width: 12%; background: rgba(255, 80, 80, .55); }
-  .gauge { position: relative; height: 10px; border-radius: 6px; background: linear-gradient(90deg, #3d8bff, rgba(255,255,255,.15) 50%, #ff8c42); }
-  #spin-needle { position: absolute; top: -3px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: #fff; left: 50%; box-shadow: 0 0 6px #000; }
-  #tilt-needle { position: absolute; top: 2px; width: 8px; height: 6px; margin-left: -4px; border-radius: 3px; background: var(--gold); left: 50%; }
-  .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 4px; }
   #hint {
-    position: fixed; right: 12px; top: 70px; max-width: 280px; font-size: 12px; line-height: 1.45;
+    max-width: 280px; font-size: 12px; line-height: 1.45;
     color: var(--muted); background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; padding: 8px 12px; pointer-events: none; z-index: 5;
+    border-radius: 10px; padding: 8px 12px;
   }
   #hint b { color: var(--text); }
 
@@ -157,22 +156,39 @@
   @media (pointer: coarse), (max-height: 500px) {
     #hint { display: none; }
   }
+  /* Narrow screens (phones in portrait, small windows): stack below the scoreboard row.
+     Short landscape phones keep the single row (below) — they have width but no height to spare. */
+  @media (max-width: 860px) and (min-height: 501px) {
+    #topbar { left: 8px; right: 8px; top: 8px; grid-template-columns: 1fr auto; gap: 6px 8px;
+      grid-template-areas: "score pause" "info info" "meter meter"; }
+    #scoreboard { justify-self: center; }
+    #meters { justify-self: center; }
+    .meter { width: min(280px, 100%); }
+    #hint { display: none; }
+  }
   @media (max-width: 640px) {
     .levels { grid-template-columns: repeat(2, 1fr); }
     .side { padding: 4px 10px; } .side .pts { font-size: 26px; min-width: 32px; }
     .side .name { display: none; }
-    #hint { display: none; }
+    .infobar { gap: 12px; font-size: 11px; padding: 4px 12px; }
+    #btn-pause { width: 44px; height: 44px; }
   }
-  /* Short landscape phones: compact meters so they fit beside the scoreboard. */
+  /* Very narrow phones (≤ 380 px): tighten the scoreboard so the pause button fits beside it. */
+  @media (max-width: 380px) {
+    .side { padding: 4px 6px; gap: 6px; } .side .pts { font-size: 22px; min-width: 26px; }
+    .center { padding: 4px 8px; } .center .label { letter-spacing: .04em; font-size: 8px; }
+    .infobar { gap: 8px; font-size: 10px; padding: 4px 10px; }
+  }
+  /* Short landscape phones: compact everything to keep the table visible. */
   @media (max-height: 500px) {
-    .meter { width: 150px; padding: 5px 9px; }
+    #topbar { top: 6px; gap: 4px 8px; }
+    .meter { width: 170px; padding: 5px 9px; }
     .meter .lbl { font-size: 9px; margin-bottom: 4px; }
-    .ticks { display: none; }
-  }
-  /* Portrait: the scoreboard takes the full width, so the meters sit in a row below it. */
-  @media (max-aspect-ratio: 1/1) {
-    #bottom { top: 128px; left: 50%; transform: translateX(-50%); flex-direction: row; }
-    .meter { width: 160px; }
+    .side { padding: 4px 10px; } .side .name { display: none; }
+    .side .pts { font-size: 24px; min-width: 30px; } .games { font-size: 16px; }
+    .infobar { font-size: 11px; padding: 3px 10px; }
+    #btn-pause { width: 40px; height: 40px; }
+    #msg { top: 45%; }
   }
 </style>
 </head>
@@ -180,8 +196,8 @@
 <canvas id="game"></canvas>
 
 <!-- ===== HUD ===== -->
-<div id="hud" class="hidden">
-  <div class="scoreboard">
+<div id="topbar" class="hidden">
+  <div class="scoreboard" id="scoreboard">
     <div class="side you"><span class="name">YOU</span><span id="score-p" class="pts">0</span><span id="serve-p" class="serve-dot"></span></div>
     <div class="center">
       <div class="games"><span class="gp" id="games-p">0</span> – <span class="ga" id="games-a">0</span></div>
@@ -195,28 +211,22 @@
     <span>Rally <b id="hud-rally">0</b></span>
     <span>Speed <b id="hud-speed">-</b></span>
   </div>
+  <div id="meters">
+    <div class="meter" id="swing-wrap">
+      <div class="lbl">SWING · <span id="swing-label">flick = smash</span></div>
+      <div class="bar"><div id="swing-fill"></div><div class="smash-mark"></div></div>
+    </div>
+    <div class="meter" id="power-wrap">
+      <div class="lbl">SERVE POWER · <span>red = long</span></div>
+      <div class="bar"><div id="power-fill"></div><div class="zone-out"></div></div>
+    </div>
+  </div>
+  <button id="btn-pause" aria-label="Pause">❚❚</button>
+  <div id="hint" class="hidden"></div>
 </div>
-
-<button id="btn-pause" class="hidden" aria-label="Pause">❚❚</button>
 
 <div id="msg"><div id="msg-main"></div><div id="msg-sub"></div></div>
 
-<div id="bottom" class="hidden">
-  <div class="meter" id="swing-wrap">
-    <div class="lbl">SWING · <span id="swing-label">flick forward to smash</span></div>
-    <div class="bar"><div id="swing-fill"></div><div class="smash-mark"></div></div>
-  </div>
-  <div class="meter" id="power-wrap">
-    <div class="lbl">SERVE POWER</div>
-    <div class="bar"><div id="power-fill"></div><div class="zone-out"></div></div>
-  </div>
-  <div class="meter">
-    <div class="lbl">INCOMING SPIN</div>
-    <div class="gauge"><div id="spin-needle"></div><div id="tilt-needle" class="hidden"></div></div>
-    <div class="ticks"><span>Back</span><span>Flat</span><span>Top</span></div>
-  </div>
-</div>
-<div id="hint" class="hidden"></div>
 
 <!-- ===== Start menu ===== -->
 <div id="menu-start" class="menu">
@@ -228,12 +238,12 @@
     <div class="levels speeds" id="speeds"></div>
     <button class="btn" id="btn-start">Start Match</button>
     <div class="controls">
-      <b>Move:</b> <kbd>Mouse</kbd> / drag anywhere / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. Your feet are the disc on the floor; the racket reaches around them.<br>
+      <b>Move:</b> <kbd>Mouse</kbd> / drag anywhere / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. Your racket can only reach so far from where you stand.<br>
       <b>Strokes</b> — how you swipe as the ball arrives:<br>
       &nbsp;· <b>hold still</b> = block · <b>swipe forward</b> = drive (faster = harder, more topspin)<br>
       &nbsp;· <b>quick flick forward</b> (or <kbd>Shift</kbd>) = smash — best on high balls<br>
       &nbsp;· <b>pull back</b> = push (backspin) · hit off-center or swipe sideways to angle the ball<br>
-      <b>Read the spin:</b> the <b>Incoming spin</b> gauge shows what the CPU put on the ball. Topspin → block or drive; backspin → push. The wrong stroke drifts long or short — a hard drive can fly out.<br>
+      <b>Read the spin</b> from the CPU's racket face and the ball's dots: topspin → block or drive; backspin (a chop) → push. The wrong stroke drifts long or short — a hard drive can fly out.<br>
       <b>Serve:</b> hold <kbd>Space</kbd> / mouse / finger, release to toss (red zone = long). Swipe as the ball falls: forward = topspin, pull back = backspin.<br>
       <kbd>Q</kbd>/<kbd>E</kbd> or <kbd>Wheel</kbd> tilt the face: backspin / topspin · <kbd>P</kbd>/<kbd>Esc</kbd>/❚❚ pause · <kbd>H</kbd> bounce marker · <kbd>M</kbd> mute<br>
       <b>Rules:</b> let the ball bounce on your side first — touching it before is a volley and loses the point. Edge balls count; the side of the table doesn't.
@@ -859,19 +869,9 @@ class Racket {
 const player = new Racket('player', COLORS.player, { x: 0, y: PLAYER_CFG.restY, z: 1.8 });
 const aiRacket = new Racket('ai', COLORS.ai, AI_COMMON.home);
 
-/** Where each player's feet are (XZ) and how fast they're moving; see moveBody. A soft disc on the
- *  floor shows it, so you can see why the racket can't reach a ball yet. */
+/** Where each player's feet are (XZ) and how fast they're moving; see moveBody. */
 const playerBody = { x: 0, z: 1.8, vx: 0, vz: 0 };
 const aiBody = { x: 0, z: AI_COMMON.home.z, vx: 0, vz: 0 };
-function makeFeetMarker(color) {
-  const m = new THREE.Mesh(new THREE.CircleGeometry(0.2, 32),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, depthWrite: false }));
-  m.rotation.x = -Math.PI / 2;
-  m.position.y = 0.006;
-  scene.add(m);
-  return m;
-}
-const feet = { player: makeFeetMarker(COLORS.player), ai: makeFeetMarker(COLORS.ai) };
 function placeBody(body, x, z) { Object.assign(body, { x, z, vx: 0, vz: 0 }); }
 
 /* =====================================================================
@@ -1025,11 +1025,13 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && isP
 
 /** Map the mouse to the racket's reachable area: left/right → X, up/down → depth (Z).
  *  The lower ~60% of the screen spans from the farthest step back to full reach over the table. */
-const MOUSE_MAP = { xRange: 1.3, ndcNear: -1, ndcFar: 0.2, zNear: 2.5 };
+// xGain: the mouse reaches the side limits at 1/xGain of the way to the screen edge, so a wide
+// ball doesn't need a huge hand movement (touch drags have their own gain, TOUCH_GAIN).
+const MOUSE_MAP = { xRange: 1.3, xGain: 1.5, ndcNear: -1, ndcFar: 0.2, zNear: 2.5 };
 function updateMouseTarget() {
   if (!input.mouseActive) return;
   const t = clamp((input.ndc.y - MOUSE_MAP.ndcNear) / (MOUSE_MAP.ndcFar - MOUSE_MAP.ndcNear), 0, 1);
-  input.target.x = input.ndc.x * MOUSE_MAP.xRange;
+  input.target.x = clamp(input.ndc.x * MOUSE_MAP.xGain, -1, 1) * MOUSE_MAP.xRange;
   input.target.z = MOUSE_MAP.zNear + (PLAYER_CFG.minZ - MOUSE_MAP.zNear) * t;
 }
 
@@ -1252,7 +1254,7 @@ function playerHit(contactDist) {
   r.swing = 1;
   const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
   match.stats.fastest = Math.max(match.stats.fastest, kmh);
-  if (edge) showMessage('Edge!', '', 'warn', 0.7);
+  if (edge) showMessage('Edge!', 'off the edge of your racket', 'warn', 0.7);
   registerHit('player', power);
   pendingUpgrade = { hitTime: rally.lastHitTime, offX, x: ball.p.x, y: ball.p.y };
 }
@@ -1484,7 +1486,6 @@ const match = {
 };
 const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, lastHitTime: 0,
   shotW: { x: 0, y: 0, z: 0 }, shotBounces: 0,   // spin the last stroke put on the ball, table bounces since
-  shotTop: 0,                                     // ...its topspin (+) / backspin (-) part, rad/s
   expectY: 0.92 };                                // height the player's racket waits at before the bounce
 const idx = who => (who === 'player' ? 0 : 1);
 const other = who => (who === 'player' ? 'ai' : 'player');
@@ -1504,9 +1505,7 @@ function startMatch(levelKey) {
   match.stats = newStats();
   match.after = null; match.timer = 0;
   hideAllMenus();
-  $('hud').classList.remove('hidden');
-  $('btn-pause').classList.remove('hidden');
-  $('bottom').classList.remove('hidden');
+  $('topbar').classList.remove('hidden');
   $('hint').classList.remove('hidden');
   player.pos.set(0, PLAYER_CFG.restY, 1.8);
   aiRacket.pos.set(AI_COMMON.home.x, AI_COMMON.home.y, AI_COMMON.home.z);
@@ -1567,8 +1566,6 @@ function registerHit(who, intensity) {
   rally.lastHitTime = simTime;
   rally.shotW = { ...ball.w };
   rally.shotBounces = 0;
-  const h = Math.hypot(ball.v.x, ball.v.z) || 1;   // topspin component about the direction of travel
-  rally.shotTop = (ball.w.x * ball.v.z - ball.w.z * ball.v.x) / h;
   match.rallyCount++;
   Sound.hit(intensity);
   if (who === 'player') {
@@ -1589,34 +1586,34 @@ function onTableBounce(side) {
   const server = match.server, receiver = other(server);
   if (rally.serveStage === 1) {
     if (side === server) rally.serveStage = 2;
-    else serveFault('Serve must bounce on the server’s side first');
+    else serveFault('served without bouncing it on {own} side first');
   } else if (rally.serveStage === 2) {
     if (side === receiver) {
       if (rally.netTouched) return callLet();
       rally.serveStage = 0;
       rally.bounceCount = 1;
     } else {
-      serveFault(rally.netTouched ? 'Serve into the net' : 'Serve fault');
+      serveFault(rally.netTouched ? 'served into the net' : 'bounced the serve twice on {own} side');
     }
   } else if (side === rally.lastHitter) {
-    endPoint(other(side), rally.netTouched ? 'Into the net' : 'Bounced on own side', 'error');
+    endPoint(other(side), rally.netTouched ? 'hit it into the net' : 'hit it onto {own} side', 'error');
   } else {
     rally.bounceCount++;
-    if (rally.bounceCount >= 2) endPoint(rally.lastHitter, 'Double bounce', 'miss');
+    if (rally.bounceCount >= 2) endPoint(rally.lastHitter, 'let it bounce twice', 'miss');
   }
 }
 
 function onFloor() {
   if (rally.serveStage > 0) {
-    let why = 'Serve missed the table';
-    if (rally.netTouched) why = 'Serve into the net';
-    else if (rally.serveStage === 2) why = Math.abs(ball.p.x) > HALF_W ? 'Serve went wide' : 'Serve went long';
+    let why = 'served off the table';
+    if (rally.netTouched) why = 'served into the net';
+    else if (rally.serveStage === 2) why = Math.abs(ball.p.x) > HALF_W ? 'served wide' : 'served long';
     serveFault(why);
   } else if (rally.bounceCount === 0) {
-    const why = rally.netTouched ? 'Into the net' : Math.abs(ball.p.x) > HALF_W ? 'Out — wide' : 'Out — long';
+    const why = rally.netTouched ? 'hit it into the net' : Math.abs(ball.p.x) > HALF_W ? 'hit it wide' : 'hit it long';
     endPoint(other(rally.lastHitter), why, 'error');
   } else {
-    endPoint(rally.lastHitter, 'Missed return', 'miss');
+    endPoint(rally.lastHitter, 'missed the ball', 'miss');
   }
 }
 
@@ -1627,11 +1624,15 @@ function serveFault(why) {
 
 function callLet() {
   rally.live = false;
-  showMessage('Let', 'Serve touched the net — replay', 'warn', 1.3);
+  showMessage('Let', 'The serve clipped the net — serve again', 'warn', 1.3);
   schedule(GAME.pointDelay, setupServe);
 }
 
-/** kind: 'error' (loser hit out/net), 'miss' (loser failed to return), 'fault' (serve fault). */
+/** What `who` did, as a sentence: "CPU hit it long", "You let it bounce twice". */
+const say = (who, what) => `${nameOf(who)} ${what.replace('{own}', who === 'player' ? 'your own' : 'its own')}`;
+
+/** why: what the loser did ("hit it long"; {own} = "your own"/"its own").
+ *  kind: 'error' (loser hit out/net), 'miss' (loser failed to return), 'fault' (serve fault). */
 function endPoint(winner, why, kind) {
   if (!rally.live) return;
   rally.live = false;
@@ -1647,8 +1648,9 @@ function endPoint(winner, why, kind) {
   if (winner === match.server && kind === 'miss' && match.rallyCount === 1) s.aces++;
 
   const youWon = winner === 'player';
-  if (kind === 'fault') showMessage('Fault', `${nameOf(loser)}: ${why} · point ${nameOf(winner)}`, youWon ? 'good' : 'bad', 1.5);
-  else showMessage('Point!', `${youWon ? 'You score' : 'CPU scores'} — ${nameOf(loser)}: ${why}`, youWon ? 'good' : 'bad', 1.5);
+  const tone = youWon ? 'good' : 'bad';
+  if (kind === 'fault') showMessage('Fault', `${say(loser, why)} — ${youWon ? 'your point' : 'point to CPU'}`, tone, 1.5);
+  else showMessage(youWon ? 'Your point' : 'CPU point', say(loser, why), tone, 1.5);
   Sound.point(youWon);
   updateHUD();
   schedule(GAME.pointDelay, afterPoint);
@@ -1662,13 +1664,15 @@ function afterPoint() {
   match.games[idx(winner)]++;
   updateHUD();
   if (match.games[idx(winner)] >= GAME.gamesToWin) return endMatch(winner);
-  showMessage(`Game ${winner === 'player' ? 'You' : 'CPU'}`, `${p} – ${a} · Games ${match.games[0]} – ${match.games[1]}`, winner === 'player' ? 'good' : 'bad', 2.4);
+  const gameNo = match.games[0] + match.games[1];
+  showMessage(winner === 'player' ? `You win game ${gameNo}` : `CPU wins game ${gameNo}`,
+    `You ${p} – ${a} CPU · Games ${match.games[0]} – ${match.games[1]}`, winner === 'player' ? 'good' : 'bad', 2.4);
   Sound.fanfare(winner === 'player');
   schedule(GAME.gameDelay, () => {
     match.points = [0, 0];
     match.gameStarter = other(match.gameStarter);   // alternate first server each game
     setupServe();
-    showMessage(`Game ${match.games[0] + match.games[1] + 1}`, '', 'neutral', 1.2);
+    showMessage(`Game ${match.games[0] + match.games[1] + 1}`, `${nameOf(match.server)} ${match.server === 'player' ? 'serve' : 'serves'} first`, 'neutral', 1.4);
   });
 }
 
@@ -1715,8 +1719,8 @@ function updateHUD() {
     : '<b>Still</b> = block · <b>swipe forward</b> = drive · <b>flick</b>/<b>Shift</b> = smash · <b>pull back</b> = push (vs backspin) · <b>Q/E/Wheel</b> spin · <b>P</b> pause';
 }
 
-/** Per-frame HUD bits: serve power bar and spin gauge. */
-let swingPeak = 0, spinShown = 0;
+/** Per-frame HUD bits: swing meter and serve power bar. */
+let swingPeak = 0;
 function updateLiveHUD() {
   // Swing speed (sideways + forward), held briefly at its peak so a swipe is readable.
   // Full bar = 1.5 × smash threshold.
@@ -1725,14 +1729,8 @@ function updateLiveHUD() {
   $('swing-fill').style.width = clamp(swingPeak / (SMASH.minSwing * 1.5), 0, 1) * 100 + '%';
   $('swing-fill').classList.toggle('hot', hot);
   $('swing-label').classList.toggle('hot', hot);
-  $('swing-label').textContent = hot ? 'SMASH!' : 'flick forward to smash';
+  $('swing-label').textContent = hot ? 'SMASH!' : 'flick = smash';
   $('power-fill').style.width = (input.charging ? currentCharge() * 100 : 0) + '%';
-  // Incoming spin (what the CPU put on the ball): pick your stroke from it.
-  const incoming = rally.live && rally.lastHitter === 'ai' ? clamp(rally.shotTop / 180, -1, 1) : 0;
-  spinShown += (incoming - spinShown) * 0.25;
-  $('spin-needle').style.left = (50 + spinShown * 45) + '%';
-  $('tilt-needle').style.left = (50 + input.tilt * 45) + '%';
-  $('tilt-needle').classList.toggle('hidden', Math.abs(input.tilt) < 0.02);
 }
 
 function hideAllMenus() {
@@ -1774,9 +1772,7 @@ function showStartMenu() {
   match.paused = false;
   rally.live = false;
   marker.visible = false;
-  $('hud').classList.add('hidden');
-  $('btn-pause').classList.add('hidden');
-  $('bottom').classList.add('hidden');
+  $('topbar').classList.add('hidden');
   $('hint').classList.add('hidden');
   $('menu-start').classList.remove('hidden');
   setBall({ x: 0, y: 1.3, z: 0.5 });
@@ -1791,8 +1787,8 @@ function togglePause() {
 
 function showEndMenu(winner) {
   const s = match.stats, lvl = LEVEL_ORDER.indexOf(match.levelKey);
-  $('end-title').textContent = winner === 'player' ? '🏆 You Win!' : 'CPU Wins';
-  $('end-sub').textContent = `Games ${match.games[0]} – ${match.games[1]} vs ${AI_LEVELS[match.levelKey].label} CPU`;
+  $('end-title').textContent = winner === 'player' ? '🏆 You win the match!' : 'CPU wins the match';
+  $('end-sub').textContent = `Games: You ${match.games[0]} – ${match.games[1]} CPU · ${AI_LEVELS[match.levelKey].label} level`;
   const rows = [
     ['Points won', `${s.pointsWon[0]} – ${s.pointsWon[1]}`],
     ['Longest rally', `${s.longestRally} hits`],
@@ -1807,9 +1803,7 @@ function showEndMenu(winner) {
   const next = $('btn-next');
   next.disabled = lvl >= LEVEL_ORDER.length - 1;
   next.textContent = next.disabled ? 'Max Level' : `Next Level: ${AI_LEVELS[LEVEL_ORDER[lvl + 1]].label}`;
-  $('hud').classList.add('hidden');
-  $('btn-pause').classList.add('hidden');
-  $('bottom').classList.add('hidden');
+  $('topbar').classList.add('hidden');
   $('hint').classList.add('hidden');
   $('menu-end').classList.remove('hidden');
 }
@@ -1956,11 +1950,11 @@ function checkVolley() {
     ball.v.z *= -0.6; ball.v.x *= 0.6;   // dead block off the racket
     Sound.hit(0.3);
     if (Math.abs(ball.p.x) <= HALF_W && Math.abs(ball.p.z) <= HALF_L) {
-      endPoint(other(who), 'Volley — hit before the bounce', 'error');
+      endPoint(other(who), 'hit it before it bounced (volley)', 'error');
     } else {
-      const why = Math.abs(ball.p.x) > HALF_W ? 'went wide' : 'went long';
-      if (rally.serveStage > 0) serveFault(`Serve ${why}`);
-      else endPoint(who, `Out — ${why === 'went wide' ? 'wide' : 'long'}`, 'error');
+      const wide = Math.abs(ball.p.x) > HALF_W;
+      if (rally.serveStage > 0) serveFault(wide ? 'served wide' : 'served long');
+      else endPoint(who, wide ? 'hit it wide' : 'hit it long', 'error');
     }
     return true;
   }
@@ -2044,10 +2038,6 @@ function frame(now) {
   const swipeTilt = simTime - swing.strokeAt <= PLAYER_CFG.strokeWindow ? clamp(swing.sf, -2, 3) * 0.3 : 0;
   player.updateMesh(dt, match.state === 'menu' ? 0 : clamp(input.tilt + swipeTilt, -1, 1));
   aiRacket.updateMesh(dt, aiRacket.tilt);
-  const showFeet = match.state !== 'menu';
-  feet.player.visible = feet.ai.visible = showFeet;
-  feet.player.position.set(playerBody.x, 0.006, playerBody.z);
-  feet.ai.position.set(aiBody.x, 0.006, aiBody.z);
   updateCamera(dt);
   if (marker.visible) marker.material.opacity = 0.5 + 0.25 * Math.sin(now / 120);
   if (match.state !== 'menu') updateLiveHUD();
