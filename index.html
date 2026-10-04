@@ -70,7 +70,7 @@
   .tag.ai { background: var(--cpu); border-color: transparent; }
   .tag.deuce { background: var(--gold); color: #10131a; border-color: transparent; }
 
-  /* ---------- On-screen pause button (touch devices have no P/Esc) ---------- */
+  /* ---------- On-screen HUD buttons: help, mute, pause ---------- */
   .hud-btns { display: flex; gap: 8px; }
   .hud-btn {
     pointer-events: auto; width: 44px; height: 44px; display: grid; place-items: center;
@@ -232,7 +232,7 @@
     #scorebug { --row: 40px; } .sb-pts { font-size: 25px; width: 50px; } .sb-name { font-size: 14px; }
     .sb-games { font-size: 15px; width: 32px; } .tag { font-size: 12px; }
   }
-  /* Touch devices and small screens: the keyboard/mouse hint just gets in the way. */
+  /* Touch devices and small screens: the mouse hint just gets in the way. */
   @media (pointer: coarse), (max-height: 500px), (max-width: 640px) {
     #hint { display: none; }
   }
@@ -270,6 +270,7 @@
   <div class="hud-col right">
     <div class="hud-btns">
     <button id="btn-help" class="hud-btn" aria-label="How to play">?</button>
+    <button id="btn-mute" class="hud-btn" aria-label="Mute"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 6h3l4-3.5v11L5 10H2z"/><path id="mute-x" d="M11 5.5l4 5m0-5l-4 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none" style="display:none"/><path id="mute-wave" d="M11 5a4 4 0 0 1 0 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></button>
     <button id="btn-pause" class="hud-btn" aria-label="Pause"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
     </div>
     <div id="hint" class="hidden"></div>
@@ -339,14 +340,14 @@
   <div class="card">
     <h2>How to play</h2>
     <div class="controls">
-      <b>Move:</b> <kbd>Mouse</kbd> / drag anywhere / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. Your racket can only reach so far from where you stand.<br>
+      <b>Move:</b> <kbd>Mouse</kbd> / drag anywhere. Your racket can only reach so far from where you stand.<br>
       <b>Strokes</b> — how you swipe as the ball arrives:<br>
       &nbsp;· <b>hold still</b> = block · <b>swipe forward</b> = drive (faster = harder, more topspin)<br>
-      &nbsp;· <b>quick flick forward</b> (or <kbd>Shift</kbd>) = smash — safe on a ball that sits up high; a low, fast or spinny ball can still go long or into the net. A gentler flick is safer<br>
+      &nbsp;· <b>quick flick forward</b> = smash — safe on a ball that sits up high; a low, fast or spinny ball can still go long or into the net. A gentler flick is safer<br>
       &nbsp;· <b>pull back</b> = push (backspin) · hit off-center or swipe sideways to angle the ball<br>
       <b>Read the spin</b> from the CPU's racket face and the ball's dots: topspin → block or drive; backspin (a chop) → push. The wrong stroke drifts long or short — a hard drive can fly out.<br>
-      <b>Serve:</b> hold <kbd>Space</kbd> / mouse / finger, release to toss (red zone = long). Swipe as the ball falls: forward = topspin, pull back = backspin.<br>
-      <kbd>Q</kbd>/<kbd>E</kbd> or <kbd>Wheel</kbd> tilt the face: backspin / topspin · <kbd>P</kbd>/<kbd>Esc</kbd>/❚❚ pause · <kbd>H</kbd> bounce marker · <kbd>M</kbd> mute<br>
+      <b>Serve:</b> hold mouse / finger, release to toss (red zone = long). Swipe as the ball falls: forward = topspin, pull back = backspin.<br>
+      <kbd>Wheel</kbd> tilts the face: backspin / topspin · on-screen buttons: ❚❚ pause, 🔊 mute<br>
       <b>Rules:</b> let the ball bounce on your side first — touching it before is a volley and loses the point. Edge balls count; the side of the table doesn't.
     </div>
     <button class="btn" id="btn-help-close" style="margin-top:16px">Got it</button>
@@ -431,7 +432,7 @@ const REACH = {
 };
 
 /** Smash: a quick FORWARD flick of the racket at contact (finger/mouse moving up the screen —
- *  straight or diagonal, e.g. bottom-left → top-right), or Shift. Sideways moves (defending,
+ *  straight or diagonal, e.g. bottom-left → top-right). Sideways moves (defending,
  *  chasing a wide ball) never smash. Flat, very fast, topspin; the flick's direction steers it.
  *  Safe on a high ball; a low, fast or spinny one is a gamble (see AIM). */
 const SMASH = {
@@ -454,7 +455,6 @@ const PLAYER_CFG = {
   serveMaxZ: 1.75,        // ...but close enough to bounce the ball on your own half
   serveMaxX: 0.75,
   restY: 0.92,
-  keySpeed: 2.6,          // m/s with keyboard
   followRate: 40,         // racket (arm) smoothing toward the target (1/s)
   heightRate: 30,
   bodySpeed: 4.5,         // footwork: top speed (m/s) and acceleration (m/s²) — quick, so the
@@ -805,7 +805,7 @@ const AIM = {
   offCenter: 1.0,         // contact off the sweet spot (×1 within 40% of the racket radius, ×1.6 at the edge)
   yaw: 0.7,               // sideways error relative to up/down
   spinBias: 0.25,         // a smash against spin: degrees per 100 rad/s, topspin lifts it long and
-                          // backspin drops it into the net; a closed / open face (Q/E, wheel) counters
+                          // backspin drops it into the net; a closed / open face (wheel) counters
   rescues: 1,             // player assist: a hand error that would miss is replayed up to this many
   rescue: 0.5,            // times, each with the error scaled by this — near misses land, wild ones don't
 };
@@ -1046,7 +1046,7 @@ buildTable();
 setBoardText('Open');
 
 /* =====================================================================
-   ARENA — stands, spectators (instanced) and the umpire. The crowd's mood
+   ARENA — stands and spectators (instanced). The crowd's mood
    (crowd.energy) rises on points and fades; fans of the side that won jump
    and raise their arms. A Mexican wave runs between games.
    ===================================================================== */
@@ -1094,21 +1094,8 @@ function buildArena() {
     });
   });
   for (const m of [crowdBodies, crowdHeads, crowdArms]) { m.frustumCulled = false; scene.add(m); }
-  buildUmpire();
 }
 
-function buildUmpire() {
-  const g = new THREE.Group(), metal = std(0x30343c, { metalness: 0.5, roughness: 0.4 }), jacket = std(0x1b2a4a);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(box(0.035, 0.95, 0.035, metal, sx * 0.2, 0.475, sz * 0.2));
-  g.add(box(0.5, 0.05, 0.5, metal, 0, 0.97, 0));
-  g.add(box(0.42, 0.6, 0.28, jacket, 0, 1.3, 0));
-  g.add(box(0.12, 0.2, 0.02, std(0xffffff), 0, 1.47, 0.145, false));   // shirt collar
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 12), std(0xe0ac69));
-  head.position.set(0, 1.72, 0); head.castShadow = true; g.add(head);
-  for (const sx of [-1, 1]) g.add(box(0.08, 0.4, 0.08, jacket, sx * 0.25, 1.25, 0.06));
-  g.position.set(-(HALF_W + 1.7), 0, 0); g.rotation.y = Math.PI / 2;   // faces the net
-  scene.add(g);
-}
 
 /** How full the arena is (0..1). Seats fill front rows first. */
 function setAttendance(a) {
@@ -1275,7 +1262,6 @@ const marker = new THREE.Mesh(
 marker.rotation.x = -Math.PI / 2;
 marker.visible = false;
 scene.add(marker);
-let showMarker = true;
 
 // Motion trail, shown for fast balls (smashes).
 const TRAIL_N = 14;
@@ -1324,32 +1310,16 @@ function renderBall(alpha, dt) {
 }
 
 /* =====================================================================
-   INPUT — mouse/touch (pointer events) and keyboard
+   INPUT — mouse/touch (pointer events)
    ===================================================================== */
 const input = {
-  keys: new Set(),
   mouseActive: false,
   ndc: new THREE.Vector2(0, -0.4),
   target: { x: 0, z: 1.8 },    // where the player wants the racket (XZ)
-  wheelTilt: 0, keyTilt: 0, tilt: 0,
+  wheelTilt: 0, tilt: 0,
   charging: false, chargeStart: 0,
 };
-const keyDown = (...codes) => codes.some(c => input.keys.has(c));
 
-window.addEventListener('keydown', e => {
-  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
-  Sound.init();
-  if (e.repeat) return;
-  input.keys.add(e.code);
-  if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
-  else if (e.code === 'Space') startCharge();
-  else if (e.code === 'KeyH') { showMarker = !showMarker; if (!showMarker) marker.visible = false; }
-  else if (e.code === 'KeyM') Sound.toggleMute();
-});
-window.addEventListener('keyup', e => {
-  input.keys.delete(e.code);
-  if (e.code === 'Space') releaseCharge();
-});
 // Touch drags the racket relative to where the finger lands (like a trackpad), so the racket never
 // jumps under the finger and a quick swipe becomes a swing. Mouse maps the cursor directly.
 let touchLast = null;
@@ -1387,7 +1357,7 @@ canvas.addEventListener('contextmenu', e => e.preventDefault());
 // magnifier. Cancelling the native touch stops it; pointer events (used for all input) still fire.
 canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
 document.addEventListener('selectstart', e => e.preventDefault());
-window.addEventListener('blur', () => { input.keys.clear(); if (isPlaying() && !match.paused) togglePause(); });
+window.addEventListener('blur', () => { if (isPlaying() && !match.paused) togglePause(); });
 // Mobile: switching apps or locking the screen pauses the game.
 document.addEventListener('visibilitychange', () => { if (document.hidden && isPlaying() && !match.paused) togglePause(); });
 
@@ -1424,23 +1394,11 @@ function releaseCharge() {
 /** Player: the feet run toward the target (limited speed/acceleration, behind the end line), the
  *  racket follows the target as far as the arm reaches; height auto-tracks an incoming ball. */
 function updatePlayer(dt) {
-  let kx = 0, kz = 0;
-  if (keyDown('KeyA', 'ArrowLeft')) kx -= 1;
-  if (keyDown('KeyD', 'ArrowRight')) kx += 1;
-  if (keyDown('KeyW', 'ArrowUp')) kz -= 1;
-  if (keyDown('KeyS', 'ArrowDown')) kz += 1;
-  if (kx || kz) {
-    input.mouseActive = false;
-    input.target.x += kx * PLAYER_CFG.keySpeed * dt / timeScale();
-    input.target.z += kz * PLAYER_CFG.keySpeed * dt / timeScale();
-  }
   input.target.x = clamp(input.target.x, PLAYER_CFG.minX, PLAYER_CFG.maxX);
   input.target.z = clamp(input.target.z, PLAYER_CFG.minZ, PLAYER_CFG.maxZ);
   keepOnScreen(input.target);
 
-  const kt = (keyDown('KeyE') ? 1 : 0) - (keyDown('KeyQ') ? 1 : 0);
-  input.keyTilt += (kt - input.keyTilt) * (1 - Math.exp(-10 * dt));
-  input.tilt = clamp(input.wheelTilt + input.keyTilt, -1, 1);
+  input.tilt = input.wheelTilt;
 
   const serving = (match.state === 'serve' || match.state === 'toss') && match.server === 'player';
   const r = player, k = 1 - Math.exp(-PLAYER_CFG.followRate * dt);
@@ -1593,7 +1551,6 @@ function playerHit(contactDist) {
   // Only forward-pointing flicks count; one that peaked a moment ago still does.
   const swingSpeed = Math.max(smashIntent(sl, sf), recentSwing());
   if (swingSpeed >= SMASH.minSwing) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl, contact);
-  if (keyDown('ShiftLeft', 'ShiftRight')) return playerSmash(SMASH.minSwing, sl, contact);
   const push = sf <= -PLAYER_CFG.pushMin, fwd = Math.max(0, sf);
   const power = push ? PLAYER_CFG.pushPower : clamp(0.38 + fwd * 0.085, 0.2, PLAYER_CFG.maxPower);
   const tilt = input.tilt;
@@ -1874,7 +1831,7 @@ function aiServe(charge) {
 }
 
 /** Player serve, struck as the tossed ball falls. The swipe while it falls sets the spin:
- *  forward = topspin, pull back = backspin, sideways = sidespin (plus Q/E/wheel tilt). */
+ *  forward = topspin, pull back = backspin, sideways = sidespin (plus wheel tilt). */
 function playerServe(charge) {
   const { sl, sf } = strokeSwipe();
   const tx = clamp(player.pos.x * 0.7 + sl * 0.05, -0.6, 0.6);
@@ -2053,7 +2010,7 @@ function registerHit(who, intensity) {
     marker.visible = false;
   } else {
     ai.plan = null;
-    const m = showMarker ? predictBounce(ball, 1) : null;
+    const m = predictBounce(ball, 1);
     marker.visible = !!m;
     if (m) marker.position.set(m.x, TABLE_TOP + 0.003, m.z);
     const meet = predictIntercept(ball, 1, 2.5, PLAYER_CFG.minZ);
@@ -2230,7 +2187,7 @@ function updateHUD() {
   const serving = match.state === 'serve' && match.server === 'player';
   $('power-wrap').classList.toggle('hidden', !serving);
   $('hint').classList.toggle('hidden', !serving);
-  $('hint').innerHTML = '<b>Your serve.</b> Hold <b>Space</b> or the mouse button, release to toss — avoid the red zone. Swipe as it falls: forward = topspin, back = backspin.';
+  $('hint').innerHTML = '<b>Your serve.</b> Hold the mouse button or your finger, release to toss — avoid the red zone. Swipe as it falls: forward = topspin, back = backspin.';
 }
 
 /** Per-frame HUD bit: the serve power bar. */
@@ -2564,6 +2521,7 @@ $('btn-tour-continue').addEventListener('click', () => { Sound.init(); showTourH
 $('btn-resume').addEventListener('click', togglePause);
 $('btn-pause').addEventListener('click', e => { e.stopPropagation(); togglePause(); });
 $('btn-help').addEventListener('click', e => { e.stopPropagation(); showHelp(); });
+$('btn-mute').addEventListener('click', e => { e.stopPropagation(); Sound.init(); Sound.toggleMute(); });
 $('btn-help-close').addEventListener('click', hideHelp);
 $('btn-restart').addEventListener('click', () => startMatch());
 $('btn-quit').addEventListener('click', () => (match.mode === 'tour' ? showTourHub() : showStartMenu()));
@@ -2601,6 +2559,9 @@ const Sound = {
     this.muted = !this.muted;
     if (this.master) this.master.gain.value = this.muted ? 0 : 0.6;
     showMessage(this.muted ? 'Muted' : 'Sound on', '', 'neutral', 0.8);
+    $('mute-x').style.display = this.muted ? '' : 'none';
+    $('mute-wave').style.display = this.muted ? 'none' : '';
+    $('btn-mute').setAttribute('aria-label', this.muted ? 'Unmute' : 'Mute');
   },
 
   ready() { return this.ctx && !this.muted && this.ctx.state === 'running'; },
