@@ -71,14 +71,16 @@
   .tag.deuce { background: var(--gold); color: #10131a; border-color: transparent; }
 
   /* ---------- On-screen pause button (touch devices have no P/Esc) ---------- */
-  #btn-pause {
+  .hud-btns { display: flex; gap: 8px; }
+  .hud-btn {
     pointer-events: auto; width: 44px; height: 44px; display: grid; place-items: center;
     border-radius: 12px; border: 1px solid var(--border); background: rgba(10, 13, 20, 0.82); color: var(--text);
     cursor: pointer; touch-action: manipulation; padding: 0;
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   }
-  #btn-pause svg { width: 16px; height: 16px; }
-  #btn-pause:active { background: rgba(255,255,255,.15); }
+  .hud-btn svg { width: 16px; height: 16px; }
+  #btn-help { font: inherit; font-size: 19px; font-weight: 900; }
+  .hud-btn:active { background: rgba(255,255,255,.15); }
 
   /* ---------- Center messages ("Point!", "Fault") ---------- */
   #msg {
@@ -144,12 +146,82 @@
     font: inherit; font-weight: 800; font-size: 15px; color: #10131a; background: var(--gold); margin: 4px 6px 4px 0;
   }
   .btn.alt { background: rgba(255,255,255,.1); color: var(--text); }
+  /* Start menu actions: full width, stacked (Continue / Start Over in the tournament tab). */
+  #act-quick .btn, #act-tour .btn { display: block; width: 100%; margin: 0 0 8px; padding: 14px 20px; font-size: 16px; }
   .btn:disabled { opacity: .35; cursor: default; }
   .btn:hover:not(:disabled) { filter: brightness(1.1); }
-  .controls { margin-top: 16px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .controls { font-size: 14px; color: var(--muted); line-height: 1.65; }
+  .controls b { color: var(--text); }
   .controls kbd {
     display: inline-block; padding: 0 6px; border-radius: 5px; background: rgba(255,255,255,.12);
     color: var(--text); font-family: inherit; font-size: 12px; border-bottom: 2px solid rgba(255,255,255,.2);
+  }
+  .levels.styles { grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); }
+  .levels.styles .level-btn { padding: 10px 4px; }
+  .levels.tiers { grid-template-columns: repeat(3, 1fr); }
+  details.rules summary { cursor: pointer; color: var(--text); font-weight: 700; }
+
+  /* Mode tabs on the start menu */
+  .tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,.05); margin: 10px 0 16px; }
+  .tab {
+    flex: 1; border: 0; border-radius: 9px; padding: 9px 8px; cursor: pointer; font: inherit; font-weight: 800;
+    font-size: 14px; color: var(--muted); background: transparent;
+  }
+  .tab.sel { background: rgba(255,255,255,.12); color: var(--text); }
+  .saved {
+    margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45;
+    background: rgba(255, 210, 63, .08); border: 1px solid rgba(255, 210, 63, .25);
+  }
+
+  /* ---------- Tournament hub: bracket + next opponent ---------- */
+  .card.wide { max-width: 760px; }
+  .eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+  .tour-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 14px; }
+  .tour-head h2 { margin: 2px 0 0; }
+  .titles { font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
+  .bracket { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .bcol { display: flex; flex-direction: column; min-width: 0; }
+  .bms { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 8px; }
+  .bcol h4 { margin: 0 0 2px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); text-align: center; }
+  .bm { border-radius: 9px; overflow: hidden; border: 1px solid var(--border); background: rgba(255,255,255,.04); }
+  .bm.live { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 18px rgba(255,210,63,.18); }
+  .bp { display: flex; align-items: center; gap: 6px; padding: 5px 8px; font-size: 12px; color: var(--muted); min-width: 0; }
+  .bp + .bp { border-top: 1px solid var(--border); }
+  .bp .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bp .sc { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .bp.win { color: var(--text); font-weight: 700; }
+  .bp.you .nm { color: var(--player); font-weight: 800; }
+  .bp.lost { opacity: .45; }
+  .champ { text-align: center; padding: 8px 6px; border-radius: 9px; background: rgba(255,210,63,.1); border: 1px dashed rgba(255,210,63,.4); font-size: 12px; }
+  .champ b { display: block; font-size: 13px; color: var(--gold); }
+  .opp { display: flex; gap: 14px; padding: 14px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid var(--border); margin-bottom: 12px; }
+  .opp-flag { font-size: 42px; line-height: 1; }
+  .opp-name { font-size: 20px; font-weight: 900; margin: 2px 0 6px; }
+  .opp-name i { font-style: normal; color: var(--muted); font-weight: 700; font-size: .8em; }
+  .chip { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.08); margin: 0 4px 4px 0; }
+  .chip.style { background: var(--opp, var(--cpu)); color: #fff; }
+  .opp p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+  .opp p b { color: var(--text); }
+  .attrs { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; align-items: center; margin-top: 8px; font-size: 11px; color: var(--muted); max-width: 320px; }
+  .attrs .bar { height: 5px; }
+  .attrs .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--opp, var(--cpu)); border-radius: 3px; }
+  .result { padding: 14px; border-radius: 14px; margin-bottom: 12px; font-size: 15px; line-height: 1.5; background: rgba(255,255,255,.05); border: 1px solid var(--border); }
+  .result.gold { background: rgba(255,210,63,.12); border-color: rgba(255,210,63,.4); }
+  details.rules { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+  details.rules ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.6; }
+  details.rules b { color: var(--text); }
+  .sb-head {
+    grid-column: 1 / -1; padding: 4px 10px; font-size: 10px; font-weight: 800; letter-spacing: .14em;
+    color: #10131a; background: var(--gold); white-space: nowrap; text-transform: uppercase;
+  }
+  .sb-name .fl { margin-right: 5px; letter-spacing: 0; }
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 20; overflow: hidden; }
+  #confetti i { position: absolute; top: -20px; width: 8px; height: 14px; border-radius: 2px; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translate3d(var(--dx), 110vh, 0) rotate(var(--r)); } }
+  @media (max-width: 520px) {
+    .bp { padding: 4px 5px; font-size: 11px; gap: 4px; }
+    .opp-flag { font-size: 32px; }
+    .card { padding: 20px 18px; }
   }
   table.stats { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 14px; }
   table.stats td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
@@ -173,7 +245,7 @@
     #scorebug { --row: 26px; }
     .sb-pts { font-size: 17px; width: 36px; } .sb-name { font-size: 11px; }
     .meter { width: 170px; padding: 4px 9px 6px; }
-    #btn-pause { width: 38px; height: 38px; }
+    .hud-btn { width: 38px; height: 38px; }
     #msg { top: 45%; }
   }
 </style>
@@ -185,8 +257,9 @@
 <div id="topbar" class="hidden">
   <div class="hud-col">
     <div id="scorebug" aria-label="Score">
+      <div class="sb-head" id="sb-head"></div>
       <div class="sb-row you"><span class="sb-team"></span><span class="sb-name">YOU</span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
-      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name">CPU<small id="cpu-level"></small></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
+      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
     </div>
     <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span></div>
     <div class="meter hidden" id="power-wrap">
@@ -195,7 +268,10 @@
     </div>
   </div>
   <div class="hud-col right">
-    <button id="btn-pause" aria-label="Pause"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
+    <div class="hud-btns">
+    <button id="btn-help" class="hud-btn" aria-label="How to play">?</button>
+    <button id="btn-pause" class="hud-btn" aria-label="Pause"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
+    </div>
     <div id="hint" class="hidden"></div>
   </div>
 </div>
@@ -207,11 +283,61 @@
 <div id="menu-start" class="menu">
   <div class="card">
     <h1>PING <span class="r">PONG</span> <span class="b">3D</span></h1>
-    <p class="sub">Table tennis. Games to 11, win by 2, best of 3.</p>
-    <div class="levels" id="levels"></div>
+    <div class="tabs" role="tablist">
+      <button class="tab sel" data-mode="quick" role="tab">Quick Match</button>
+      <button class="tab" data-mode="tour" role="tab">🏆 Tournament</button>
+    </div>
+    <div id="pane-quick">
+      <p class="sub">One match against the CPU. Games to 11, win by 2, best of 3.</p>
+      <div class="row-label">Level</div>
+      <div class="levels" id="levels"></div>
+      <div class="row-label">Opponent style</div>
+      <div class="levels styles" id="styles"></div>
+    </div>
+    <div id="pane-tour" class="hidden">
+      <p class="sub">8 players, single elimination: Quarterfinal → Semifinal → Final. Every opponent has their own style — scout them, then beat them.</p>
+      <div class="row-label">Event</div>
+      <div class="levels tiers" id="tiers"></div>
+      <div id="tour-saved" class="saved hidden"></div>
+    </div>
     <div class="row-label">Game speed</div>
     <div class="levels speeds" id="speeds"></div>
-    <button class="btn" id="btn-start">Start Match</button>
+    <div id="act-quick"><button class="btn" id="btn-start">Start Match</button></div>
+    <div id="act-tour" class="hidden">
+      <button class="btn" id="btn-tour-continue">Continue</button>
+      <button class="btn" id="btn-tour-new">Enter Tournament</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Tournament hub: bracket, next opponent, rules ===== -->
+<div id="menu-tour" class="menu hidden">
+  <div class="card wide">
+    <div class="tour-head">
+      <div><div class="eyebrow" id="tour-tier"></div><h2 id="tour-title"></h2></div>
+      <div class="titles" id="tour-titles"></div>
+    </div>
+    <div class="bracket" id="bracket"></div>
+    <div id="tour-next"></div>
+    <details class="rules">
+      <summary>Tournament rules</summary>
+      <ul>
+        <li><b>Single elimination</b>, 8 players. Lose a match and you're out.</li>
+        <li><b>Quarterfinal &amp; Semifinal:</b> best of 3 games. <b>Final:</b> best of 5.</li>
+        <li>Games to <b>11</b>, win by <b>2</b>. Serve passes every 2 points — every point from 10–10.</li>
+        <li>The first server alternates each game. A serve that clips the net and lands in is a <b>let</b>: served again.</li>
+        <li>The serve must bounce on your side, then theirs. In a rally the ball must bounce on your side before you hit it — no volleys.</li>
+        <li>Edge balls count; the side of the table doesn't. Leaving a match unfinished doesn't count — you can replay it.</li>
+      </ul>
+    </details>
+    <div id="tour-actions"></div>
+  </div>
+</div>
+
+<!-- ===== How to play (the ? button in the HUD) ===== -->
+<div id="menu-help" class="menu hidden">
+  <div class="card">
+    <h2>How to play</h2>
     <div class="controls">
       <b>Move:</b> <kbd>Mouse</kbd> / drag anywhere / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. Your racket can only reach so far from where you stand.<br>
       <b>Strokes</b> — how you swipe as the ball arrives:<br>
@@ -223,12 +349,13 @@
       <kbd>Q</kbd>/<kbd>E</kbd> or <kbd>Wheel</kbd> tilt the face: backspin / topspin · <kbd>P</kbd>/<kbd>Esc</kbd>/❚❚ pause · <kbd>H</kbd> bounce marker · <kbd>M</kbd> mute<br>
       <b>Rules:</b> let the ball bounce on your side first — touching it before is a volley and loses the point. Edge balls count; the side of the table doesn't.
     </div>
+    <button class="btn" id="btn-help-close" style="margin-top:16px">Got it</button>
   </div>
 </div>
 
 <!-- ===== Pause menu ===== -->
 <div id="menu-pause" class="menu hidden">
-  <div class="card" style="max-width:380px;text-align:center">
+  <div class="card" style="max-width:400px;text-align:center">
     <h2>Paused</h2>
     <p class="sub" id="pause-info"></p>
     <button class="btn" id="btn-resume">Resume</button>
@@ -243,11 +370,13 @@
     <h2 id="end-title">You Win!</h2>
     <p class="sub" id="end-sub"></p>
     <table class="stats" id="end-stats"></table>
+    <button class="btn hidden" id="btn-continue">Continue →</button>
     <button class="btn" id="btn-again">Play Again</button>
     <button class="btn" id="btn-next">Next Level</button>
     <button class="btn alt" id="btn-menu">Main Menu</button>
   </div>
 </div>
+<div id="confetti"></div>
 
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -353,6 +482,55 @@ const AI_LEVELS = {
 };
 const LEVEL_ORDER = ['easy', 'medium', 'hard'];
 const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruthless' };
+
+/** Playing styles, layered on top of a level (multipliers of its numbers, 1 = unchanged).
+ *  chop: share of strokes played as backspin chops (chopSpin scales their backspin) ·
+ *  top / side: topspin and sidespin · power: pace · smash: smash rate · mistake: error rate ·
+ *  depth: how far behind its home position it stands (m; < 0 = closer to the table) ·
+ *  wide: how close to the side lines it aims · short: share of short, slow drop shots ·
+ *  serveBack: share of backspin serves · reaction: reaction time ·
+ *  take: when it meets the ball — 'top' of the bounce, on the 'rise', or as it 'drop's. */
+const AI_STYLES = {
+  allround: { label: 'All-rounder', tag: 'Balanced', blurb: 'No obvious weakness: steady drives with the odd chop.', tip: 'Be patient and move it around — find the error.',
+    chop: 0.2, chopSpin: 1, top: 1, side: 1, power: 1, smash: 1, mistake: 1, depth: 0, wide: 1, short: 0.06, serveBack: 0.5, reaction: 1, take: 'top' },
+  attacker: { label: 'Attacker', tag: 'Loops & smashes', blurb: 'Heavy topspin loops and a smash for anything that sits up — but takes risks.', tip: 'Keep it low: block the loops and wait for the error.',
+    chop: 0.04, chopSpin: 1, top: 1.35, side: 0.8, power: 1.15, smash: 1.6, mistake: 1.4, depth: 0.2, wide: 1.05, short: 0.03, serveBack: 0.3, reaction: 1, take: 'top' },
+  defender: { label: 'Defender', tag: 'Chops from deep', blurb: 'Stands far back and chops almost everything with heavy backspin.', tip: 'Push the chops (pull back), and attack only a ball that sits up.',
+    chop: 0.75, chopSpin: 1.25, top: 0.8, side: 0.5, power: 0.82, smash: 0.4, mistake: 0.7, depth: 0.55, wide: 0.95, short: 0.04, serveBack: 0.85, reaction: 1, take: 'drop' },
+  blocker: { label: 'Blocker', tag: 'Quick & flat', blurb: 'Hugs the table and redirects your pace with flat, quick blocks to the corners.', tip: 'Little spin to read — but stand ready for the corners.',
+    chop: 0.05, chopSpin: 1, top: 0.4, side: 0.3, power: 1.05, smash: 0.7, mistake: 0.85, depth: -0.15, wide: 1.1, short: 0.12, serveBack: 0.4, reaction: 0.8, take: 'rise' },
+  wizard: { label: 'Spin Wizard', tag: 'Sidespin & tricks', blurb: 'Wicked sidespin, sneaky short balls and spin that changes every shot.', tip: 'Watch its racket face — every ball is different. Step in for the short ones.',
+    chop: 0.35, chopSpin: 1.3, top: 1.15, side: 2.3, power: 0.9, smash: 0.8, mistake: 1.1, depth: 0.1, wide: 1, short: 0.22, serveBack: 0.5, reaction: 1, take: 'top' },
+};
+const STYLE_ORDER = ['allround', 'attacker', 'defender', 'blocker', 'wizard'];
+
+/** Tournament opponents (fictional). Rackets avoid the player's red. */
+const ROSTER = [
+  { name: 'Kai Brenner', nick: 'The Wall', flag: '🇩🇪', style: 'blocker', color: 0x2f80ed },
+  { name: 'Mei Lin', nick: 'Lightning', flag: '🇨🇳', style: 'attacker', color: 0xe0a100 },
+  { name: 'Luca Moretti', nick: 'The Professor', flag: '🇮🇹', style: 'defender', color: 0x2bb673 },
+  { name: 'Hiro Tanaka', nick: 'Spin Doctor', flag: '🇯🇵', style: 'wizard', color: 0x9b51e0 },
+  { name: 'Sven Ostberg', nick: 'Iceman', flag: '🇸🇪', style: 'allround', color: 0x56ccf2 },
+  { name: 'Ana Souza', nick: 'Samba', flag: '🇧🇷', style: 'attacker', color: 0x1fa463 },
+  { name: 'Jae-won Park', nick: 'The Monk', flag: '🇰🇷', style: 'defender', color: 0x8c8c99 },
+  { name: 'Olu Adeyemi', nick: 'Big O', flag: '🇳🇬', style: 'allround', color: 0x6fcf97 },
+  { name: 'Pierre Laval', nick: 'Le Magicien', flag: '🇫🇷', style: 'wizard', color: 0x3b5bdb },
+  { name: 'Priya Nair', nick: 'Rapid', flag: '🇮🇳', style: 'blocker', color: 0xf2994a },
+];
+
+/** Events: the level of each seed (1 = strongest) and how full the arena is per round. */
+const TIERS = {
+  club:  { label: 'Club Open', blurb: 'Friendly local event', levels: ['medium', 'medium', 'easy', 'easy', 'easy', 'easy', 'easy'], crowd: [0.3, 0.45, 0.65], fans: 120 },
+  pro:   { label: 'Pro Tour', blurb: 'The real circuit', levels: ['hard', 'hard', 'medium', 'medium', 'easy', 'easy', 'easy'], crowd: [0.5, 0.75, 1], fans: 2400 },
+  world: { label: 'World Championship', blurb: 'Only the best', levels: ['hard', 'hard', 'hard', 'hard', 'medium', 'medium', 'medium'], crowd: [0.7, 0.9, 1], fans: 9000 },
+};
+const TIER_ORDER = ['club', 'pro', 'world'];
+const ROUND_NAMES = ['Quarterfinal', 'Semifinal', 'Final'];
+const ROUND_BEST_OF = [3, 3, 5];
+/** Bracket slots by seed (index 7 = you, a wildcard): you meet seed 7 first, the bottom half's
+ *  top seed (3) in the semifinal, and seed 1 or 2 in the final. */
+const BRACKET_SEEDS = [1, 6, 2, 4, 3, 5, 7, 0];
+const YOU = 7;
 
 const AI_COMMON = {
   hitRadius: 0.17, minX: -1.4, maxX: 1.4, minZ: -2.6, maxZ: -(TABLE.length / 2 - REACH.overTable), serveZ: -1.55,
@@ -670,7 +848,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x141920);
-scene.fog = new THREE.Fog(0x141920, 9, 24);
+scene.fog = new THREE.Fog(0x141920, 13, 34);   // far enough to keep the stands in view
 
 // Camera behind the player's end of the table.
 const CAM_BASE = { pos: new THREE.Vector3(0, 1.85, 3.15), look: new THREE.Vector3(0, 0.76, -0.5) };
@@ -754,9 +932,38 @@ function buildFloor() {
   const court = new THREE.Mesh(new THREE.PlaneGeometry(7, 12), std(0x6b2b2b, { roughness: 0.9 }));
   court.rotation.x = -Math.PI / 2; court.position.y = 0.002; court.receiveShadow = true;
   scene.add(court);
-  const barrierMat = std(0x1e3a5f, { roughness: 0.8 });
-  for (const z of [-6, 6]) scene.add(box(7, 0.7, 0.05, barrierMat, 0, 0.35, z));
-  for (const x of [-3.5, 3.5]) scene.add(box(0.05, 0.7, 12, barrierMat, x, 0.35, 0));
+  // Low barriers around the court double as glowing advertising boards (text set per event).
+  const endMat = boardMaterial(1), sideMat = boardMaterial(12 / 7);
+  for (const z of [-6, 6]) scene.add(box(7, 0.7, 0.05, endMat, 0, 0.35, z));
+  for (const x of [-3.5, 3.5]) {
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(12, 0.7), sideMat);
+    b.position.set(x * 0.993, 0.35, 0); b.rotation.y = -Math.sign(x) * Math.PI / 2;
+    scene.add(b, box(0.05, 0.7, 12, std(0x10141c), x, 0.35, 0));
+  }
+}
+
+/** Advertising boards: one canvas, drawn by setBoardText, shared by every board texture. */
+const boardCanvas = document.createElement('canvas');
+boardCanvas.width = 1024; boardCanvas.height = 100;
+const boardTextures = [];
+function boardMaterial(repeat) {
+  const tex = new THREE.CanvasTexture(boardCanvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping; tex.repeat.set(repeat, 1);
+  boardTextures.push(tex);
+  return new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.55, roughness: 0.7 });
+}
+function setBoardText(title) {
+  const g = boardCanvas.getContext('2d'), W = boardCanvas.width, H = boardCanvas.height;
+  const grad = g.createLinearGradient(0, 0, W, 0);
+  grad.addColorStop(0, '#0f2a4d'); grad.addColorStop(0.5, '#173a66'); grad.addColorStop(1, '#0f2a4d');
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  g.font = '900 46px system-ui, -apple-system, Segoe UI, sans-serif';
+  g.textBaseline = 'middle';
+  const parts = [[title.toUpperCase(), '#ffffff'], ['  ●  ', '#ffd23f'], ['PING PONG 3D', '#ff4d5e'], ['  ●  ', '#ffd23f']];
+  let x = 18;
+  while (x < W) for (const [t, c] of parts) { g.fillStyle = c; g.fillText(t, x, H / 2 + 2); x += g.measureText(t).width; }
+  for (const t of boardTextures) t.needsUpdate = true;
 }
 
 function makeNetTexture() {
@@ -820,6 +1027,131 @@ function buildTable() {
 
 buildFloor();
 buildTable();
+setBoardText('Open');
+
+/* =====================================================================
+   ARENA — stands, spectators (instanced) and the umpire. The crowd's mood
+   (crowd.energy) rises on points and fades; fans of the side that won jump
+   and raise their arms. A Mexican wave runs between games.
+   ===================================================================== */
+const CROWD = {
+  shirts: [0x3a4a6b, 0x6b3a3a, 0x2f5d50, 0x8a7a5a, 0x5a5a66, 0xd9d9d9, 0x2b2b2b, 0x7d5ba6, 0xb08a3e, 0x4f7cac, 0xc9c2b0],
+  skin: [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac, 0xd4a373],
+  fans: 0.25, oppFans: 0.15,   // share wearing your red / the opponent's colour
+};
+const crowd = { people: [], energy: 0, side: null, wave: -1, attendance: 0.35 };
+let crowdBodies, crowdHeads, crowdArms;
+
+function buildArena() {
+  const standMat = std(0x232833, { roughness: 0.95 }), seats = [];
+  const step = (x, z, w, d, top) => {
+    const m = box(w, top, d, standMat, x, top / 2, z, false);
+    m.receiveShadow = false; scene.add(m);
+  };
+  for (let r = 0; r < 8; r++) {                    // far stand, behind the opponent
+    const z = -7 - r * 0.85, top = 0.45 + r * 0.42;
+    step(0, z, 14.6, 0.86, top);
+    for (let x = -6.8; x <= 6.8; x += 0.6) seats.push({ x: x + rand(-0.05, 0.05), y: top, z, rot: 0, row: r });
+  }
+  for (const s of [-1, 1]) for (let r = 0; r < 6; r++) {   // side stands
+    const x = s * (4.4 + r * 0.85), top = 0.45 + r * 0.42;
+    step(x, -1.6, 0.86, 10, top);
+    for (let z = -6.3; z <= 3.1; z += 0.6) seats.push({ x, y: top, z: z + rand(-0.05, 0.05), rot: -s * Math.PI / 2, row: r });
+  }
+  const n = seats.length, mat = () => new THREE.MeshStandardMaterial({ roughness: 0.85 });
+  crowdBodies = new THREE.InstancedMesh(new THREE.BoxGeometry(0.4, 0.55, 0.28), mat(), n);
+  crowdHeads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.11, 10, 8), mat(), n);
+  crowdArms = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 0.42, 0.08), mat(), n * 2);
+  const c = new THREE.Color();
+  seats.forEach((s, i) => {
+    const roll = Math.random();
+    const team = roll < CROWD.fans ? 'player' : roll < CROWD.fans + CROWD.oppFans ? 'ai' : 'n';
+    const shirt = team === 'player' ? COLORS.player : team === 'ai' ? COLORS.ai : CROWD.shirts[i % CROWD.shirts.length];
+    crowdBodies.setColorAt(i, c.set(shirt).multiplyScalar(rand(0.8, 1.1)));
+    const skin = CROWD.skin[Math.floor(Math.random() * CROWD.skin.length)];
+    crowdHeads.setColorAt(i, c.set(skin));
+    crowdArms.setColorAt(2 * i, c.set(shirt)); crowdArms.setColorAt(2 * i + 1, c.set(shirt));
+    crowd.people.push({
+      ...s, team, phase: rand(0, 6.28), enth: rand(0.55, 1.1), c: 0,
+      fill: Math.random() * 0.75 + s.row * 0.035,          // front rows fill up first
+      order: (Math.atan2(s.x, -s.z) + Math.PI / 2) / Math.PI, // 0 left stand → 1 right stand (the wave)
+    });
+  });
+  for (const m of [crowdBodies, crowdHeads, crowdArms]) { m.frustumCulled = false; scene.add(m); }
+  buildUmpire();
+}
+
+function buildUmpire() {
+  const g = new THREE.Group(), metal = std(0x30343c, { metalness: 0.5, roughness: 0.4 }), jacket = std(0x1b2a4a);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(box(0.035, 0.95, 0.035, metal, sx * 0.2, 0.475, sz * 0.2));
+  g.add(box(0.5, 0.05, 0.5, metal, 0, 0.97, 0));
+  g.add(box(0.42, 0.6, 0.28, jacket, 0, 1.3, 0));
+  g.add(box(0.12, 0.2, 0.02, std(0xffffff), 0, 1.47, 0.145, false));   // shirt collar
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 12), std(0xe0ac69));
+  head.position.set(0, 1.72, 0); head.castShadow = true; g.add(head);
+  for (const sx of [-1, 1]) g.add(box(0.08, 0.4, 0.08, jacket, sx * 0.25, 1.25, 0.06));
+  g.position.set(-(HALF_W + 1.7), 0, 0); g.rotation.y = Math.PI / 2;   // faces the net
+  scene.add(g);
+}
+
+/** How full the arena is (0..1). Seats fill front rows first. */
+function setAttendance(a) {
+  crowd.attendance = a;
+  const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+  crowd.people.forEach((p, i) => {
+    p.present = p.fill < a;
+    if (!p.present) { crowdBodies.setMatrixAt(i, zero); crowdHeads.setMatrixAt(i, zero); crowdArms.setMatrixAt(2 * i, zero); crowdArms.setMatrixAt(2 * i + 1, zero); }
+  });
+  for (const m of [crowdBodies, crowdHeads, crowdArms]) m.instanceMatrix.needsUpdate = true;
+}
+/** Opponent fans wear the opponent's colour. */
+function setCrowdColors(oppColor) {
+  const c = new THREE.Color();
+  crowd.people.forEach((p, i) => {
+    if (p.team !== 'ai') return;
+    crowdBodies.setColorAt(i, c.set(oppColor));
+    crowdArms.setColorAt(2 * i, c); crowdArms.setColorAt(2 * i + 1, c);
+  });
+  crowdBodies.instanceColor.needsUpdate = true; crowdArms.instanceColor.needsUpdate = true;
+}
+/** The crowd reacts: side = who they cheer for ('player' | 'ai' | null = everyone), amount 0..1. */
+function crowdReact(side, amount) {
+  crowd.side = side;
+  crowd.energy = Math.max(crowd.energy * 0.5, amount);
+}
+function startWave() { crowd.wave = 0; }
+
+const _cm = new THREE.Matrix4(), _cq = new THREE.Quaternion(), _ce = new THREE.Euler(), _cp = new THREE.Vector3(), _cs = new THREE.Vector3(1, 1, 1);
+function updateCrowd(dt, t) {
+  crowd.energy *= Math.exp(-0.55 * dt);
+  if (crowd.wave >= 0) { crowd.wave += dt / 2.6; if (crowd.wave > 2.4) crowd.wave = -1; }
+  const k = 1 - Math.exp(-8 * dt);
+  crowd.people.forEach((p, i) => {
+    if (!p.present) return;
+    const fav = !crowd.side || p.team === 'n' ? 0.75 : p.team === crowd.side ? 1 : 0.12;
+    let want = clamp(crowd.energy * fav * p.enth, 0, 1);
+    if (crowd.wave >= 0) { const d = p.order - (crowd.wave % 1.2); want = Math.max(want, Math.exp(-d * d / 0.0025)); }
+    p.c += (want - p.c) * k;
+    const jump = p.c * 0.18 * Math.abs(Math.sin(t * 7.5 + p.phase)), sway = 0.012 * Math.sin(t * 1.3 + p.phase);
+    const cos = Math.cos(p.rot), sin = Math.sin(p.rot);
+    const place = (lx, ly, out) => out.set(p.x + lx * cos, p.y + ly + jump, p.z - lx * sin);
+    _cq.setFromEuler(_ce.set(0, p.rot, sway));
+    crowdBodies.setMatrixAt(i, _cm.compose(place(0, 0.3, _cp), _cq, _cs));
+    crowdHeads.setMatrixAt(i, _cm.compose(place(sway * 4, 0.69, _cp), _cq, _cs));
+    // Arms hang at the sides, rise up and out when cheering (with a clap-like flutter).
+    const raise = p.c > 0.12 ? clamp(p.c * 1.4, 0, 1) * (0.8 + 0.2 * Math.sin(t * 11 + p.phase)) : 0;
+    for (const side of [-1, 1]) {
+      const a = side * raise * (Math.PI - 0.45);
+      _cq.setFromEuler(_ce.set(0, p.rot, a));
+      crowdArms.setMatrixAt(2 * i + (side > 0 ? 1 : 0),
+        _cm.compose(place(side * 0.24 + Math.sin(a) * 0.21, 0.5 - Math.cos(a) * 0.21, _cp), _cq, _cs));
+    }
+  });
+  for (const m of [crowdBodies, crowdHeads, crowdArms]) m.instanceMatrix.needsUpdate = true;
+}
+
+buildArena();
+setAttendance(0.35);
 
 /* =====================================================================
    RACKET — reusable factory (cylinder blade + rubber faces + handle).
@@ -846,6 +1178,7 @@ function createRacketMesh(rubberColor) {
   const cap = box(0.034, 0.012, 0.03, front, 0, -(R + 0.104), 0);
   group.add(handle, flare, cap);
   group.scale.setScalar(1.35);   // slightly oversized so it reads well from the camera
+  group.userData = { front, back };
   return group;
 }
 
@@ -860,6 +1193,10 @@ class Racket {
     this.swing = 0;      // 1 → 0 swing animation timer
     this.tilt = 0;       // face angle, -1 open (backspin) .. +1 closed (topspin)
     scene.add(this.mesh);
+  }
+  setColor(color) {
+    this.mesh.userData.front.color.set(color);
+    this.mesh.userData.back.color.set(color).multiplyScalar(0.6);
   }
   /** Smoothed velocity from the last fixed step; drives power, direction and spin. */
   integrateVelocity(dt) {
@@ -1352,9 +1689,10 @@ function applyShot(shot) {
    ===================================================================== */
 const ai = { racket: aiRacket, plan: null, serveAt: 0, serveX: 0, recoverUntil: 0 };
 const levelCfg = () => AI_LEVELS[match.levelKey];
+const styleCfg = () => AI_STYLES[match.styleKey];
 
 function aiOnOpponentHit() {
-  ai.plan = { readyAt: simTime + levelCfg().reactionMs / 1000, computed: false, nextUpdate: 0, point: null, err: null };
+  ai.plan = { readyAt: simTime + levelCfg().reactionMs * styleCfg().reaction / 1000, computed: false, nextUpdate: 0, point: null, err: null };
 }
 
 /** Predict the intercept and add this shot's positioning error. Re-run a few times per second
@@ -1370,7 +1708,7 @@ function computeAIPlan() {
     const e = cfg.aimError * 0.22 * (1 + spin / 120);
     plan.err = { x: randn() * e, y: randn() * e * 0.5, z: randn() * e * 0.6 };
   }
-  const p = predictIntercept(ball, -1, AI_COMMON.reachDepth, -AI_COMMON.maxZ);
+  const p = aiIntercept(styleCfg().take);
   if (!p) return;   // out / net ball, or already past its bounce: keep the last plan
   plan.point = {
     x: clamp(p.x + plan.err.x, AI_COMMON.minX, AI_COMMON.maxX),
@@ -1379,16 +1717,36 @@ function computeAIPlan() {
   };
 }
 
+/** Where the CPU meets the ball, by style: at the top of the bounce ('top'), early on the rise
+ *  ('rise', a blocker) or late and deep as it drops ('drop', a defender's chop). */
+function aiIntercept(take) {
+  if (take === 'top') return predictIntercept(ball, -1, AI_COMMON.reachDepth, -AI_COMMON.maxZ);
+  let bounced = false;
+  return simulate(ball, 3, (b, ev, t) => {
+    if (ev.floor) return null;
+    const pt = { x: b.p.x, y: b.p.y, z: b.p.z, t };
+    if (ev.table) {
+      if (!bounced) { if (ev.table.z < 0) bounced = true; return undefined; }
+      return pt;                                    // second bounce: take it before it drops
+    }
+    if (!bounced || -b.p.z < -AI_COMMON.maxZ) return undefined;
+    const h = b.p.y - TABLE_TOP;
+    if (take === 'rise') return h > 0.13 || b.v.y <= 0 || -b.p.z >= AI_COMMON.reachDepth ? pt : undefined;
+    return (b.v.y <= 0 && h < 0.2) || -b.p.z >= -AI_COMMON.minZ - 0.05 ? pt : undefined;
+  });
+}
+
 function updateAI(dt) {
   const cfg = levelCfg(), r = aiRacket;
-  let goal = { x: ball.p.x * 0.3, y: AI_COMMON.home.y, z: AI_COMMON.home.z };   // drift home, shading the ball
+  const homeZ = AI_COMMON.home.z - styleCfg().depth;
+  let goal = { x: ball.p.x * 0.3, y: AI_COMMON.home.y, z: homeZ };   // drift home, shading the ball
   if ((match.state === 'serve' || match.state === 'toss') && match.server === 'ai') {
     goal = { x: ai.serveX, y: 0.88, z: AI_COMMON.serveZ };
   } else if (ai.plan) {
     if (simTime >= ai.plan.readyAt && (!ai.plan.computed || simTime >= ai.plan.nextUpdate)) computeAIPlan();
     if (!ai.plan.computed) goal = r.pos;                     // still reacting
     else if (ai.plan.point) goal = ai.plan.point;
-    else goal = { x: ball.p.x * 0.5, y: AI_COMMON.home.y, z: AI_COMMON.home.z };
+    else goal = { x: ball.p.x * 0.5, y: AI_COMMON.home.y, z: homeZ };
   }
   // Feet run toward the goal with the level's speed and acceleration (they stop during the
   // follow-through after a hit); the arm moves the racket quickly within reach of the body.
@@ -1408,7 +1766,7 @@ function updateAI(dt) {
 }
 
 function aiHit() {
-  const cfg = levelCfg();
+  const cfg = levelCfg(), st = styleCfg();
   const speedIn = Math.hypot(ball.v.x, ball.v.y, ball.v.z);
   const spinIn = Math.hypot(ball.w.x, ball.w.y, ball.w.z);
   // Fast or spinny balls, and being stretched (racket far from the body, or still running),
@@ -1416,20 +1774,27 @@ function aiHit() {
   const stretch = clamp(Math.hypot((aiRacket.pos.x - aiBody.x) / REACH.armX, (aiRacket.pos.z - aiBody.z) / REACH.armZ) - 0.6, 0, 0.6)
     + clamp(Math.hypot(aiBody.vx, aiBody.vz) / cfg.speed - 0.5, 0, 0.5);
   const pressure = clamp((speedIn - 6) / 8, 0, 1) * 0.6 + clamp(spinIn / 250, 0, 0.6) + stretch;
-  const mistake = Math.random() < cfg.mistakeRate * (1 + pressure * 1.5);
+  const mistake = Math.random() < cfg.mistakeRate * st.mistake * (1 + pressure * 1.5);
   // A ball that sits up (high and slow) invites a smash; the higher, the more likely.
   const sitsUp = clamp((ball.p.y - TABLE_TOP - AI_COMMON.smashHeight) / AI_COMMON.smashFull, 0, 1);
-  if (!mistake && speedIn < AI_COMMON.smashSlow && Math.random() < cfg.smash * sitsUp) return aiSmash(speedIn);
+  if (!mistake && speedIn < AI_COMMON.smashSlow && Math.random() < Math.min(1, cfg.smash * st.smash) * sitsUp) return aiSmash(speedIn);
 
-  const sideSign = Math.random() < 0.5 ? -1 : 1;
-  let tx = sideSign * 0.62 * (1 - cfg.aimError) + rand(-1, 1) * cfg.aimError * 0.6;   // corners
-  let tz = clamp(0.75 + cfg.power * 0.4 + rand(-1, 1) * cfg.aimError * 0.5, 0.45, 1.27);
-  let vh = (3.4 + cfg.power * 4.5 + Math.random() * 0.6) * (1 - stretch * 0.35);
-  // Topspin drives, sometimes a slower chop (heavy backspin: push it back). Better players spin harder.
-  const chop = Math.random() < 0.2;
-  const top = chop ? -rand(0.55, 1) * (90 + 110 * cfg.spin) : rand(0.5, 1) * (50 + 130 * cfg.spin);
-  if (chop) vh *= 0.8;
-  const side = rand(-1, 1) * cfg.spin * 40;
+  const sideSign = Math.random() < 0.5 ? -1 : 1, power = cfg.power * st.power;
+  let tx = sideSign * Math.min(0.68, 0.62 * st.wide) * (1 - cfg.aimError) + rand(-1, 1) * cfg.aimError * 0.6;   // corners
+  let tz = clamp(0.75 + power * 0.4 + rand(-1, 1) * cfg.aimError * 0.5, 0.45, 1.27);
+  let vh = (3.4 + power * 4.5 + Math.random() * 0.6) * (1 - stretch * 0.35);
+  // Topspin drives, sometimes a slower chop (heavy backspin: push it back) — how often depends on
+  // the style. Better players spin harder.
+  const chop = Math.random() < st.chop;
+  const top = chop ? -rand(0.55, 1) * (90 + 110 * cfg.spin) * st.chopSpin : rand(0.5, 1) * (50 + 130 * cfg.spin) * st.top;
+  if (chop) { vh *= 0.8; tz = Math.max(tz, 0.95); }   // chops are slow and deep
+  const side = rand(-1, 1) * cfg.spin * 40 * st.side;
+  // A short drop shot, just over the net (only if the player can reach it before its second bounce).
+  if (!mistake && Math.random() < st.short) {
+    const drop = solveShot(ball.p, { x: tx * 0.7, z: rand(0.5, 0.7) }, vh * 0.6, top * 0.5, side);
+    const meet = drop.land && !drop.land.net && predictIntercept({ p: { ...ball.p }, v: drop.v, w: drop.w }, 1, 2.5, PLAYER_CFG.minZ);
+    if (meet && meet.z >= PLAYER_CFG.minZ - 0.02) return aiPlay(drop, top * 0.5, 0.3);
+  }
 
   let kind = mistake ? (Math.random() < 0.4 ? 'long' : Math.random() < 0.5 ? 'wide' : 'net') : null;
   if (kind === 'long') tz = HALF_L + rand(0.08, 0.38);
@@ -1441,11 +1806,14 @@ function aiHit() {
     shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
   }
   if (kind === 'net') shot.v.y -= rand(1.2, 2.2);
+  aiPlay(shot, top, 0.4 + power * 0.5);
+}
+function aiPlay(shot, top, intensity) {
   applyShot(shot);
   aiRacket.tilt = clamp(top / 140, -1, 1);
   aiRacket.swing = 1;
   ai.recoverUntil = simTime + AI_COMMON.recovery;
-  registerHit('ai', 0.4 + cfg.power * 0.5);
+  registerHit('ai', intensity);
 }
 
 /** CPU smash on a ball that sits up: flat and fast (same pace as the player's), into a corner,
@@ -1479,10 +1847,11 @@ function aiServeCharge() {
 }
 
 function aiServe(charge) {
-  const cfg = levelCfg();
+  const cfg = levelCfg(), st = styleCfg();
   const tx = (Math.random() < 0.5 ? -1 : 1) * (0.2 + 0.4 * (1 - cfg.aimError));
-  const top = (Math.random() < 0.5 ? -1 : 1) * rand(0.5, 1) * (40 + 120 * cfg.spin);
-  const side = cfg.spin * rand(-1, 1) * 40;
+  const back = Math.random() < st.serveBack;
+  const top = (back ? -st.chopSpin : st.top) * rand(0.5, 1) * (40 + 120 * cfg.spin);
+  const side = cfg.spin * rand(-1, 1) * 40 * st.side;
   aiRacket.tilt = clamp(top / 140, -1, 1);
   doServe('ai', charge, top, side, tx);
 }
@@ -1534,7 +1903,11 @@ function doServe(who, charge, top, side, tx) {
    ===================================================================== */
 const match = {
   levelKey: 'easy',
+  styleKey: 'allround',
   speedKey: 'real',
+  mode: 'quick',          // quick | tour
+  gamesToWin: 2,          // best of 3 (the tournament final is best of 5)
+  gameScores: [],         // finished games, e.g. ['11-7', '9-11']
   state: 'menu',          // menu | serve | toss | rally | pointOver | matchOver
   toss: null,             // { who, charge, strikeY } while the serve toss is in the air
   paused: false,
@@ -1551,17 +1924,30 @@ const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, ne
   expectY: 0.92 };                                // height the player's racket waits at before the bounce
 const idx = who => (who === 'player' ? 0 : 1);
 const other = who => (who === 'player' ? 'ai' : 'player');
-const nameOf = who => (who === 'player' ? 'You' : 'CPU');
+/** The opponent: 'CPU' in a quick match, a named player in the tournament. */
+const opp = { name: 'CPU', short: 'CPU', flag: '', color: COLORS.ai };
+const nameOf = who => (who === 'player' ? 'You' : opp.short);
 const isPlaying = () => ['serve', 'toss', 'rally', 'pointOver'].includes(match.state);
 
 function newStats() {
   return { pointsWon: [0, 0], longestRally: 0, winners: 0, errors: 0, serveFaults: [0, 0], aces: 0, fastest: 0, serves: 0, smashes: 0, cpuSmashes: 0 };
 }
 
-function startMatch(levelKey) {
-  match.levelKey = levelKey;
+/** Set who you play: a quick-match CPU (level + style) or a tournament entrant. */
+function setOpponent(o) {
+  Object.assign(opp, { name: o.name, short: o.short || o.name, flag: o.flag || '', color: o.color });
+  match.levelKey = o.level; match.styleKey = o.style;
+  aiRacket.setColor(o.color);
+  const hex = '#' + new THREE.Color(o.color).getHexString();
+  document.documentElement.style.setProperty('--cpu', hex);
+  setCrowdColors(o.color);
+}
+
+function startMatch() {
+  const levelKey = match.levelKey;
   match.points = [0, 0];
   match.games = [0, 0];
+  match.gameScores = [];
   match.gameStarter = 'player';
   match.paused = false;
   match.stats = newStats();
@@ -1573,9 +1959,24 @@ function startMatch(levelKey) {
   placeBody(playerBody, 0, 1.8);
   placeBody(aiBody, AI_COMMON.home.x, AI_COMMON.home.z);
   input.target.x = 0; input.target.z = 1.8;
-  setupServe();
+  setupServe(true);
+  $('opp-name').textContent = (opp.flag ? opp.flag + ' ' : '') + opp.short.toUpperCase();
   $('cpu-level').textContent = `(${AI_LEVELS[levelKey].label.toLowerCase()})`;
-  showMessage('Game 1', `vs ${AI_LEVELS[levelKey].label} CPU`, 'neutral', 1.4);
+  const bo = match.gamesToWin * 2 - 1, style = AI_STYLES[match.styleKey].label;
+  if (match.mode === 'tour') {
+    const round = ROUND_NAMES[tour.round], tier = TIERS[tour.tier];
+    $('sb-head').textContent = `${tier.label} · ${round} · Best of ${bo}`;
+    setAttendance(tier.crowd[tour.round]);
+    setBoardText(tier.label);
+    showMessage(round, `vs ${opp.flag} ${opp.name} — ${style}`, 'neutral', 2.2);
+    crowdReact(null, 0.9);
+  } else {
+    $('sb-head').textContent = `Quick match · Best of ${bo}`;
+    setAttendance(0.35);
+    setBoardText('Open');
+    showMessage('Game 1', `vs ${AI_LEVELS[levelKey].label} CPU · ${style}`, 'neutral', 1.6);
+    crowdReact(null, 0.5);
+  }
 }
 
 /** Server rotation: every 2 points, every point once both reach 10 (deuce). */
@@ -1587,7 +1988,7 @@ function currentServer() {
   return turn % 2 === 0 ? match.gameStarter : other(match.gameStarter);
 }
 
-function setupServe() {
+function setupServe(first = false) {
   match.server = currentServer();
   match.state = 'serve';
   match.rallyCount = 0;
@@ -1691,7 +2092,7 @@ function callLet() {
 }
 
 /** What `who` did, as a sentence: "CPU hit it long", "You let it bounce twice". */
-const say = (who, what) => `${nameOf(who)} ${what.replace('{own}', who === 'player' ? 'your own' : 'its own')}`;
+const say = (who, what) => `${nameOf(who)} ${what.replace('{own}', who === 'player' ? 'your own' : 'their own')}`;
 
 /** why: what the loser did ("hit it long"; {own} = "your own"/"its own").
  *  kind: 'error' (loser hit out/net), 'miss' (loser failed to return), 'fault' (serve fault). */
@@ -1711,9 +2112,13 @@ function endPoint(winner, why, kind) {
 
   const youWon = winner === 'player';
   const tone = youWon ? 'good' : 'bad';
-  if (kind === 'fault') showMessage('Fault', `${say(loser, why)} — ${youWon ? 'your point' : 'point to CPU'}`, tone, 1.5);
-  else showMessage(youWon ? 'Your point' : 'CPU point', say(loser, why), tone, 1.5);
+  if (kind === 'fault') showMessage('Fault', `${say(loser, why)} — ${youWon ? 'your point' : `point to ${opp.short}`}`, tone, 1.5);
+  else showMessage(youWon ? 'Your point' : `${opp.short}'s point`, say(loser, why), tone, 1.5);
   Sound.point(youWon);
+  // The crowd: long rallies and big points get them more excited.
+  const big = pointSituation() ? 0.25 : 0;
+  const excite = clamp(0.3 + match.rallyCount / 12 + big, 0.3, 1);
+  crowdReact(winner, excite * (youWon ? 1 : 0.75));
   updateHUD();
   schedule(GAME.pointDelay, afterPoint);
 }
@@ -1724,12 +2129,15 @@ function afterPoint() {
   if (!gameOver) return setupServe();
   const winner = p > a ? 'player' : 'ai';
   match.games[idx(winner)]++;
+  match.gameScores.push(`${p}-${a}`);
   updateHUD();
-  if (match.games[idx(winner)] >= GAME.gamesToWin) return endMatch(winner);
+  if (match.games[idx(winner)] >= match.gamesToWin) return endMatch(winner);
   const gameNo = match.games[0] + match.games[1];
-  showMessage(winner === 'player' ? `You win game ${gameNo}` : `CPU wins game ${gameNo}`,
-    `You ${p} – ${a} CPU · Games ${match.games[0]} – ${match.games[1]}`, winner === 'player' ? 'good' : 'bad', 2.4);
+  showMessage(winner === 'player' ? `You win game ${gameNo}` : `${opp.short} wins game ${gameNo}`,
+    `You ${p} – ${a} ${opp.short} · Games ${match.games[0]} – ${match.games[1]}`, winner === 'player' ? 'good' : 'bad', 2.4);
   Sound.fanfare(winner === 'player');
+  crowdReact(winner, 1);
+  setTimeout(startWave, 900);
   schedule(GAME.gameDelay, () => {
     match.points = [0, 0];
     match.gameStarter = other(match.gameStarter);   // alternate first server each game
@@ -1741,6 +2149,9 @@ function afterPoint() {
 function endMatch(winner) {
   match.state = 'matchOver';
   Sound.fanfare(winner === 'player');
+  crowdReact(winner, 1);
+  startWave();
+  if (match.mode === 'tour') tourRecordResult(winner === 'player');
   showEndMenu(winner);
 }
 
@@ -1779,8 +2190,8 @@ function pointSituation() {
   for (const who of ['player', 'ai']) {
     const mine = match.points[idx(who)], theirs = match.points[idx(other(who))];
     if (mine >= n - 1 && mine > theirs) {
-      const matchPoint = match.games[idx(who)] === GAME.gamesToWin - 1;
-      return { text: `${matchPoint ? 'MATCH' : 'GAME'} POINT · ${who === 'player' ? 'YOU' : 'CPU'}`, cls: who };
+      const matchPoint = match.games[idx(who)] === match.gamesToWin - 1;
+      return { text: `${matchPoint ? 'MATCH' : 'GAME'} POINT · ${who === 'player' ? 'YOU' : opp.short.toUpperCase()}`, cls: who };
     }
   }
   return null;
@@ -1811,93 +2222,341 @@ function updateLiveHUD() {
 }
 
 function hideAllMenus() {
-  for (const id of ['menu-start', 'menu-pause', 'menu-end']) $(id).classList.add('hidden');
+  for (const id of ['menu-start', 'menu-pause', 'menu-end', 'menu-tour', 'menu-help']) $(id).classList.add('hidden');
 }
 
-function buildLevelButtons() {
-  const wrap = $('levels');
-  for (const key of LEVEL_ORDER) {
+/** localStorage, failing quietly (private windows, blocked storage). */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* not saved */ } },
+};
+const quick = { level: 'easy', style: 'allround' };   // quick-match choices
+let selTier = 'pro', uiMode = 'quick';
+
+/** A row of choice buttons (one selected). */
+function buildChoices(wrapId, keys, render, isSel, onPick) {
+  const wrap = $(wrapId);
+  wrap.innerHTML = '';
+  for (const key of keys) {
     const b = document.createElement('button');
-    b.className = 'level-btn' + (key === match.levelKey ? ' sel' : '');
-    b.dataset.level = key;
-    b.innerHTML = `<b>${AI_LEVELS[key].label}</b><small>${LEVEL_BLURB[key]}</small>`;
+    b.className = 'level-btn' + (isSel(key) ? ' sel' : '');
+    b.dataset.key = key;
+    b.innerHTML = render(key);
     b.addEventListener('click', () => {
-      match.levelKey = key;
+      onPick(key);
       wrap.querySelectorAll('.level-btn').forEach(x => x.classList.toggle('sel', x === b));
     });
     wrap.appendChild(b);
   }
 }
-
-function buildSpeedButtons() {
-  const wrap = $('speeds');
-  for (const [key, sp] of Object.entries(GAME.speeds)) {
-    const b = document.createElement('button');
-    b.className = 'level-btn' + (key === match.speedKey ? ' sel' : '');
-    b.innerHTML = `<b>${sp.label}</b><small>${Math.round(sp.scale * 100)}% speed</small>`;
-    b.addEventListener('click', () => {
-      match.speedKey = key;
-      wrap.querySelectorAll('.level-btn').forEach(x => x.classList.toggle('sel', x === b));
-    });
-    wrap.appendChild(b);
-  }
+function buildMenus() {
+  buildChoices('levels', LEVEL_ORDER, k => `<b>${AI_LEVELS[k].label}</b><small>${LEVEL_BLURB[k]}</small>`, k => k === quick.level, k => { quick.level = k; });
+  buildChoices('styles', STYLE_ORDER, k => `<b>${AI_STYLES[k].label}</b><small>${AI_STYLES[k].tag}</small>`, k => k === quick.style, k => { quick.style = k; });
+  buildChoices('speeds', Object.keys(GAME.speeds), k => `<b>${GAME.speeds[k].label}</b><small>${Math.round(GAME.speeds[k].scale * 100)}% speed</small>`,
+    k => k === match.speedKey, k => { match.speedKey = k; });
+  const titles = store.get('pp3d.titles', {});
+  buildChoices('tiers', TIER_ORDER, k => `<b>${TIERS[k].label}</b><small>${TIERS[k].blurb}${titles[k] ? ` · 🏆×${titles[k]}` : ''}</small>`,
+    k => k === selTier, k => { selTier = k; });
 }
 
-function showStartMenu() {
+function setMode(mode) {
+  uiMode = mode;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('sel', t.dataset.mode === mode));
+  for (const [id, m] of [['pane-quick', 'quick'], ['act-quick', 'quick'], ['pane-tour', 'tour'], ['act-tour', 'tour']]) $(id).classList.toggle('hidden', mode !== m);
+  if (mode === 'tour') refreshTourPane();
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
+
+/** Back to the attract mode (ball bouncing, camera orbiting) behind a menu. */
+function enterMenuState() {
   hideAllMenus();
   match.state = 'menu';
   match.paused = false;
   rally.live = false;
   marker.visible = false;
   $('topbar').classList.add('hidden');
-  $('menu-start').classList.remove('hidden');
   setBall({ x: 0, y: 1.3, z: 0.5 });
+}
+function showStartMenu() {
+  enterMenuState();
+  buildMenus();
+  setMode(uiMode);
+  setAttendance(0.35);
+  setBoardText('Open');
+  $('menu-start').classList.remove('hidden');
+}
+
+function startQuick() {
+  Sound.init();
+  match.mode = 'quick';
+  match.gamesToWin = 2;
+  setOpponent({ name: 'CPU', short: 'CPU', color: COLORS.ai, level: quick.level, style: quick.style });
+  startMatch();
+}
+
+/** How to play: opened from the HUD's ? button; the game waits while it's open. */
+let helpPaused = false;
+function showHelp() {
+  if (!isPlaying() || !$('menu-pause').classList.contains('hidden')) return;
+  helpPaused = !match.paused;
+  match.paused = true;
+  input.charging = false;
+  $('menu-help').classList.remove('hidden');
+}
+function hideHelp() {
+  $('menu-help').classList.add('hidden');
+  if (helpPaused) match.paused = false;
+  helpPaused = false;
 }
 
 function togglePause() {
   if (!isPlaying()) return;
+  if (!$('menu-help').classList.contains('hidden')) return hideHelp();
   match.paused = !match.paused;
   input.charging = false;
-  $('pause-info').textContent = `${AI_LEVELS[match.levelKey].label} CPU · ${GAME.speeds[match.speedKey].label} speed · `
-    + `Game ${match.games[0] + match.games[1] + 1}: You ${match.points[0]} – ${match.points[1]} CPU`;
+  const who = match.mode === 'tour' ? `${opp.flag} ${opp.name}` : 'CPU';
+  $('pause-info').textContent = `vs ${who} (${AI_STYLES[match.styleKey].label}, ${AI_LEVELS[match.levelKey].label}) · ${GAME.speeds[match.speedKey].label} speed · `
+    + `Game ${match.games[0] + match.games[1] + 1}: You ${match.points[0]} – ${match.points[1]} ${opp.short}`;
+  $('btn-quit').textContent = match.mode === 'tour' ? 'Leave Match' : 'Main Menu';
   $('menu-pause').classList.toggle('hidden', !match.paused);
 }
 
 function showEndMenu(winner) {
-  const s = match.stats, lvl = LEVEL_ORDER.indexOf(match.levelKey);
-  $('end-title').textContent = winner === 'player' ? '🏆 You win the match!' : 'CPU wins the match';
-  $('end-sub').textContent = `Games: You ${match.games[0]} – ${match.games[1]} CPU · ${AI_LEVELS[match.levelKey].label} level`;
+  const s = match.stats, lvl = LEVEL_ORDER.indexOf(match.levelKey), o = opp.short, won = winner === 'player';
+  const games = `You ${match.games[0]} – ${match.games[1]} ${o}`, detail = match.gameScores.join(', ');
+  const tourMode = match.mode === 'tour';
+  if (tourMode) {
+    const r = tour.round, round = ROUND_NAMES[tour.lostIn ?? (tour.done ? 2 : r - 1)], tier = TIERS[tour.tier];
+    if (won && tour.done) {
+      $('end-title').textContent = `🏆 ${tier.label} Champion!`;
+      $('end-sub').textContent = `You beat ${opp.flag} ${opp.name} in the Final · ${games} (${detail})`;
+      confetti();
+    } else if (won) {
+      $('end-title').textContent = `✅ You win the ${round}!`;
+      $('end-sub').textContent = `${games} (${detail}) · Next: the ${ROUND_NAMES[r]}`;
+    } else {
+      $('end-title').textContent = `Out in the ${round}`;
+      $('end-sub').textContent = `${opp.flag} ${opp.name} wins · ${games} (${detail})`;
+    }
+  } else {
+    $('end-title').textContent = won ? '🏆 You win the match!' : 'CPU wins the match';
+    $('end-sub').textContent = `Games: ${games} · ${AI_LEVELS[match.levelKey].label} · ${AI_STYLES[match.styleKey].label}`;
+  }
   const rows = [
     ['Points won', `${s.pointsWon[0]} – ${s.pointsWon[1]}`],
     ['Longest rally', `${s.longestRally} hits`],
-    ['Your winners (CPU missed)', s.winners],
+    [`Your winners (${o} missed)`, s.winners],
     ['Your errors (net / out)', s.errors],
-    ['Serve faults (you / CPU)', `${s.serveFaults[0]} / ${s.serveFaults[1]}`],
+    [`Serve faults (you / ${o})`, `${s.serveFaults[0]} / ${s.serveFaults[1]}`],
     ['Aces (both)', s.aces],
-    ['Smashes (you / CPU)', `${s.smashes} / ${s.cpuSmashes}`],
+    [`Smashes (you / ${o})`, `${s.smashes} / ${s.cpuSmashes}`],
     ['Fastest shot', `${Math.round(s.fastest)} km/h`],
   ];
   $('end-stats').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+  $('btn-continue').classList.toggle('hidden', !tourMode);
+  $('btn-again').classList.toggle('hidden', tourMode);
   const next = $('btn-next');
+  next.classList.toggle('hidden', tourMode);
   next.disabled = lvl >= LEVEL_ORDER.length - 1;
   next.textContent = next.disabled ? 'Max Level' : `Next Level: ${AI_LEVELS[LEVEL_ORDER[lvl + 1]].label}`;
   $('topbar').classList.add('hidden');
   $('menu-end').classList.remove('hidden');
 }
 
-buildLevelButtons();
-buildSpeedButtons();
-$('btn-start').addEventListener('click', () => { Sound.init(); startMatch(match.levelKey); });
+function confetti() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const box = $('confetti'), colors = ['#ffd23f', '#ff4d5e', '#57e389', '#3d8bff', '#ffffff'];
+  for (let i = 0; i < 140; i++) {
+    const c = document.createElement('i');
+    c.style.left = rand(0, 100) + 'vw';
+    c.style.background = colors[i % colors.length];
+    c.style.setProperty('--dx', rand(-20, 20) + 'vw');
+    c.style.setProperty('--r', rand(-720, 720) + 'deg');
+    c.style.animationDuration = rand(2.5, 5) + 's';
+    c.style.animationDelay = rand(0, 1.2) + 's';
+    box.appendChild(c);
+  }
+  setTimeout(() => { box.innerHTML = ''; }, 7000);
+}
+
+/* =====================================================================
+   TOURNAMENT — 8-player knockout. You play your matches; the others are
+   simulated from the players' levels and seeds. Progress is saved.
+   ===================================================================== */
+let tour = store.get('pp3d.tour', null);
+const saveTour = () => store.set('pp3d.tour', tour);
+const playerMatch = () => tour.rounds[tour.round].find(m => m.a === YOU || m.b === YOU);
+const hex = c => '#' + new THREE.Color(c).getHexString();
+
+function newTournament(tierKey) {
+  const tier = TIERS[tierKey];
+  const bots = [...ROSTER].sort(() => Math.random() - 0.5).slice(0, 7)
+    .map((b, i) => ({ ...b, short: b.name.split(' ').pop(), seed: i + 1, level: tier.levels[i] }));
+  const you = { name: 'You', short: 'You', flag: '⭐', seed: 0, you: true };
+  const entrants = BRACKET_SEEDS.map(seed => (seed === 0 ? you : bots[seed - 1]));
+  const rounds = [[0, 1, 2, 3].map(i => ({ a: 2 * i, b: 2 * i + 1, w: null }))];
+  tour = { tier: tierKey, entrants, rounds, round: 0, done: false, champion: null, lostIn: null };
+  saveTour();
+}
+
+/** Simulate a bot-vs-bot match: per-game odds from level and seed, plausible scores. */
+function simulateMatch(m, bestOf) {
+  const A = tour.entrants[m.a], B = tour.entrants[m.b];
+  const strength = e => LEVEL_ORDER.indexOf(e.level) + (8 - e.seed) * 0.08;
+  const pGame = 1 / (1 + Math.exp(-(strength(A) - strength(B)) * 1.1));
+  const need = (bestOf + 1) / 2, g = [0, 0], detail = [];
+  while (g[0] < need && g[1] < need) {
+    const w = Math.random() < pGame ? 0 : 1;
+    const lose = Math.random() < 0.15 ? 10 + Math.floor(rand(0, 3)) : Math.floor(rand(3, 10));
+    const win = lose >= 10 ? lose + 2 : 11;
+    g[w]++;
+    detail.push(w === 0 ? `${win}-${lose}` : `${lose}-${win}`);
+  }
+  Object.assign(m, { w: g[0] > g[1] ? m.a : m.b, g, detail });
+}
+
+/** Play out a round's remaining matches and draw the next round (or crown the champion). */
+function completeRound(r) {
+  for (const m of tour.rounds[r]) if (m.w == null) simulateMatch(m, ROUND_BEST_OF[r]);
+  if (r === ROUND_NAMES.length - 1) { tour.champion = tour.rounds[r][0].w; return; }
+  const ws = tour.rounds[r].map(m => m.w), next = [];
+  for (let i = 0; i < ws.length; i += 2) next.push({ a: ws[i], b: ws[i + 1], w: null });
+  tour.rounds[r + 1] = next;
+}
+
+function tourRecordResult(won) {
+  const m = playerMatch(), youA = m.a === YOU;
+  const flip = sc => sc.split('-').reverse().join('-');
+  Object.assign(m, {
+    w: won ? YOU : youA ? m.b : m.a,
+    g: youA ? [...match.games] : [match.games[1], match.games[0]],
+    detail: match.gameScores.map(sc => (youA ? sc : flip(sc))),
+  });
+  completeRound(tour.round);
+  if (!won) {
+    tour.lostIn = tour.round;
+    for (let r = tour.round + 1; r < ROUND_NAMES.length; r++) completeRound(r);
+    tour.done = true;
+  } else if (tour.round === ROUND_NAMES.length - 1) {
+    tour.done = true;
+    const titles = store.get('pp3d.titles', {});
+    titles[tour.tier] = (titles[tour.tier] || 0) + 1;
+    store.set('pp3d.titles', titles);
+  } else {
+    tour.round++;
+  }
+  saveTour();
+}
+
+function refreshTourPane() {
+  const box = $('tour-saved'), cont = $('btn-tour-continue'), fresh = $('btn-tour-new');
+  const live = tour && !tour.done;
+  box.classList.toggle('hidden', !live);
+  cont.classList.toggle('hidden', !live);
+  fresh.textContent = live ? 'Start Over' : 'Enter Tournament';
+  fresh.classList.toggle('alt', !!live);
+  if (live) {
+    const m = playerMatch(), e = tour.entrants[m.a === YOU ? m.b : m.a];
+    box.innerHTML = `<b>In progress:</b> ${TIERS[tour.tier].label} — ${ROUND_NAMES[tour.round]} next, vs ${e.flag} ${e.name} (${AI_STYLES[e.style].label}).`;
+    cont.textContent = `Continue: ${ROUND_NAMES[tour.round]}`;
+  }
+}
+
+function attrBars(e) {
+  const st = AI_STYLES[e.style], lv = AI_LEVELS[e.level];
+  const spin = lv.spin * (st.top * (1 - st.chop) + st.chopSpin * st.chop + st.side * 0.25) / 1.8;
+  return [
+    ['Power', (lv.power * st.power - 0.6) / 0.8],
+    ['Spin', spin],
+    ['Footwork', (lv.speed - 2.2) / 1.2 + (1 - st.reaction) * 0.8],
+    ['Consistency', 1 - lv.mistakeRate * st.mistake * 8],
+  ].map(([k, v]) => `<span>${k}</span><div class="bar"><i style="width:${Math.round(clamp(v, 0.08, 1) * 100)}%"></i></div>`).join('');
+}
+
+function matchBox(m, r) {
+  if (!m) return '<div class="bm"><div class="bp"><span class="nm">TBD</span></div><div class="bp"><span class="nm">TBD</span></div></div>';
+  const live = !tour.done && r === tour.round && (m.a === YOU || m.b === YOU);
+  const title = m.detail ? ` title="${m.detail.join(', ')}"` : '';
+  const row = (e, k) => {
+    const ent = tour.entrants[e];
+    const cls = ['bp', m.w === e ? 'win' : '', m.w != null && m.w !== e ? 'lost' : '', e === YOU ? 'you' : ''].join(' ');
+    return `<div class="${cls}"><span>${ent.flag}</span><span class="nm">${ent.short}</span><span class="sc">${m.g ? m.g[k] : ''}</span></div>`;
+  };
+  return `<div class="bm${live ? ' live' : ''}"${title}>${row(m.a, 0)}${row(m.b, 1)}</div>`;
+}
+
+function showTourHub() {
+  enterMenuState();
+  const tier = TIERS[tour.tier], titles = store.get('pp3d.titles', {});
+  $('tour-tier').textContent = `${tier.label} · ${tier.fans.toLocaleString()} fans`;
+  $('tour-title').textContent = tour.done ? (tour.champion === YOU ? '🏆 Champion!' : 'Tournament over') : `Next: ${ROUND_NAMES[tour.round]}`;
+  $('tour-titles').textContent = titles[tour.tier] ? `Your ${tier.label} titles: 🏆×${titles[tour.tier]}` : '';
+  $('bracket').innerHTML = ROUND_NAMES.map((name, r) => {
+    let html = `<div class="bcol"><h4>${name}</h4><div class="bms">`;
+    for (let i = 0; i < 4 >> r; i++) html += matchBox(tour.rounds[r] && tour.rounds[r][i], r);
+    if (r === ROUND_NAMES.length - 1) {
+      const c = tour.champion != null ? tour.entrants[tour.champion] : null;
+      html += `<div class="champ">🏆<b>${c ? `${c.flag} ${c.short}` : '?'}</b>Champion</div>`;
+    }
+    return html + '</div></div>';
+  }).join('');
+
+  let next = '', actions = '';
+  if (tour.done) {
+    const champ = tour.entrants[tour.champion];
+    next = tour.champion === YOU
+      ? `<div class="result gold">You won the <b>${tier.label}</b> without losing a match. The crowd is on its feet!</div>`
+      : `<div class="result">You went out in the <b>${ROUND_NAMES[tour.lostIn]}</b>. ${champ.flag} <b>${champ.name}</b> “${champ.nick}” took the title.</div>`;
+    actions = '<button class="btn" id="btn-tour-again">New Tournament</button>';
+  } else {
+    const m = playerMatch(), e = tour.entrants[m.a === YOU ? m.b : m.a], st = AI_STYLES[e.style];
+    next = `<div class="opp" style="--opp:${hex(e.color)}"><div class="opp-flag">${e.flag}</div><div style="min-width:0">
+      <div class="eyebrow">${ROUND_NAMES[tour.round]} · Seed ${e.seed} · Best of ${ROUND_BEST_OF[tour.round]}</div>
+      <div class="opp-name">${e.name} <i>“${e.nick}”</i></div>
+      <span class="chip style">${st.label}</span><span class="chip">${AI_LEVELS[e.level].label}</span>
+      <p>${st.blurb}</p><p><b>Scouting:</b> ${st.tip}</p>
+      <div class="attrs">${attrBars(e)}</div></div></div>`;
+    actions = `<button class="btn" id="btn-tour-play">Play ${ROUND_NAMES[tour.round]}</button>`;
+  }
+  $('tour-next').innerHTML = next;
+  $('tour-actions').innerHTML = actions + '<button class="btn alt" id="btn-tour-menu">Main Menu</button>';
+  const play = $('btn-tour-play'), again = $('btn-tour-again');
+  if (play) play.addEventListener('click', playTourMatch);
+  if (again) again.addEventListener('click', () => { newTournament(tour.tier); showTourHub(); });
+  $('btn-tour-menu').addEventListener('click', () => { uiMode = 'tour'; showStartMenu(); });
+  setAttendance(tier.crowd[Math.min(tour.round, 2)]);
+  setBoardText(tier.label);
+  $('menu-tour').classList.remove('hidden');
+}
+
+function playTourMatch() {
+  Sound.init();
+  const m = playerMatch();
+  match.mode = 'tour';
+  match.gamesToWin = (ROUND_BEST_OF[tour.round] + 1) / 2;
+  setOpponent(tour.entrants[m.a === YOU ? m.b : m.a]);
+  startMatch();
+}
+
+buildMenus();
+// Browsers start audio only after a user gesture: the first click anywhere (even a menu tab) starts it.
+document.addEventListener('pointerdown', () => Sound.init());
+$('btn-start').addEventListener('click', startQuick);
+$('btn-tour-new').addEventListener('click', () => { Sound.init(); newTournament(selTier); showTourHub(); });
+$('btn-tour-continue').addEventListener('click', () => { Sound.init(); showTourHub(); });
 $('btn-resume').addEventListener('click', togglePause);
 $('btn-pause').addEventListener('click', e => { e.stopPropagation(); togglePause(); });
-$('btn-restart').addEventListener('click', () => startMatch(match.levelKey));
-$('btn-quit').addEventListener('click', showStartMenu);
-$('btn-again').addEventListener('click', () => startMatch(match.levelKey));
+$('btn-help').addEventListener('click', e => { e.stopPropagation(); showHelp(); });
+$('btn-help-close').addEventListener('click', hideHelp);
+$('btn-restart').addEventListener('click', () => startMatch());
+$('btn-quit').addEventListener('click', () => (match.mode === 'tour' ? showTourHub() : showStartMenu()));
+$('btn-again').addEventListener('click', () => startMatch());
 $('btn-next').addEventListener('click', () => {
-  const i = LEVEL_ORDER.indexOf(match.levelKey);
-  startMatch(LEVEL_ORDER[Math.min(i + 1, LEVEL_ORDER.length - 1)]);
-  document.querySelectorAll('#levels .level-btn').forEach(x => x.classList.toggle('sel', x.dataset.level === match.levelKey));
+  const i = LEVEL_ORDER.indexOf(quick.level);
+  quick.level = LEVEL_ORDER[Math.min(i + 1, LEVEL_ORDER.length - 1)];
+  startQuick();
 });
+$('btn-continue').addEventListener('click', showTourHub);
 $('btn-menu').addEventListener('click', showStartMenu);
 
 /* =====================================================================
@@ -1912,7 +2571,10 @@ const Sound = {
     this.ctx = new AC();
     this.master = this.ctx.createGain();
     this.master.gain.value = 0.6;
-    this.master.connect(this.ctx.destination);
+    // A limiter at the end of the chain: many sounds at once (hits, smashes, fanfares) never clip.
+    const lim = this.ctx.createDynamicsCompressor();
+    lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.25;
+    this.master.connect(lim).connect(this.ctx.destination);
     const len = Math.floor(this.ctx.sampleRate * 0.2);
     this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const d = this.noise.getChannelData(0);
@@ -1923,6 +2585,7 @@ const Sound = {
     if (this.master) this.master.gain.value = this.muted ? 0 : 0.6;
     showMessage(this.muted ? 'Muted' : 'Sound on', '', 'neutral', 0.8);
   },
+
   ready() { return this.ctx && !this.muted && this.ctx.state === 'running'; },
   tone(f0, f1, dur, type, vol, delay = 0) {
     if (!this.ready()) return;
@@ -2074,7 +2737,7 @@ let cameraShake = 0;
 function updateCamera(dt) {
   if (match.state === 'menu') {   // slow orbit behind the menu
     const t = performance.now() / 1000 * 0.12;
-    camera.position.set(Math.sin(t) * 4.2, 2.3, Math.cos(t) * 4.2);
+    camera.position.set(Math.sin(t) * 3.7, 2.4, Math.cos(t) * 3.7);
     camLook.set(0, TABLE_TOP, 0);
     camera.lookAt(camLook);
     return;
@@ -2118,6 +2781,7 @@ function frame(now) {
   updateCamera(dt);
   if (marker.visible) marker.material.opacity = 0.5 + 0.25 * Math.sin(now / 120);
   if (match.state !== 'menu') updateLiveHUD();
+  updateCrowd(dt, now / 1000);
   if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0) $('msg').classList.remove('show'); }
 
   renderer.render(scene, camera);
@@ -2125,7 +2789,7 @@ function frame(now) {
 
 // Debug/console hook (handy for tuning; not used by the game itself).
 window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiRacket, input, AI_LEVELS, predictIntercept, startMatch, playerServe, PLAYER_CFG,
-  playerBody, aiBody, togglePause, updateHUD, get simTime() { return simTime; } };
+  playerBody, aiBody, togglePause, updateHUD, endMatch, showTourHub, Sound, get tour() { return tour; }, get simTime() { return simTime; } };
 
 showStartMenu();
 requestAnimationFrame(frame);
