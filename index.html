@@ -216,7 +216,7 @@
       <b>Move:</b> <kbd>Mouse</kbd> / drag anywhere / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. Your racket can only reach so far from where you stand.<br>
       <b>Strokes</b> — how you swipe as the ball arrives:<br>
       &nbsp;· <b>hold still</b> = block · <b>swipe forward</b> = drive (faster = harder, more topspin)<br>
-      &nbsp;· <b>quick flick forward</b> (or <kbd>Shift</kbd>) = smash — best on high balls<br>
+      &nbsp;· <b>quick flick forward</b> (or <kbd>Shift</kbd>) = smash — safe on a ball that sits up high; a low, fast or spinny ball often goes long or into the net. A gentler flick is safer<br>
       &nbsp;· <b>pull back</b> = push (backspin) · hit off-center or swipe sideways to angle the ball<br>
       <b>Read the spin</b> from the CPU's racket face and the ball's dots: topspin → block or drive; backspin (a chop) → push. The wrong stroke drifts long or short — a hard drive can fly out.<br>
       <b>Serve:</b> hold <kbd>Space</kbd> / mouse / finger, release to toss (red zone = long). Swipe as the ball falls: forward = topspin, pull back = backspin.<br>
@@ -304,14 +304,12 @@ const REACH = {
 /** Smash: a quick FORWARD flick of the racket at contact (finger/mouse moving up the screen —
  *  straight or diagonal, e.g. bottom-left → top-right), or Shift. Sideways moves (defending,
  *  chasing a wide ball) never smash. Flat, very fast, topspin; the flick's direction steers it.
- *  Safe on a high ball; a low ball is likely to fly long or wide. */
+ *  Safe on a high ball; a low, fast or spinny one is a gamble (see AIM). */
 const SMASH = {
   minSwing: 2.8,          // speed (real m/s) of a forward-pointing flick that triggers a smash
   maxAngle: 60,           // flick must point within this many degrees of straight forward
   minSpeed: 12, maxSpeed: 16,    // horizontal ball speed range (m/s), scaled by swing
   topspin: 70,
-  safeHeight: 0.17,       // ball at least this far above the table top = clean smash
-  lowRisk: 0.4,           // chance a smash off a low ball goes wrong
   shake: 0.035,           // camera shake amplitude (m)
   window: 0.22,           // a fast swing still counts this long after its peak (sim seconds)
   sweepTime: 0.2,         // during a fast swing, contact checks the path swept over this time
@@ -346,11 +344,12 @@ const PLAYER_CFG = {
  *  speed/accel: footwork m/s and m/s² (human range: even Hard can't cover a fast wide ball)
  *  reactionMs: delay before reading the ball · aimError: aim + positioning noise
  *  power: shot pace · spin: 0..1 spin amount · mistakeRate: chance of an unforced error per shot
- *  smash: chance of smashing a ball that sits up high (see AI_COMMON.smashHeight) */
+ *  smash: chance of smashing a ball that sits up high (see AI_COMMON.smashHeight) ·
+ *  smashError: hand error of its smash, relative to the player's (AIM.smash) */
 const AI_LEVELS = {
-  easy:   { label: 'Easy',   speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.25 },
-  medium: { label: 'Medium', speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.45 },
-  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.7 },
+  easy:   { label: 'Easy',   speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.35, smashError: 1.3 },
+  medium: { label: 'Medium', speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.6,  smashError: 1.0 },
+  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.85, smashError: 0.8 },
 };
 const LEVEL_ORDER = ['easy', 'medium', 'hard'];
 const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruthless' };
@@ -360,9 +359,9 @@ const AI_COMMON = {
   home: { x: 0, y: 0.92, z: -1.8 }, ySpeed: 3.5, reachDepth: 2.35,
   armSpeed: 6,            // racket speed around the body (m/s)
   recovery: 0.2,          // after hitting, the follow-through stops the feet this long (s)
-  smashHeight: 0.5,       // the CPU may smash a ball it meets at least this high above the table (m) —
-                          // a real pop-up; most balls are met 0.25–0.45 m up
-  smashMiss: 0.08,        // chance a CPU smash flies long
+  smashHeight: 0.38,      // the CPU starts to smash balls it meets above this height (m)...
+  smashFull: 0.2,         // ...and goes for every one (at its level's `smash` rate) this much higher
+  smashSlow: 9,           // only balls slower than this (m/s): a fast ball is blocked, not smashed
 };
 
 const COLORS = { player: 0xe63946, ai: 0x2f80ed, table: 0x1b4f8f, ball: 0xff8c1a };
@@ -557,6 +556,16 @@ function pushOutIfAimedOut(shot, target) {
   return shot;
 }
 
+/** A human hand on an auto-aimed shot: tilt the launch up/down (pitch) and sideways (yaw) by a few
+ *  degrees and scale its pace. The ball then flies with real physics, so a shot with little margin
+ *  (fast, from a low ball, at a corner) misses while a safe one still lands. Spin stays as planned. */
+function perturbShot(shot, pitchDeg, yawDeg, speedMul = 1) {
+  const v = shot.v, vh = Math.hypot(v.x, v.z), s = Math.hypot(vh, v.y) * speedMul;
+  const a = Math.atan2(v.y, vh) + pitchDeg * Math.PI / 180;
+  const yaw = Math.atan2(v.x, v.z) + yawDeg * Math.PI / 180, h = Math.cos(a) * s;
+  return { ...shot, v: { x: Math.sin(yaw) * h, y: Math.sin(a) * s, z: Math.cos(yaw) * h } };
+}
+
 /** First table bounce on the given side (sideSign: +1 player, -1 AI). */
 function predictBounce(b0, sideSign) {
   return simulate(b0, 3, (b, ev) => {
@@ -603,6 +612,33 @@ function moveBody(b, gx, gz, maxSpeed, accel, dt) {
   if (am > maxDv) { ax *= maxDv / am; az *= maxDv / am; }
   b.vx += ax; b.vz += az;
   b.x += b.vx * dt; b.z += b.vz * dt;
+}
+
+/** Between auto-aim and pure physics: strokes are aimed for the table, then played with a human
+ *  hand — the launch angle is off by a few degrees (see perturbShot) and real physics decides
+ *  whether it lands. A slow shot from a high ball has room to spare; a fast one from a low ball
+ *  hardly any, so a smash is a real risk unless the ball sits up. Errors are standard deviations
+ *  in degrees for an easy ball, and grow with: */
+const AIM = {
+  smash: 0.8,             // smash
+  stroke: 0.6,            // block / drive / push
+  fastBall: 0.8,          // incoming speed (×1 at 6 m/s, ×1.8 at 14 m/s and above)
+  lowBall: 1.2,           // contact height (×1 at 0.45 m above the table, ×2.2 at 0.2 m, ×2.4 lower)
+  offCenter: 1.2,         // contact off the sweet spot (×1 within 40% of the racket radius, ×1.7 at the edge)
+  yaw: 0.8,               // sideways error relative to up/down
+  spinBias: 0.4,          // a smash against spin: degrees per 100 rad/s, topspin lifts it long and
+                          // backspin drops it into the net; a closed / open face (Q/E, wheel) counters
+};
+
+/** Execution error of a stroke (degrees): { pitch, yaw } spreads and a pitch bias.
+ *  speedIn: incoming ball speed (m/s) · h: contact height above the table (m) ·
+ *  off: contact distance from the racket center, 0..1 · spinLift: smash only, unread topspin (+) /
+ *  backspin (−) on the ball (rad/s), already offset by the player's face tilt */
+function strokeError(base, speedIn, h, off, spinLift = 0) {
+  const k = base * (1 + clamp((speedIn - 6) / 8, 0, 1) * AIM.fastBall)
+    * (1 + clamp((0.45 - h) / 0.25, 0, 1.2) * AIM.lowBall)
+    * (1 + clamp(off - 0.4, 0, 0.6) * AIM.offCenter);
+  return { pitch: k, yaw: k * AIM.yaw, bias: clamp(spinLift / 100, -2, 2) * AIM.spinBias };
 }
 /*</core>*/
 
@@ -1200,19 +1236,20 @@ function topspinOf(w, v) {
 function playerHit(contactDist) {
   const r = player;
   const { sl, sf } = strokeSwipe();
+  const contact = contactOf(contactDist);
   // Only forward-pointing flicks count; one that peaked a moment ago still does.
   const swingSpeed = Math.max(smashIntent(sl, sf), recentSwing());
-  if (swingSpeed >= SMASH.minSwing) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl);
-  if (keyDown('ShiftLeft', 'ShiftRight')) return playerSmash(SMASH.minSwing, sl);
+  if (swingSpeed >= SMASH.minSwing) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl, contact);
+  if (keyDown('ShiftLeft', 'ShiftRight')) return playerSmash(SMASH.minSwing, sl, contact);
   const push = sf <= -PLAYER_CFG.pushMin, fwd = Math.max(0, sf);
   const power = push ? PLAYER_CFG.pushPower : clamp(0.38 + fwd * 0.085, 0.2, PLAYER_CFG.maxPower);
   const tilt = input.tilt;
 
-  const misread = topspinOf(unreadSpin(), ball.v) - (push ? -PLAYER_CFG.spinRead : PLAYER_CFG.spinRead);
+  const misread = contact.topIn - (push ? -PLAYER_CFG.spinRead : PLAYER_CFG.spinRead);
   const depthShift = clamp(misread / 150 * 0.4, -0.45, 0.45) - tilt * 0.12;
   let tz = -(0.3 + power * 0.95 + depthShift);
   // Contact off-center angles the ball (Pong-style), plus lateral swing.
-  const offX = ball.p.x - r.pos.x;
+  const offX = contact.offX;
   let tx = clamp(ball.p.x * 0.2 + offX * 2.4 + sl * 0.09, -1.1, 1.1);
   const top = push ? -clamp(0.6 - sf * 0.2, 0.6, 1) * 130 : clamp(tilt + fwd * 0.25, -1, 1.2) * 130;
   const side = clamp(sl * 7, -50, 50);
@@ -1229,48 +1266,67 @@ function playerHit(contactDist) {
     vh *= 0.88;
     shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
   }
-  applyShot(shot);
+  const err = strokeError(AIM.stroke, contact.speedIn, contact.h, contact.off);
+  applyShot(perturbShot(shot, randn() * err.pitch, randn() * err.yaw));
   r.swing = 1;
   const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
   match.stats.fastest = Math.max(match.stats.fastest, kmh);
   if (edge) showMessage('Edge!', 'off the edge of your racket', 'warn', 0.7);
   registerHit('player', power);
-  pendingUpgrade = { hitTime: rally.lastHitTime, offX, x: ball.p.x, y: ball.p.y };
+  pendingUpgrade = { hitTime: rally.lastHitTime, contact };
 }
 
-/** Smash: pace scales with swing speed, aimed deep toward the side you swing to.
- *  `contact` describes the moment of contact; for an upgrade (swing finished just after a
- *  normal hit) it is the remembered contact, and the shot is re-solved from where the ball is now. */
-function playerSmash(swingSpeed, sl, contact = null) {
-  const upgrade = !!contact;
-  contact = contact || { offX: ball.p.x - player.pos.x, x: ball.p.x, y: ball.p.y };
+/** The moment of contact, as the stroke error needs it (see strokeError). */
+function contactOf(contactDist) {
+  return {
+    offX: ball.p.x - player.pos.x, x: ball.p.x, h: ball.p.y - TABLE_TOP,
+    off: contactDist / PLAYER_CFG.hitRadius, speedIn: Math.hypot(ball.v.x, ball.v.y, ball.v.z),
+    topIn: topspinOf(unreadSpin(), ball.v),
+  };
+}
+
+/** Smash: pace scales with swing speed, aimed deep toward the side you swing to, then played
+ *  with the hand error of a smash (see AIM): safe off a high, slow ball, a gamble off a low, fast or
+ *  spinny one — and the faster the flick, the less room to spare. `contact` is the moment of
+ *  contact; for an upgrade (swing finished just after a normal hit) it is the remembered one,
+ *  and the shot is re-solved from where the ball is now. */
+function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   const swing = Math.max(swingSpeed, SMASH.minSwing);
   let vh = clamp(SMASH.minSpeed + (swing - SMASH.minSwing) * 1.2, SMASH.minSpeed, SMASH.maxSpeed);
   // The flick's direction leads the aim (diagonal right → right); contact point adds a little.
-  let tx = clamp(contact.x * 0.3 + contact.offX * 0.6 + sl * 0.25, -0.65, 0.65);
-  let tz = -rand(0.95, 1.25);
-  const high = contact.y - TABLE_TOP >= SMASH.safeHeight;
-  let botched = false;
-  if (!high && Math.random() < SMASH.lowRisk) {        // smashing a low ball: overhit long or wide
-    botched = true;
-    if (Math.random() < 0.5) tz -= rand(0.25, 0.5); else tx = Math.sign(tx || 1) * rand(0.85, 1.0);
-  }
-  let shot = solveShot(ball.p, { x: tx, z: tz }, vh, SMASH.topspin + input.tilt * 40, clamp(sl * 5, -30, 30));
-  if (shot.land && shot.land.net && high) {            // a high ball has room: flatten a little
+  const tx = clamp(contact.x * 0.3 + contact.offX * 0.6 + sl * 0.25, -0.65, 0.65);
+  const tz = -rand(0.95, 1.25);
+  const top = SMASH.topspin + input.tilt * 40;
+  let shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, clamp(sl * 5, -30, 30));
+  if (shot.land && shot.land.net) {                    // no clear path at this pace: flatten a little
     vh *= 0.9;
-    shot = solveShot(ball.p, { x: tx, z: tz }, vh, SMASH.topspin, 0);
+    shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, 0);
   }
+  const err = strokeError(AIM.smash, contact.speedIn, contact.h, contact.off, contact.topIn - input.tilt * 80);
+  shot = perturbShot(shot, err.bias + randn() * err.pitch, randn() * err.yaw);
   applyShot(shot);
   player.swing = 1;
   const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
   match.stats.fastest = Math.max(match.stats.fastest, kmh);
   match.stats.smashes++;
   cameraShake = SMASH.shake;
-  showMessage('SMASH!', `${Math.round(kmh)} km/h${botched ? ' — too low!' : ''}`, botched ? 'bad' : 'warn', 0.9);
+  const miss = smashMissReason(shot, contact, err);
+  showMessage('SMASH!', `${Math.round(kmh)} km/h${miss ? ` — ${miss}` : ''}`, miss ? 'bad' : 'warn', 0.9);
   Sound.smash();
   pendingUpgrade = null;
   if (upgrade) aiOnOpponentHit();   // same stroke, new trajectory: the CPU has to re-read it
   else registerHit('player', 1.2);
+}
+
+/** If this smash won't land, the main reason, so the player learns which balls to smash. */
+function smashMissReason(shot, contact, err) {
+  const land = landingOf({ p: { ...ball.p }, v: { ...shot.v }, w: { ...shot.w } }, false);
+  if (land && land.table && land.z < 0 && Math.abs(land.x) <= HALF_W) return '';
+  if (Math.abs(err.bias) > 0.35) return err.bias > 0 ? 'topspin lifted it' : 'backspin pulled it down';
+  if (contact.h < 0.3) return 'ball too low';
+  if (contact.speedIn > 9) return 'ball too fast';
+  if (contact.off > 0.7) return 'off-center';
+  return land && land.net ? 'into the net' : 'overhit';
 }
 
 /** A normal hit that may still become a smash if the swipe peaks within SMASH.grace. */
@@ -1282,7 +1338,7 @@ function checkSmashUpgrade() {
     pendingUpgrade = null;
     return;
   }
-  if (recentSwing() >= SMASH.minSwing && swing.peakAt >= u.hitTime) playerSmash(recentSwing(), swing.vx, u);
+  if (recentSwing() >= SMASH.minSwing && swing.peakAt >= u.hitTime) playerSmash(recentSwing(), swing.vx, u.contact, true);
 }
 
 function applyShot(shot) {
@@ -1361,7 +1417,9 @@ function aiHit() {
     + clamp(Math.hypot(aiBody.vx, aiBody.vz) / cfg.speed - 0.5, 0, 0.5);
   const pressure = clamp((speedIn - 6) / 8, 0, 1) * 0.6 + clamp(spinIn / 250, 0, 0.6) + stretch;
   const mistake = Math.random() < cfg.mistakeRate * (1 + pressure * 1.5);
-  if (!mistake && ball.p.y - TABLE_TOP >= AI_COMMON.smashHeight && Math.random() < cfg.smash) return aiSmash();
+  // A ball that sits up (high and slow) invites a smash; the higher, the more likely.
+  const sitsUp = clamp((ball.p.y - TABLE_TOP - AI_COMMON.smashHeight) / AI_COMMON.smashFull, 0, 1);
+  if (!mistake && speedIn < AI_COMMON.smashSlow && Math.random() < cfg.smash * sitsUp) return aiSmash(speedIn);
 
   const sideSign = Math.random() < 0.5 ? -1 : 1;
   let tx = sideSign * 0.62 * (1 - cfg.aimError) + rand(-1, 1) * cfg.aimError * 0.6;   // corners
@@ -1390,18 +1448,20 @@ function aiHit() {
   registerHit('ai', 0.4 + cfg.power * 0.5);
 }
 
-/** CPU smash on a ball that sits up: flat and fast (same pace as the player's), into a corner.
- *  Sometimes it flies long. Stepping back and blocking can return it. */
-function aiSmash() {
+/** CPU smash on a ball that sits up: flat and fast (same pace as the player's), into a corner,
+ *  played with the same hand error as the player's smash (scaled by level) — so it can miss too.
+ *  Stepping back and blocking can return it. */
+function aiSmash(speedIn) {
+  const cfg = levelCfg();
   let vh = rand(SMASH.minSpeed, SMASH.maxSpeed);
-  const tx = (Math.random() < 0.5 ? -1 : 1) * rand(0.3, 0.62);
-  const long = Math.random() < AI_COMMON.smashMiss;
-  const tz = long ? HALF_L + rand(0.1, 0.4) : rand(0.9, 1.25);
+  const tx = (Math.random() < 0.5 ? -1 : 1) * rand(0.3, 0.62), tz = rand(0.9, 1.25);
   let shot = solveShot(ball.p, { x: tx, z: tz }, vh, SMASH.topspin, 0);
-  if (!long && shot.land && shot.land.net) {
+  if (shot.land && shot.land.net) {
     vh *= 0.85;
     shot = solveShot(ball.p, { x: tx, z: tz }, vh, SMASH.topspin, 0);
   }
+  const err = strokeError(AIM.smash * cfg.smashError, speedIn, ball.p.y - TABLE_TOP, 0);
+  shot = perturbShot(shot, randn() * err.pitch, randn() * err.yaw);
   applyShot(shot);
   aiRacket.tilt = 0.6;
   aiRacket.swing = 1;
