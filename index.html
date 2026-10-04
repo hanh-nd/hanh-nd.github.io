@@ -79,6 +79,7 @@
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   }
   .hud-btn svg { width: 16px; height: 16px; }
+  #btn-ff { font-size: 13px; font-weight: 800; }
   #btn-help { font: inherit; font-size: 19px; font-weight: 900; }
   .hud-btn:active { background: rgba(255,255,255,.15); }
 
@@ -174,12 +175,12 @@
   }
 
   /* ---------- Tournament hub: bracket + next opponent ---------- */
-  .card.wide { max-width: 760px; }
+  .card.wide { max-width: 900px; }
   .eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
   .tour-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 14px; }
   .tour-head h2 { margin: 2px 0 0; }
   .titles { font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
-  .bracket { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .bracket { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
   .bcol { display: flex; flex-direction: column; min-width: 0; }
   .bms { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 8px; }
   .bcol h4 { margin: 0 0 2px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); text-align: center; }
@@ -224,6 +225,7 @@
   #confetti i { position: absolute; top: -20px; width: 8px; height: 14px; border-radius: 2px; animation: fall linear forwards; }
   @keyframes fall { to { transform: translate3d(var(--dx), 110vh, 0) rotate(var(--r)); } }
   @media (max-width: 520px) {
+    .bracket { gap: 4px; }
     .bp { padding: 4px 5px; font-size: 11px; gap: 4px; }
     .opp-flag { font-size: 32px; }
     .card { padding: 20px 18px; }
@@ -275,6 +277,7 @@
   <div class="hud-col right">
     <div class="hud-btns">
     <button id="btn-pause" class="hud-btn" aria-label="Pause"><svg viewBox="0 0 16 16" fill="currentColor"><g id="icon-pause"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></g><path id="icon-play" d="M4 2.5v11a.8.8 0 0 0 1.2.7l9-5.5a.8.8 0 0 0 0-1.4l-9-5.5A.8.8 0 0 0 4 2.5z" style="display:none"/></svg></button>
+    <button id="btn-ff" class="hud-btn hidden" aria-label="Fast-forward"></button>
     <button id="btn-mute" class="hud-btn" aria-label="Mute"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 6h3l4-3.5v11L5 10H2z"/><path id="mute-x" d="M11 5.5l4 5m0-5l-4 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none" style="display:none"/><path id="mute-wave" d="M11 5a4 4 0 0 1 0 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></button>
     <button id="btn-help" class="hud-btn" aria-label="How to play">?</button>
     </div>
@@ -301,7 +304,7 @@
       <div class="levels styles" id="styles"></div>
     </div>
     <div id="pane-tour" class="hidden">
-      <p class="sub">8 players, single elimination: Quarterfinal → Semifinal → Final. Every opponent has their own style — scout them, then beat them.</p>
+      <p class="sub">16 players, single elimination: Round of 16 → Quarterfinal → Semifinal → Final. Every opponent has their own style — scout them, then beat them.</p>
       <div class="row-label">Event</div>
       <div class="levels tiers" id="tiers"></div>
       <div id="tour-saved" class="saved hidden"></div>
@@ -328,8 +331,8 @@
     <details class="rules">
       <summary>Tournament rules</summary>
       <ul>
-        <li><b>Single elimination</b>, 8 players. Lose a match and you're out.</li>
-        <li><b>Quarterfinal &amp; Semifinal:</b> best of 3 games. <b>Final:</b> best of 5.</li>
+        <li><b>Single elimination</b>, 16 players. Lose a match and you're out.</li>
+        <li><b>Round of 16, Quarterfinal &amp; Semifinal:</b> best of 3 games. <b>Final:</b> best of 5.</li>
         <li>Games to <b>11</b>, win by <b>2</b>. Serve passes every 2 points — every point from 10–10.</li>
         <li>The first server alternates each game. A serve that clips the net and lands in is a <b>let</b>: served again.</li>
         <li>The serve must bounce on your side, then theirs. In a rally the ball must bounce on your side before you hit it — no volleys.</li>
@@ -402,7 +405,7 @@ const TABLE = {
 
 const PHYS = {
   dt: 1 / 240,            // fixed physics timestep (decoupled from rendering)
-  maxSubSteps: 16,        // safety cap per frame
+  maxSubSteps: 48,        // safety cap per frame (enough for a 4× fast-forwarded match)
   gravity: 9.81,
   radius: 0.02,           // 40 mm ball
   drag: 0.11,             // quadratic air drag: a = -drag * |v| * v
@@ -534,17 +537,22 @@ const ROSTER = [
 
 /** Events: the level of each seed (1 = strongest) and how full the arena is per round. */
 const TIERS = {
-  club:  { label: 'Club Open', blurb: 'Friendly local event', levels: ['medium', 'medium', 'easy', 'easy', 'easy', 'easy', 'easy'], crowd: [0.3, 0.45, 0.65], fans: 120 },
-  pro:   { label: 'Pro Tour', blurb: 'The real circuit', levels: ['hard', 'hard', 'medium', 'medium', 'easy', 'easy', 'easy'], crowd: [0.5, 0.75, 1], fans: 2400 },
-  world: { label: 'World Championship', blurb: 'Only the best', levels: ['hard', 'hard', 'hard', 'hard', 'medium', 'medium', 'medium'], crowd: [0.7, 0.9, 1], fans: 9000 },
+  club:  { label: 'Club Open', blurb: 'Friendly local event', fans: 120, crowd: [0.25, 0.3, 0.45, 0.65],
+    levels: ['medium', 'medium', 'medium', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy'] },
+  pro:   { label: 'Pro Tour', blurb: 'The real circuit', fans: 2400, crowd: [0.4, 0.5, 0.75, 1],
+    levels: ['hard', 'hard', 'hard', 'medium', 'medium', 'medium', 'medium', 'medium', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy'] },
+  world: { label: 'World Championship', blurb: 'Only the best', fans: 9000, crowd: [0.6, 0.7, 0.9, 1],
+    levels: ['hard', 'hard', 'hard', 'hard', 'hard', 'hard', 'hard', 'hard', 'medium', 'medium', 'medium', 'medium', 'medium', 'medium', 'medium'] },
 };
 const TIER_ORDER = ['club', 'pro', 'world'];
-const ROUND_NAMES = ['Quarterfinal', 'Semifinal', 'Final'];
-const ROUND_BEST_OF = [3, 3, 5];
-/** Bracket slots by seed (index 7 = you, a wildcard): you meet seed 7 first, the bottom half's
- *  top seed (3) in the semifinal, and seed 1 or 2 in the final. */
-const BRACKET_SEEDS = [1, 6, 2, 4, 3, 5, 7, 0];
-const YOU = 7;
+const ROUND_NAMES = ['Round of 16', 'Quarterfinal', 'Semifinal', 'Final'];
+const ROUND_BEST_OF = [3, 3, 3, 5];
+/** Bracket slots by seed (the last slot = you, a wildcard): you meet seed 15 first, seed 3 or 7
+ *  in the quarterfinal, the bottom half's best (2, 6, 10 or 11) in the semifinal, and the top
+ *  half's winner (usually seed 1 or 4) in the final. */
+const BRACKET_SEEDS = [1, 14, 8, 9, 4, 13, 5, 12, 2, 11, 6, 10, 3, 7, 15, 0];
+const YOU = 15;
+const FINAL = ROUND_NAMES.length - 1;
 
 const AI_COMMON = {
   hitRadius: 0.17, minX: -1.4, maxX: 1.4, minZ: -2.6, maxZ: -(TABLE.length / 2 - REACH.overTable), serveZ: -1.55,
@@ -864,7 +872,10 @@ function racketMinY(x, z) {
   return overTable ? TABLE_TOP + REACH.handleClearance : 0.3;
 }
 /** Simulation speed factor chosen in the menu. */
-const timeScale = () => GAME.speeds[match.speedKey].scale;
+const timeScale = () => GAME.speeds[match.speedKey].scale * (match.watch ? watchSpeed : 1);
+/** Fast-forward while watching CPU vs CPU (the ⏩ button); remembered between matches. */
+const WATCH_SPEEDS = [1, 2, 4];
+let watchSpeed = 2;
 
 /* =====================================================================
    SCENE — renderer, camera, lights, resize
@@ -1989,6 +2000,8 @@ function startMatch() {
   $('cpu-level').textContent = `(${AI_LEVELS[levelKey].label.toLowerCase()})`;
   $('you-name').textContent = tag(home);
   $('you-level').textContent = match.watch ? `(${AI_LEVELS[nearAI.level].label.toLowerCase()})` : '';
+  $('btn-ff').classList.toggle('hidden', !match.watch);
+  syncFastForward();
   const bo = match.gamesToWin * 2 - 1, style = AI_STYLES[match.styleKey].label;
   if (match.mode === 'tour') {
     const r = match.watch ? match.watch.r : tour.round, round = ROUND_NAMES[r], tier = TIERS[tour.tier];
@@ -2354,6 +2367,13 @@ function togglePause() {
   $('menu-pause').classList.toggle('hidden', !match.paused);
   syncPauseButton();
 }
+function syncFastForward() { $('btn-ff').textContent = `${watchSpeed}×`; }
+function cycleFastForward() {
+  watchSpeed = WATCH_SPEEDS[(WATCH_SPEEDS.indexOf(watchSpeed) + 1) % WATCH_SPEEDS.length];
+  store.set('pp3d.watchSpeed', watchSpeed);
+  syncFastForward();
+  showMessage(watchSpeed === 1 ? 'Normal speed' : `⏩ ${watchSpeed}× speed`, '', 'neutral', 0.8);
+}
 /** The pause button shows ▶ while paused (it resumes), ❚❚ while playing. */
 function syncPauseButton() {
   $('icon-pause').style.display = match.paused ? 'none' : '';
@@ -2378,7 +2398,7 @@ function showEndMenu(winner) {
       ['Fastest shot', `${Math.round(s.fastest)} km/h`],
     ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
   } else if (tourMode) {
-    const r = tour.round, round = ROUND_NAMES[tour.lostIn ?? (tour.done ? 2 : r - 1)], tier = TIERS[tour.tier];
+    const r = tour.round, round = ROUND_NAMES[tour.lostIn ?? (tour.done ? FINAL : r - 1)], tier = TIERS[tour.tier];
     if (won && tour.done) {
       $('end-title').textContent = `🏆 ${tier.label} Champion!`;
       $('end-sub').textContent = `You beat ${opp.flag} ${opp.name} in the Final · ${games} (${detail})`;
@@ -2436,18 +2456,19 @@ function confetti() {
    simulated from the players' levels and seeds — or you watch them played
    out CPU vs CPU, and that result counts. Progress is saved.
    ===================================================================== */
-let tour = store.get('pp3d.tour', null);
-const saveTour = () => store.set('pp3d.tour', tour);
+// v2: 16 players, real names (the old 8-player saves under 'pp3d.tour' are ignored).
+let tour = store.get('pp3d.tour2', null);
+const saveTour = () => store.set('pp3d.tour2', tour);
 const playerMatch = () => tour.rounds[tour.round].find(m => m.a === YOU || m.b === YOU);
 const hex = c => '#' + new THREE.Color(c).getHexString();
 
 function newTournament(tierKey) {
   const tier = TIERS[tierKey];
-  const bots = [...ROSTER].sort(() => Math.random() - 0.5).slice(0, 7)
+  const bots = [...ROSTER].sort(() => Math.random() - 0.5).slice(0, BRACKET_SEEDS.length - 1)
     .map((b, i) => ({ ...b, short: b.short || b.name.split(' ').pop(), seed: i + 1, level: tier.levels[i] }));
   const you = { name: 'You', short: 'You', flag: YOU_FLAG, seed: 0, you: true };
   const entrants = BRACKET_SEEDS.map(seed => (seed === 0 ? you : bots[seed - 1]));
-  const rounds = [[0, 1, 2, 3].map(i => ({ a: 2 * i, b: 2 * i + 1, w: null }))];
+  const rounds = [Array.from({ length: entrants.length / 2 }, (_, i) => ({ a: 2 * i, b: 2 * i + 1, w: null }))];
   tour = { tier: tierKey, entrants, rounds, round: 0, done: false, champion: null, lostIn: null };
   saveTour();
 }
@@ -2455,7 +2476,7 @@ function newTournament(tierKey) {
 /** Simulate a bot-vs-bot match: per-game odds from level and seed, plausible scores. */
 function simulateMatch(m, bestOf) {
   const A = tour.entrants[m.a], B = tour.entrants[m.b];
-  const strength = e => LEVEL_ORDER.indexOf(e.level) + (8 - e.seed) * 0.08;
+  const strength = e => LEVEL_ORDER.indexOf(e.level) + (16 - e.seed) * 0.04;
   const pGame = 1 / (1 + Math.exp(-(strength(A) - strength(B)) * 1.1));
   const need = (bestOf + 1) / 2, g = [0, 0], detail = [];
   while (g[0] < need && g[1] < need) {
@@ -2474,7 +2495,7 @@ const watchable = (m, r) => !tour.done && r === tour.round && m.w == null && m.a
 /** Play out a round's remaining matches and draw the next round (or crown the champion). */
 function completeRound(r) {
   for (const m of tour.rounds[r]) if (m.w == null) simulateMatch(m, ROUND_BEST_OF[r]);
-  if (r === ROUND_NAMES.length - 1) { tour.champion = tour.rounds[r][0].w; return; }
+  if (r === FINAL) { tour.champion = tour.rounds[r][0].w; return; }
   const ws = tour.rounds[r].map(m => m.w), next = [];
   for (let i = 0; i < ws.length; i += 2) next.push({ a: ws[i], b: ws[i + 1], w: null });
   tour.rounds[r + 1] = next;
@@ -2483,7 +2504,7 @@ function completeRound(r) {
 /** Finish the current round (simulating what wasn't played or watched) and move on. */
 function advanceRound() {
   completeRound(tour.round);
-  if (tour.round === ROUND_NAMES.length - 1) tour.done = true;
+  if (tour.round === FINAL) tour.done = true;
   else tour.round++;
 }
 
@@ -2566,8 +2587,8 @@ function showTourHub() {
   $('tour-titles').textContent = titles[tour.tier] ? `Your ${tier.label} titles: 🏆×${titles[tour.tier]}` : '';
   $('bracket').innerHTML = ROUND_NAMES.map((name, r) => {
     let html = `<div class="bcol"><h4>${name}</h4><div class="bms">`;
-    for (let i = 0; i < 4 >> r; i++) html += matchBox(tour.rounds[r] && tour.rounds[r][i], r, i);
-    if (r === ROUND_NAMES.length - 1) {
+    for (let i = 0; i < (tour.entrants.length / 2) >> r; i++) html += matchBox(tour.rounds[r] && tour.rounds[r][i], r, i);
+    if (r === FINAL) {
       const c = tour.champion != null ? tour.entrants[tour.champion] : null;
       html += `<div class="champ">🏆<b>${c ? `${c.flag} ${c.short}` : '?'}</b>Champion</div>`;
     }
@@ -2602,7 +2623,7 @@ function showTourHub() {
   $('bracket').querySelectorAll('.watch').forEach(b => b.addEventListener('click', () => watchTourMatch(+b.dataset.r, +b.dataset.i)));
   if (again) again.addEventListener('click', () => { newTournament(tour.tier); showTourHub(); });
   $('btn-tour-menu').addEventListener('click', () => { uiMode = 'tour'; showStartMenu(); });
-  setAttendance(tier.crowd[Math.min(tour.round, 2)]);
+  setAttendance(tier.crowd[tour.round]);
   setBoardText(tier.label);
   $('menu-tour').classList.remove('hidden');
 }
@@ -2639,6 +2660,8 @@ $('btn-tour-continue').addEventListener('click', () => { Sound.init(); showTourH
 $('btn-resume').addEventListener('click', togglePause);
 $('btn-pause').addEventListener('click', e => { e.stopPropagation(); togglePause(); });
 $('btn-help').addEventListener('click', e => { e.stopPropagation(); showHelp(); });
+$('btn-ff').addEventListener('click', e => { e.stopPropagation(); cycleFastForward(); });
+watchSpeed = WATCH_SPEEDS.includes(store.get('pp3d.watchSpeed')) ? store.get('pp3d.watchSpeed') : watchSpeed;
 $('btn-mute').addEventListener('click', e => { e.stopPropagation(); Sound.init(); Sound.toggleMute(); });
 $('btn-help-close').addEventListener('click', hideHelp);
 $('btn-restart').addEventListener('click', () => startMatch());
