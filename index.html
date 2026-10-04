@@ -71,7 +71,7 @@
   .tag.deuce { background: var(--gold); color: #10131a; border-color: transparent; }
 
   /* ---------- On-screen HUD buttons: help, mute, pause ---------- */
-  .hud-btns { display: flex; gap: 8px; }
+  .hud-btns { display: flex; flex-direction: column; gap: 8px; }
   .hud-btn {
     pointer-events: auto; width: 44px; height: 44px; display: grid; place-items: center;
     border-radius: 12px; border: 1px solid var(--border); background: rgba(10, 13, 20, 0.82); color: var(--text);
@@ -192,6 +192,11 @@
   .bp.win { color: var(--text); font-weight: 700; }
   .bp.you .nm { color: var(--player); font-weight: 800; }
   .bp.lost { opacity: .45; }
+  .bm .watch {
+    display: block; width: 100%; padding: 4px 0; border: 0; border-top: 1px solid var(--border); cursor: pointer;
+    background: rgba(255,210,63,.08); color: var(--gold); font: inherit; font-size: 11px; font-weight: 800; letter-spacing: .06em;
+  }
+  .bm .watch:hover { background: rgba(255,210,63,.18); }
   .champ { text-align: center; padding: 8px 6px; border-radius: 9px; background: rgba(255,210,63,.1); border: 1px dashed rgba(255,210,63,.4); font-size: 12px; }
   .champ b { display: block; font-size: 13px; color: var(--gold); }
   .opp { display: flex; gap: 14px; padding: 14px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid var(--border); margin-bottom: 12px; }
@@ -258,7 +263,7 @@
   <div class="hud-col">
     <div id="scorebug" aria-label="Score">
       <div class="sb-head" id="sb-head"></div>
-      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name">YOU</span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
+      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
       <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
     </div>
     <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span></div>
@@ -269,9 +274,9 @@
   </div>
   <div class="hud-col right">
     <div class="hud-btns">
-    <button id="btn-help" class="hud-btn" aria-label="How to play">?</button>
+    <button id="btn-pause" class="hud-btn" aria-label="Pause"><svg viewBox="0 0 16 16" fill="currentColor"><g id="icon-pause"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></g><path id="icon-play" d="M4 2.5v11a.8.8 0 0 0 1.2.7l9-5.5a.8.8 0 0 0 0-1.4l-9-5.5A.8.8 0 0 0 4 2.5z" style="display:none"/></svg></button>
     <button id="btn-mute" class="hud-btn" aria-label="Mute"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 6h3l4-3.5v11L5 10H2z"/><path id="mute-x" d="M11 5.5l4 5m0-5l-4 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none" style="display:none"/><path id="mute-wave" d="M11 5a4 4 0 0 1 0 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></button>
-    <button id="btn-pause" class="hud-btn" aria-label="Pause"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
+    <button id="btn-help" class="hud-btn" aria-label="How to play">?</button>
     </div>
     <div id="hint" class="hidden"></div>
   </div>
@@ -329,6 +334,7 @@
         <li>The first server alternates each game. A serve that clips the net and lands in is a <b>let</b>: served again.</li>
         <li>The serve must bounce on your side, then theirs. In a rally the ball must bounce on your side before you hit it — no volleys.</li>
         <li>Edge balls count; the side of the table doesn't. Leaving a match unfinished doesn't count — you can replay it.</li>
+        <li><b>▶ Watch</b> any other match of the round before it's decided — the result you watch counts. Knocked out? Keep watching to the final.</li>
       </ul>
     </details>
     <div id="tour-actions"></div>
@@ -504,18 +510,26 @@ const AI_STYLES = {
 };
 const STYLE_ORDER = ['allround', 'attacker', 'defender', 'blocker', 'wizard'];
 
-/** Tournament opponents (fictional). Rackets avoid the player's red. */
+/** Tournament field: world, Olympic and World Cup champions, men and women (styles are loose
+ *  caricatures of their game). short = scorebug name. Rackets avoid the player's red. */
 const ROSTER = [
-  { name: 'Kai Brenner', nick: 'The Wall', flag: '🇩🇪', style: 'blocker', color: 0x2f80ed },
-  { name: 'Mei Lin', nick: 'Lightning', flag: '🇨🇳', style: 'attacker', color: 0xe0a100 },
-  { name: 'Luca Moretti', nick: 'The Professor', flag: '🇮🇹', style: 'defender', color: 0x2bb673 },
-  { name: 'Hiro Tanaka', nick: 'Spin Doctor', flag: '🇯🇵', style: 'wizard', color: 0x9b51e0 },
-  { name: 'Sven Ostberg', nick: 'Iceman', flag: '🇸🇪', style: 'allround', color: 0x56ccf2 },
-  { name: 'Ana Souza', nick: 'Samba', flag: '🇧🇷', style: 'attacker', color: 0x1fa463 },
-  { name: 'Jae-won Park', nick: 'The Monk', flag: '🇰🇷', style: 'defender', color: 0x8c8c99 },
-  { name: 'Olu Adeyemi', nick: 'Big O', flag: '🇳🇬', style: 'allround', color: 0x6fcf97 },
-  { name: 'Pierre Laval', nick: 'Le Magicien', flag: '🇫🇷', style: 'wizard', color: 0x3b5bdb },
-  { name: 'Priya Nair', nick: 'Rapid', flag: '🇮🇳', style: 'blocker', color: 0xf2994a },
+  { name: 'Ma Long', short: 'Ma Long', nick: 'The Dragon', flag: '🇨🇳', style: 'allround', color: 0xe0a100 },
+  { name: 'Fan Zhendong', short: 'Fan', nick: 'The Tiger', flag: '🇨🇳', style: 'attacker', color: 0xf2994a },
+  { name: 'Wang Chuqin', short: 'Wang C.', nick: 'Lefty Storm', flag: '🇨🇳', style: 'attacker', color: 0x2f80ed },
+  { name: 'Zhang Jike', short: 'Zhang', nick: 'Ji-King', flag: '🇨🇳', style: 'attacker', color: 0x8e44ad },
+  { name: 'Sun Yingsha', short: 'Sun', nick: 'Shasha', flag: '🇨🇳', style: 'blocker', color: 0xbb6bd9 },
+  { name: 'Chen Meng', short: 'Chen', nick: 'Rock Steady', flag: '🇨🇳', style: 'allround', color: 0x56ccf2 },
+  { name: 'Wang Manyu', short: 'Wang M.', nick: 'Power Queen', flag: '🇨🇳', style: 'attacker', color: 0x1fa463 },
+  { name: 'Ding Ning', short: 'Ding', nick: 'Serve Queen', flag: '🇨🇳', style: 'wizard', color: 0x9b51e0 },
+  { name: 'Jan-Ove Waldner', short: 'Waldner', nick: 'Mozart', flag: '🇸🇪', style: 'wizard', color: 0x3b5bdb },
+  { name: 'Truls Möregårdh', short: 'Möregårdh', nick: 'The Showman', flag: '🇸🇪', style: 'wizard', color: 0x00a8e8 },
+  { name: 'Timo Boll', short: 'Boll', nick: 'Mr Fair Play', flag: '🇩🇪', style: 'allround', color: 0x2bb673 },
+  { name: 'Tomokazu Harimoto', short: 'Harimoto', nick: 'Chorei!', flag: '🇯🇵', style: 'blocker', color: 0x00b3a4 },
+  { name: 'Mima Ito', short: 'Ito', nick: 'Quick Hands', flag: '🇯🇵', style: 'blocker', color: 0xf2c94c },
+  { name: 'Hugo Calderano', short: 'Calderano', nick: 'The Rocket', flag: '🇧🇷', style: 'attacker', color: 0x6fcf97 },
+  { name: 'Felix Lebrun', short: 'Lebrun', nick: 'The Kid', flag: '🇫🇷', style: 'blocker', color: 0x3d8bff },
+  { name: 'Joo Se-hyuk', short: 'Joo', nick: 'The Chopper', flag: '🇰🇷', style: 'defender', color: 0x8c8c99 },
+  { name: 'Kim Kyung-ah', short: 'Kim', nick: 'Chop Queen', flag: '🇰🇷', style: 'defender', color: 0x7f8c8d },
 ];
 
 /** Events: the level of each seed (1 = strongest) and how full the arena is per round. */
@@ -1107,12 +1121,12 @@ function setAttendance(a) {
   });
   for (const m of [crowdBodies, crowdHeads, crowdArms]) m.instanceMatrix.needsUpdate = true;
 }
-/** Opponent fans wear the opponent's colour. */
-function setCrowdColors(oppColor) {
+/** Each player's fans ('player' | 'ai') wear their colour. */
+function setCrowdColors(team, color) {
   const c = new THREE.Color();
   crowd.people.forEach((p, i) => {
-    if (p.team !== 'ai') return;
-    crowdBodies.setColorAt(i, c.set(oppColor));
+    if (p.team !== team) return;
+    crowdBodies.setColorAt(i, c.set(color));
     crowdArms.setColorAt(2 * i, c); crowdArms.setColorAt(2 * i + 1, c);
   });
   crowdBodies.instanceColor.needsUpdate = true; crowdArms.instanceColor.needsUpdate = true;
@@ -1380,7 +1394,7 @@ function currentCharge() {
   return c < 1 ? c : 2 - c;
 }
 function startCharge() {
-  if (match.paused || match.state !== 'serve' || match.server !== 'player' || input.charging) return;
+  if (match.paused || match.watch || match.state !== 'serve' || match.server !== 'player' || input.charging) return;
   input.charging = true;
   input.chargeStart = performance.now();
 }
@@ -1625,7 +1639,7 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   showMessage('SMASH!', `${Math.round(kmh)} km/h${miss ? ` — ${miss}` : ''}`, miss ? 'bad' : 'warn', 0.9);
   Sound.smash();
   pendingUpgrade = null;
-  if (upgrade) aiOnOpponentHit();   // same stroke, new trajectory: the CPU has to re-read it
+  if (upgrade) aiOnOpponentHit(ai);   // same stroke, new trajectory: the CPU has to re-read it
   else registerHit('player', 1.2);
 }
 
@@ -1661,19 +1675,30 @@ function applyShot(shot) {
    AI — predicts the intercept, moves there at limited speed after a
    reaction delay, aims for corners with level-scaled error and mistakes.
    ===================================================================== */
-const ai = { racket: aiRacket, plan: null, serveAt: 0, serveX: 0, recoverUntil: 0 };
-const levelCfg = () => AI_LEVELS[match.levelKey];
-const styleCfg = () => AI_STYLES[match.styleKey];
+/** A CPU player. 'ai' plays the far end (z < 0); when you watch a tournament match, a second
+ *  one plays the near end ('player'). s is the sign of its half: the same code plays either end
+ *  by mirroring Z, so "depth" below means distance from the net (s * z). */
+function makeAI(owner, racket, body) {
+  return { owner, racket, body, s: owner === 'ai' ? -1 : 1, level: 'easy', style: 'allround', plan: null, serveAt: 0, serveX: 0, recoverUntil: 0 };
+}
+const ai = makeAI('ai', aiRacket, aiBody);
+const nearAI = makeAI('player', player, playerBody);
+/** The CPU that plays `who`'s end, or null when it's you. */
+const botFor = who => (who === 'ai' ? ai : match.watch ? nearAI : null);
+const levelCfg = c => AI_LEVELS[c.level];
+const styleCfg = c => AI_STYLES[c.style];
+/** Z of a point at `depth` on c's half, kept within the CPU's reach. */
+const reachZ = (c, depth) => c.s * clamp(depth, -AI_COMMON.maxZ, -AI_COMMON.minZ);
 
-function aiOnOpponentHit() {
-  ai.plan = { readyAt: simTime + levelCfg().reactionMs * styleCfg().reaction / 1000, computed: false, nextUpdate: 0, point: null, err: null };
+function aiOnOpponentHit(c) {
+  c.plan = { readyAt: simTime + levelCfg(c).reactionMs * styleCfg(c).reaction / 1000, computed: false, nextUpdate: 0, point: null, err: null };
 }
 
 /** Predict the intercept and add this shot's positioning error. Re-run a few times per second
  *  while the ball is incoming (net clips change the path); the error is rolled once per shot
  *  so the racket doesn't jitter. */
-function computeAIPlan() {
-  const cfg = levelCfg(), plan = ai.plan;
+function computeAIPlan(c) {
+  const cfg = levelCfg(c), plan = c.plan;
   plan.computed = true;
   plan.nextUpdate = simTime + 0.15;
   if (!plan.err) {
@@ -1682,76 +1707,79 @@ function computeAIPlan() {
     const e = cfg.aimError * 0.22 * (1 + spin / 120);
     plan.err = { x: randn() * e, y: randn() * e * 0.5, z: randn() * e * 0.6 };
   }
-  const p = aiIntercept(styleCfg().take);
+  const p = aiIntercept(c, styleCfg(c).take);
   if (!p) return;   // out / net ball, or already past its bounce: keep the last plan
   plan.point = {
     x: clamp(p.x + plan.err.x, AI_COMMON.minX, AI_COMMON.maxX),
     y: clamp(p.y + plan.err.y, TABLE_TOP + 0.05, 1.8),
-    z: clamp(p.z + plan.err.z, AI_COMMON.minZ, AI_COMMON.maxZ),
+    z: reachZ(c, c.s * p.z + plan.err.z),
   };
 }
 
 /** Where the CPU meets the ball, by style: at the top of the bounce ('top'), early on the rise
  *  ('rise', a blocker) or late and deep as it drops ('drop', a defender's chop). */
-function aiIntercept(take) {
-  if (take === 'top') return predictIntercept(ball, -1, AI_COMMON.reachDepth, -AI_COMMON.maxZ);
+function aiIntercept(c, take) {
+  if (take === 'top') return predictIntercept(ball, c.s, AI_COMMON.reachDepth, -AI_COMMON.maxZ);
   let bounced = false;
   return simulate(ball, 3, (b, ev, t) => {
     if (ev.floor) return null;
     const pt = { x: b.p.x, y: b.p.y, z: b.p.z, t };
     if (ev.table) {
-      if (!bounced) { if (ev.table.z < 0) bounced = true; return undefined; }
+      if (!bounced) { if (c.s * ev.table.z > 0) bounced = true; return undefined; }
       return pt;                                    // second bounce: take it before it drops
     }
-    if (!bounced || -b.p.z < -AI_COMMON.maxZ) return undefined;
+    const depth = c.s * b.p.z;
+    if (!bounced || depth < -AI_COMMON.maxZ) return undefined;
     const h = b.p.y - TABLE_TOP;
-    if (take === 'rise') return h > 0.13 || b.v.y <= 0 || -b.p.z >= AI_COMMON.reachDepth ? pt : undefined;
-    return (b.v.y <= 0 && h < 0.2) || -b.p.z >= -AI_COMMON.minZ - 0.05 ? pt : undefined;
+    if (take === 'rise') return h > 0.13 || b.v.y <= 0 || depth >= AI_COMMON.reachDepth ? pt : undefined;
+    return (b.v.y <= 0 && h < 0.2) || depth >= -AI_COMMON.minZ - 0.05 ? pt : undefined;
   });
 }
 
-function updateAI(dt) {
-  const cfg = levelCfg(), r = aiRacket;
-  const homeZ = AI_COMMON.home.z - styleCfg().depth;
+function updateAI(c, dt) {
+  const cfg = levelCfg(c), r = c.racket;
+  const homeZ = c.s * (-AI_COMMON.home.z + styleCfg(c).depth);
   let goal = { x: ball.p.x * 0.3, y: AI_COMMON.home.y, z: homeZ };   // drift home, shading the ball
-  if ((match.state === 'serve' || match.state === 'toss') && match.server === 'ai') {
-    goal = { x: ai.serveX, y: 0.88, z: AI_COMMON.serveZ };
-  } else if (ai.plan) {
-    if (simTime >= ai.plan.readyAt && (!ai.plan.computed || simTime >= ai.plan.nextUpdate)) computeAIPlan();
-    if (!ai.plan.computed) goal = r.pos;                     // still reacting
-    else if (ai.plan.point) goal = ai.plan.point;
+  if ((match.state === 'serve' || match.state === 'toss') && match.server === c.owner) {
+    goal = { x: c.serveX, y: 0.88, z: -c.s * AI_COMMON.serveZ };
+  } else if (c.plan) {
+    if (simTime >= c.plan.readyAt && (!c.plan.computed || simTime >= c.plan.nextUpdate)) computeAIPlan(c);
+    if (!c.plan.computed) goal = r.pos;                     // still reacting
+    else if (c.plan.point) goal = c.plan.point;
     else goal = { x: ball.p.x * 0.5, y: AI_COMMON.home.y, z: homeZ };
   }
   // Feet run toward the goal with the level's speed and acceleration (they stop during the
   // follow-through after a hit); the arm moves the racket quickly within reach of the body.
-  const body = aiBody, recovering = simTime < ai.recoverUntil;
-  moveBody(body, recovering ? body.x : goal.x, Math.min(recovering ? body.z : goal.z, -(HALF_L + REACH.bodyBehind)), cfg.speed, cfg.accel, dt);
+  const body = c.body, recovering = simTime < c.recoverUntil;
+  const bodyZ = c.s * Math.max(c.s * (recovering ? body.z : goal.z), HALF_L + REACH.bodyBehind);
+  moveBody(body, recovering ? body.x : goal.x, bodyZ, cfg.speed, cfg.accel, dt);
   const ax = clamp(goal.x, body.x - REACH.armX, body.x + REACH.armX) - r.pos.x;
   const az = clamp(goal.z, body.z - REACH.armZ, body.z + REACH.armZ) - r.pos.z, d = Math.hypot(ax, az);
-  if (d > 1e-4 && !(match.state === 'toss' && match.server === 'ai')) {
+  if (d > 1e-4 && !(match.state === 'toss' && match.server === c.owner)) {
     const step = Math.min(d, AI_COMMON.armSpeed * dt);
     r.pos.x += ax / d * step; r.pos.z += az / d * step;
   }
   const dy = Math.max(goal.y, racketMinY(goal.x, goal.z)) - r.pos.y;
   r.pos.y += clamp(dy, -AI_COMMON.ySpeed * dt, AI_COMMON.ySpeed * dt);
-  r.pos.z = clamp(r.pos.z, AI_COMMON.minZ, AI_COMMON.maxZ);
+  r.pos.z = reachZ(c, c.s * r.pos.z);
   r.pos.y = Math.max(r.pos.y, racketMinY(r.pos.x, r.pos.z));
   r.integrateVelocity(dt);
 }
 
-function aiHit() {
-  const cfg = levelCfg(), st = styleCfg();
+function aiHit(c) {
+  const cfg = levelCfg(c), st = styleCfg(c), r = c.racket, body = c.body;
+  const toward = -c.s;   // the opponent's half: target depths below are converted with it
   const speedIn = Math.hypot(ball.v.x, ball.v.y, ball.v.z);
   const spinIn = Math.hypot(ball.w.x, ball.w.y, ball.w.z);
   // Fast or spinny balls, and being stretched (racket far from the body, or still running),
   // raise the chance of an error and take pace off the return.
-  const stretch = clamp(Math.hypot((aiRacket.pos.x - aiBody.x) / REACH.armX, (aiRacket.pos.z - aiBody.z) / REACH.armZ) - 0.6, 0, 0.6)
-    + clamp(Math.hypot(aiBody.vx, aiBody.vz) / cfg.speed - 0.5, 0, 0.5);
+  const stretch = clamp(Math.hypot((r.pos.x - body.x) / REACH.armX, (r.pos.z - body.z) / REACH.armZ) - 0.6, 0, 0.6)
+    + clamp(Math.hypot(body.vx, body.vz) / cfg.speed - 0.5, 0, 0.5);
   const pressure = clamp((speedIn - 6) / 8, 0, 1) * 0.6 + clamp(spinIn / 250, 0, 0.6) + stretch;
   const mistake = Math.random() < cfg.mistakeRate * st.mistake * (1 + pressure * 1.5);
   // A ball that sits up (high and slow) invites a smash; the higher, the more likely.
   const sitsUp = clamp((ball.p.y - TABLE_TOP - AI_COMMON.smashHeight) / AI_COMMON.smashFull, 0, 1);
-  if (!mistake && speedIn < AI_COMMON.smashSlow && Math.random() < Math.min(1, cfg.smash * st.smash) * sitsUp) return aiSmash(speedIn);
+  if (!mistake && speedIn < AI_COMMON.smashSlow && Math.random() < Math.min(1, cfg.smash * st.smash) * sitsUp) return aiSmash(c, speedIn);
 
   const sideSign = Math.random() < 0.5 ? -1 : 1, power = cfg.power * st.power;
   let tx = sideSign * Math.min(0.68, 0.62 * st.wide) * (1 - cfg.aimError) + rand(-1, 1) * cfg.aimError * 0.6;   // corners
@@ -1763,40 +1791,47 @@ function aiHit() {
   const top = chop ? -rand(0.55, 1) * (90 + 110 * cfg.spin) * st.chopSpin : rand(0.5, 1) * (50 + 130 * cfg.spin) * st.top;
   if (chop) { vh *= 0.8; tz = Math.max(tz, 0.95); }   // chops are slow and deep
   const side = rand(-1, 1) * cfg.spin * 40 * st.side;
-  // A short drop shot, just over the net (only if the player can reach it before its second bounce).
+  // A short drop shot, just over the net (only if the opponent can reach it before its second bounce).
   if (!mistake && Math.random() < st.short) {
-    const drop = solveShot(ball.p, { x: tx * 0.7, z: rand(0.5, 0.7) }, vh * 0.6, top * 0.5, side);
-    const meet = drop.land && !drop.land.net && predictIntercept({ p: { ...ball.p }, v: drop.v, w: drop.w }, 1, 2.5, PLAYER_CFG.minZ);
-    if (meet && meet.z >= PLAYER_CFG.minZ - 0.02) return aiPlay(drop, top * 0.5, 0.3);
+    const drop = solveShot(ball.p, { x: tx * 0.7, z: toward * rand(0.5, 0.7) }, vh * 0.6, top * 0.5, side);
+    const meet = drop.land && !drop.land.net && predictIntercept({ p: { ...ball.p }, v: drop.v, w: drop.w }, toward, 2.5, PLAYER_CFG.minZ);
+    if (meet && toward * meet.z >= PLAYER_CFG.minZ - 0.02) return aiPlay(c, drop, top * 0.5, 0.3);
   }
 
   let kind = mistake ? (Math.random() < 0.4 ? 'long' : Math.random() < 0.5 ? 'wide' : 'net') : null;
   if (kind === 'long') tz = HALF_L + rand(0.08, 0.38);
   if (kind === 'wide') tx = sideSign * (HALF_W + rand(0.08, 0.28));
 
-  let shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
+  let shot = solveShot(ball.p, { x: tx, z: toward * tz }, vh, top, side);
   for (let i = 0; !mistake && i < 5 && shot.land && shot.land.net; i++) {
     vh *= 0.88;
-    shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
+    shot = solveShot(ball.p, { x: tx, z: toward * tz }, vh, top, side);
   }
   if (kind === 'net') shot.v.y -= rand(1.2, 2.2);
-  aiPlay(shot, top, 0.4 + power * 0.5);
+  aiPlay(c, shot, top, 0.4 + power * 0.5);
 }
-function aiPlay(shot, top, intensity) {
+function aiPlay(c, shot, top, intensity) {
   applyShot(shot);
-  aiRacket.tilt = clamp(top / 140, -1, 1);
-  aiRacket.swing = 1;
-  ai.recoverUntil = simTime + AI_COMMON.recovery;
-  registerHit('ai', intensity);
+  c.racket.tilt = clamp(top / 140, -1, 1);
+  c.racket.swing = 1;
+  c.recoverUntil = simTime + AI_COMMON.recovery;
+  if (match.watch) trackFastest(shot);
+  registerHit(c.owner, intensity);
+}
+/** Record a shot's pace for the end-of-match stats; returns it in km/h. */
+function trackFastest(shot) {
+  const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
+  match.stats.fastest = Math.max(match.stats.fastest, kmh);
+  return kmh;
 }
 
 /** CPU smash on a ball that sits up: flat and fast (same pace as the player's), into a corner,
  *  played with the same hand error as the player's smash (scaled by level) — so it can miss too.
  *  Stepping back and blocking can return it. */
-function aiSmash(speedIn) {
-  const cfg = levelCfg();
+function aiSmash(c, speedIn) {
+  const cfg = levelCfg(c), toward = -c.s;
   let vh = rand(SMASH.minSpeed, SMASH.maxSpeed);
-  const tx = (Math.random() < 0.5 ? -1 : 1) * rand(0.3, 0.62), tz = rand(0.9, 1.25);
+  const tx = (Math.random() < 0.5 ? -1 : 1) * rand(0.3, 0.62), tz = toward * rand(0.9, 1.25);
   let shot = solveShot(ball.p, { x: tx, z: tz }, vh, SMASH.topspin, 0);
   if (shot.land && shot.land.net) {
     vh *= 0.85;
@@ -1805,29 +1840,30 @@ function aiSmash(speedIn) {
   const err = strokeError(AIM.smash * cfg.smashError, speedIn, ball.p.y - TABLE_TOP, 0);
   shot = handPlay(ball.p, shot, err);
   applyShot(shot);
-  aiRacket.tilt = 0.6;
-  aiRacket.swing = 1;
-  ai.recoverUntil = simTime + AI_COMMON.recovery * 1.5;
-  match.stats.cpuSmashes++;
-  showMessage('SMASH!', `${Math.round(Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6)} km/h`, 'bad', 0.9);
+  c.racket.tilt = 0.6;
+  c.racket.swing = 1;
+  c.recoverUntil = simTime + AI_COMMON.recovery * 1.5;
+  match.stats[c.owner === 'ai' ? 'cpuSmashes' : 'smashes']++;
+  const kmh = match.watch ? trackFastest(shot) : Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
+  showMessage('SMASH!', `${match.watch ? nameOf(c.owner) + ' · ' : ''}${Math.round(kmh)} km/h`, match.watch ? 'warn' : 'bad', 0.9);
   Sound.smash();
-  registerHit('ai', 1.2);
+  registerHit(c.owner, 1.2);
 }
 
-function aiServeCharge() {
-  const cfg = levelCfg();
+function aiServeCharge(c) {
+  const cfg = levelCfg(c);
   if (Math.random() < cfg.mistakeRate * 0.4) return rand(0.97, 1.0);   // serve fault: long
   return clamp(0.35 + cfg.power * 0.35 + rand(-0.08, 0.08), 0.05, 0.9);
 }
 
-function aiServe(charge) {
-  const cfg = levelCfg(), st = styleCfg();
+function aiServe(c, charge) {
+  const cfg = levelCfg(c), st = styleCfg(c);
   const tx = (Math.random() < 0.5 ? -1 : 1) * (0.2 + 0.4 * (1 - cfg.aimError));
   const back = Math.random() < st.serveBack;
   const top = (back ? -st.chopSpin : st.top) * rand(0.5, 1) * (40 + 120 * cfg.spin);
   const side = cfg.spin * rand(-1, 1) * 40 * st.side;
-  aiRacket.tilt = clamp(top / 140, -1, 1);
-  doServe('ai', charge, top, side, tx);
+  c.racket.tilt = clamp(top / 140, -1, 1);
+  doServe(c.owner, charge, top, side, tx);
 }
 
 /** Player serve, struck as the tossed ball falls. The swipe while it falls sets the spin:
@@ -1853,7 +1889,8 @@ function stepToss(dt) {
   ev.net = false; ev.table = null; ev.floor = null;
   stepBall(ball, dt, ev);
   if (ball.v.y < 0 && ball.p.y <= match.toss.strikeY) {
-    if (match.toss.who === 'player') playerServe(match.toss.charge); else aiServe(match.toss.charge);
+    const bot = botFor(match.toss.who);
+    if (bot) aiServe(bot, match.toss.charge); else playerServe(match.toss.charge);
   }
 }
 
@@ -1880,6 +1917,7 @@ const match = {
   styleKey: 'allround',
   speedKey: 'real',
   mode: 'quick',          // quick | tour
+  watch: null,            // { r, i } while watching tournament match i of round r (CPU vs CPU)
   gamesToWin: 2,          // best of 3 (the tournament final is best of 5)
   gameScores: [],         // finished games, e.g. ['11-7', '9-11']
   state: 'menu',          // menu | serve | toss | rally | pointOver | matchOver
@@ -1900,7 +1938,11 @@ const idx = who => (who === 'player' ? 0 : 1);
 const other = who => (who === 'player' ? 'ai' : 'player');
 /** The opponent: 'CPU' in a quick match, a named player in the tournament. */
 const opp = { name: 'CPU', short: 'CPU', flag: '', color: COLORS.ai };
-const nameOf = who => (who === 'player' ? 'You' : opp.short);
+/** The near end: you, or the player you're watching there. */
+const YOU_FLAG = '🇻🇳';
+const home = { name: 'You', short: 'You', flag: YOU_FLAG, color: COLORS.player };
+const isYou = who => who === 'player' && !match.watch;
+const nameOf = who => (who === 'player' ? home.short : opp.short);
 const isPlaying = () => ['serve', 'toss', 'rally', 'pointOver'].includes(match.state);
 
 function newStats() {
@@ -1910,11 +1952,18 @@ function newStats() {
 /** Set who you play: a quick-match CPU (level + style) or a tournament entrant. */
 function setOpponent(o) {
   Object.assign(opp, { name: o.name, short: o.short || o.name, flag: o.flag || '', color: o.color });
-  match.levelKey = o.level; match.styleKey = o.style;
+  match.levelKey = ai.level = o.level; match.styleKey = ai.style = o.style;
   aiRacket.setColor(o.color);
-  const hex = '#' + new THREE.Color(o.color).getHexString();
-  document.documentElement.style.setProperty('--cpu', hex);
-  setCrowdColors(o.color);
+  document.documentElement.style.setProperty('--cpu', hex(o.color));
+  setCrowdColors('ai', o.color);
+}
+/** Who plays the near end: you (null), or a tournament entrant when watching. */
+function setHome(e) {
+  Object.assign(home, e ? { name: e.name, short: e.short, flag: e.flag, color: e.color } : { name: 'You', short: 'You', flag: match.mode === 'tour' ? YOU_FLAG : '', color: COLORS.player });   // your flag: tournament only
+  if (e) { nearAI.level = e.level; nearAI.style = e.style; }
+  player.setColor(home.color);
+  document.documentElement.style.setProperty('--player', e ? hex(e.color) : '');
+  setCrowdColors('player', home.color);
 }
 
 function startMatch() {
@@ -1924,6 +1973,7 @@ function startMatch() {
   match.gameScores = [];
   match.gameStarter = 'player';
   match.paused = false;
+  syncPauseButton();
   match.stats = newStats();
   match.after = null; match.timer = 0;
   hideAllMenus();
@@ -1934,15 +1984,18 @@ function startMatch() {
   placeBody(aiBody, AI_COMMON.home.x, AI_COMMON.home.z);
   input.target.x = 0; input.target.z = 1.8;
   setupServe(true);
-  $('opp-name').textContent = (opp.flag ? opp.flag + ' ' : '') + opp.short.toUpperCase();
+  const tag = p => (p.flag ? p.flag + ' ' : '') + p.short.toUpperCase();
+  $('opp-name').textContent = tag(opp);
   $('cpu-level').textContent = `(${AI_LEVELS[levelKey].label.toLowerCase()})`;
+  $('you-name').textContent = tag(home);
+  $('you-level').textContent = match.watch ? `(${AI_LEVELS[nearAI.level].label.toLowerCase()})` : '';
   const bo = match.gamesToWin * 2 - 1, style = AI_STYLES[match.styleKey].label;
   if (match.mode === 'tour') {
-    const round = ROUND_NAMES[tour.round], tier = TIERS[tour.tier];
-    $('sb-head').textContent = `${tier.label} · ${round} · Best of ${bo}`;
-    setAttendance(tier.crowd[tour.round]);
+    const r = match.watch ? match.watch.r : tour.round, round = ROUND_NAMES[r], tier = TIERS[tour.tier];
+    $('sb-head').textContent = `${match.watch ? '▶ Watching · ' : ''}${tier.label} · ${round} · Best of ${bo}`;
+    setAttendance(tier.crowd[r]);
     setBoardText(tier.label);
-    showMessage(round, `vs ${opp.flag} ${opp.name} — ${style}`, 'neutral', 2.2);
+    showMessage(round, match.watch ? `${home.flag} ${home.name} vs ${opp.flag} ${opp.name}` : `vs ${opp.flag} ${opp.name} — ${style}`, 'neutral', 2.2);
     crowdReact(null, 0.9);
   } else {
     $('sb-head').textContent = `Quick match · Best of ${bo}`;
@@ -1968,14 +2021,14 @@ function setupServe(first = false) {
   match.rallyCount = 0;
   Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0 });
   match.toss = null;
-  ai.plan = null;
-  ai.recoverUntil = 0;
+  for (const c of [ai, nearAI]) { c.plan = null; c.recoverUntil = 0; }
   pendingUpgrade = null;
   marker.visible = false;
   input.charging = false;
-  if (match.server === 'ai') {
-    ai.serveX = rand(-0.4, 0.4);
-    ai.serveAt = simTime + rand(1.1, 1.8);
+  const bot = botFor(match.server);
+  if (bot) {
+    bot.serveX = rand(-0.4, 0.4);
+    bot.serveAt = simTime + rand(1.1, 1.8);
   }
   holdBallForServe();
   updateHUD();
@@ -2005,12 +2058,13 @@ function registerHit(who, intensity) {
   rally.shotBounces = 0;
   match.rallyCount++;
   Sound.hit(intensity);
+  const self = botFor(who), opponent = botFor(other(who));
+  if (self) self.plan = null;
+  if (opponent) aiOnOpponentHit(opponent);
   if (who === 'player') {
-    aiOnOpponentHit();
     marker.visible = false;
   } else {
-    ai.plan = null;
-    const m = predictBounce(ball, 1);
+    const m = match.watch ? null : predictBounce(ball, 1);   // the bounce hint is for you only
     marker.visible = !!m;
     if (m) marker.position.set(m.x, TABLE_TOP + 0.003, m.z);
     const meet = predictIntercept(ball, 1, 2.5, PLAYER_CFG.minZ);
@@ -2066,14 +2120,14 @@ function callLet() {
 }
 
 /** What `who` did, as a sentence: "CPU hit it long", "You let it bounce twice". */
-const say = (who, what) => `${nameOf(who)} ${what.replace('{own}', who === 'player' ? 'your own' : 'their own')}`;
+const say = (who, what) => `${nameOf(who)} ${what.replace('{own}', isYou(who) ? 'your own' : 'their own')}`;
 
 /** why: what the loser did ("hit it long"; {own} = "your own"/"its own").
  *  kind: 'error' (loser hit out/net), 'miss' (loser failed to return), 'fault' (serve fault). */
 function endPoint(winner, why, kind) {
   if (!rally.live) return;
   rally.live = false;
-  ai.plan = null;
+  ai.plan = nearAI.plan = null;
   marker.visible = false;
   match.state = 'pointOver';
   const loser = other(winner), s = match.stats;
@@ -2085,9 +2139,9 @@ function endPoint(winner, why, kind) {
   if (winner === match.server && kind === 'miss' && match.rallyCount === 1) s.aces++;
 
   const youWon = winner === 'player';
-  const tone = youWon ? 'good' : 'bad';
-  if (kind === 'fault') showMessage('Fault', `${say(loser, why)} — ${youWon ? 'your point' : `point to ${opp.short}`}`, tone, 1.5);
-  else showMessage(youWon ? 'Your point' : `${opp.short}'s point`, say(loser, why), tone, 1.5);
+  const tone = match.watch ? 'neutral' : youWon ? 'good' : 'bad';
+  if (kind === 'fault') showMessage('Fault', `${say(loser, why)} — ${isYou(winner) ? 'your point' : `point to ${nameOf(winner)}`}`, tone, 1.5);
+  else showMessage(isYou(winner) ? 'Your point' : `${nameOf(winner)}'s point`, say(loser, why), tone, 1.5);
   Sound.point(youWon);
   // The crowd: long rallies and big points get them more excited.
   const big = pointSituation() ? 0.25 : 0;
@@ -2107,8 +2161,8 @@ function afterPoint() {
   updateHUD();
   if (match.games[idx(winner)] >= match.gamesToWin) return endMatch(winner);
   const gameNo = match.games[0] + match.games[1];
-  showMessage(winner === 'player' ? `You win game ${gameNo}` : `${opp.short} wins game ${gameNo}`,
-    `You ${p} – ${a} ${opp.short} · Games ${match.games[0]} – ${match.games[1]}`, winner === 'player' ? 'good' : 'bad', 2.4);
+  showMessage(isYou(winner) ? `You win game ${gameNo}` : `${nameOf(winner)} wins game ${gameNo}`,
+    `${home.short} ${p} – ${a} ${opp.short} · Games ${match.games[0]} – ${match.games[1]}`, match.watch ? 'neutral' : winner === 'player' ? 'good' : 'bad', 2.4);
   Sound.fanfare(winner === 'player');
   crowdReact(winner, 1);
   setTimeout(startWave, 900);
@@ -2116,7 +2170,7 @@ function afterPoint() {
     match.points = [0, 0];
     match.gameStarter = other(match.gameStarter);   // alternate first server each game
     setupServe();
-    showMessage(`Game ${match.games[0] + match.games[1] + 1}`, `${nameOf(match.server)} ${match.server === 'player' ? 'serve' : 'serves'} first`, 'neutral', 1.4);
+    showMessage(`Game ${match.games[0] + match.games[1] + 1}`, `${nameOf(match.server)} ${isYou(match.server) ? 'serve' : 'serves'} first`, 'neutral', 1.4);
   });
 }
 
@@ -2125,7 +2179,8 @@ function endMatch(winner) {
   Sound.fanfare(winner === 'player');
   crowdReact(winner, 1);
   startWave();
-  if (match.mode === 'tour') tourRecordResult(winner === 'player');
+  if (match.watch) tourRecordWatched(winner);
+  else if (match.mode === 'tour') tourRecordResult(winner === 'player');
   showEndMenu(winner);
 }
 
@@ -2165,7 +2220,7 @@ function pointSituation() {
     const mine = match.points[idx(who)], theirs = match.points[idx(other(who))];
     if (mine >= n - 1 && mine > theirs) {
       const matchPoint = match.games[idx(who)] === match.gamesToWin - 1;
-      return { text: `${matchPoint ? 'MATCH' : 'GAME'} POINT · ${who === 'player' ? 'YOU' : opp.short.toUpperCase()}`, cls: who };
+      return { text: `${matchPoint ? 'MATCH' : 'GAME'} POINT · ${nameOf(who).toUpperCase()}`, cls: who };
     }
   }
   return null;
@@ -2184,7 +2239,7 @@ function updateHUD() {
   const rally = $('tag-rally');
   rally.classList.toggle('hidden', match.rallyCount < 4);
   rally.textContent = `RALLY ${match.rallyCount}`;
-  const serving = match.state === 'serve' && match.server === 'player';
+  const serving = match.state === 'serve' && isYou(match.server);
   $('power-wrap').classList.toggle('hidden', !serving);
   $('hint').classList.toggle('hidden', !serving);
   $('hint').innerHTML = '<b>Your serve.</b> Hold the mouse button or your finger, release to toss — avoid the red zone. Swipe as it falls: forward = topspin, back = backspin.';
@@ -2263,6 +2318,8 @@ function showStartMenu() {
 function startQuick() {
   Sound.init();
   match.mode = 'quick';
+  match.watch = null;
+  setHome(null);
   match.gamesToWin = 2;
   setOpponent({ name: 'CPU', short: 'CPU', color: COLORS.ai, level: quick.level, style: quick.style });
   startMatch();
@@ -2289,17 +2346,38 @@ function togglePause() {
   match.paused = !match.paused;
   input.charging = false;
   const who = match.mode === 'tour' ? `${opp.flag} ${opp.name}` : 'CPU';
-  $('pause-info').textContent = `vs ${who} (${AI_STYLES[match.styleKey].label}, ${AI_LEVELS[match.levelKey].label}) · ${GAME.speeds[match.speedKey].label} speed · `
-    + `Game ${match.games[0] + match.games[1] + 1}: You ${match.points[0]} – ${match.points[1]} ${opp.short}`;
+  const score = `Game ${match.games[0] + match.games[1] + 1}: ${home.short} ${match.points[0]} – ${match.points[1]} ${opp.short}`;
+  $('pause-info').textContent = match.watch
+    ? `Watching ${home.flag} ${home.name} vs ${who} · ${GAME.speeds[match.speedKey].label} speed · ${score}`
+    : `vs ${who} (${AI_STYLES[match.styleKey].label}, ${AI_LEVELS[match.levelKey].label}) · ${GAME.speeds[match.speedKey].label} speed · ${score}`;
   $('btn-quit').textContent = match.mode === 'tour' ? 'Leave Match' : 'Main Menu';
   $('menu-pause').classList.toggle('hidden', !match.paused);
+  syncPauseButton();
+}
+/** The pause button shows ▶ while paused (it resumes), ❚❚ while playing. */
+function syncPauseButton() {
+  $('icon-pause').style.display = match.paused ? 'none' : '';
+  $('icon-play').style.display = match.paused ? '' : 'none';
+  $('btn-pause').setAttribute('aria-label', match.paused ? 'Resume' : 'Pause');
 }
 
 function showEndMenu(winner) {
   const s = match.stats, lvl = LEVEL_ORDER.indexOf(match.levelKey), o = opp.short, won = winner === 'player';
-  const games = `You ${match.games[0]} – ${match.games[1]} ${o}`, detail = match.gameScores.join(', ');
+  const games = `${home.short} ${match.games[0]} – ${match.games[1]} ${o}`, detail = match.gameScores.join(', ');
   const tourMode = match.mode === 'tour';
-  if (tourMode) {
+  if (match.watch) {
+    const w = won ? home : opp, h = home.short;
+    $('end-title').textContent = `${w.flag} ${w.name} wins`;
+    $('end-sub').textContent = `${ROUND_NAMES[match.watch.r]} · ${games} (${detail})`;
+    $('end-stats').innerHTML = [
+      ['Points won', `${s.pointsWon[0]} – ${s.pointsWon[1]}`],
+      ['Longest rally', `${s.longestRally} hits`],
+      [`Serve faults (${h} / ${o})`, `${s.serveFaults[0]} / ${s.serveFaults[1]}`],
+      ['Aces (both)', s.aces],
+      [`Smashes (${h} / ${o})`, `${s.smashes} / ${s.cpuSmashes}`],
+      ['Fastest shot', `${Math.round(s.fastest)} km/h`],
+    ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+  } else if (tourMode) {
     const r = tour.round, round = ROUND_NAMES[tour.lostIn ?? (tour.done ? 2 : r - 1)], tier = TIERS[tour.tier];
     if (won && tour.done) {
       $('end-title').textContent = `🏆 ${tier.label} Champion!`;
@@ -2326,7 +2404,7 @@ function showEndMenu(winner) {
     [`Smashes (you / ${o})`, `${s.smashes} / ${s.cpuSmashes}`],
     ['Fastest shot', `${Math.round(s.fastest)} km/h`],
   ];
-  $('end-stats').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+  if (!match.watch) $('end-stats').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
   $('btn-continue').classList.toggle('hidden', !tourMode);
   $('btn-again').classList.toggle('hidden', tourMode);
   const next = $('btn-next');
@@ -2355,7 +2433,8 @@ function confetti() {
 
 /* =====================================================================
    TOURNAMENT — 8-player knockout. You play your matches; the others are
-   simulated from the players' levels and seeds. Progress is saved.
+   simulated from the players' levels and seeds — or you watch them played
+   out CPU vs CPU, and that result counts. Progress is saved.
    ===================================================================== */
 let tour = store.get('pp3d.tour', null);
 const saveTour = () => store.set('pp3d.tour', tour);
@@ -2365,8 +2444,8 @@ const hex = c => '#' + new THREE.Color(c).getHexString();
 function newTournament(tierKey) {
   const tier = TIERS[tierKey];
   const bots = [...ROSTER].sort(() => Math.random() - 0.5).slice(0, 7)
-    .map((b, i) => ({ ...b, short: b.name.split(' ').pop(), seed: i + 1, level: tier.levels[i] }));
-  const you = { name: 'You', short: 'You', flag: '⭐', seed: 0, you: true };
+    .map((b, i) => ({ ...b, short: b.short || b.name.split(' ').pop(), seed: i + 1, level: tier.levels[i] }));
+  const you = { name: 'You', short: 'You', flag: YOU_FLAG, seed: 0, you: true };
   const entrants = BRACKET_SEEDS.map(seed => (seed === 0 ? you : bots[seed - 1]));
   const rounds = [[0, 1, 2, 3].map(i => ({ a: 2 * i, b: 2 * i + 1, w: null }))];
   tour = { tier: tierKey, entrants, rounds, round: 0, done: false, champion: null, lostIn: null };
@@ -2389,6 +2468,9 @@ function simulateMatch(m, bestOf) {
   Object.assign(m, { w: g[0] > g[1] ? m.a : m.b, g, detail });
 }
 
+/** Is this an undecided bot-vs-bot match of the current round (one you can watch)? */
+const watchable = (m, r) => !tour.done && r === tour.round && m.w == null && m.a !== YOU && m.b !== YOU;
+
 /** Play out a round's remaining matches and draw the next round (or crown the champion). */
 function completeRound(r) {
   for (const m of tour.rounds[r]) if (m.w == null) simulateMatch(m, ROUND_BEST_OF[r]);
@@ -2398,6 +2480,14 @@ function completeRound(r) {
   tour.rounds[r + 1] = next;
 }
 
+/** Finish the current round (simulating what wasn't played or watched) and move on. */
+function advanceRound() {
+  completeRound(tour.round);
+  if (tour.round === ROUND_NAMES.length - 1) tour.done = true;
+  else tour.round++;
+}
+
+/** Your result. Knocked out, you can still watch the later rounds (or simulate them). */
 function tourRecordResult(won) {
   const m = playerMatch(), youA = m.a === YOU;
   const flip = sc => sc.split('-').reverse().join('-');
@@ -2406,19 +2496,22 @@ function tourRecordResult(won) {
     g: youA ? [...match.games] : [match.games[1], match.games[0]],
     detail: match.gameScores.map(sc => (youA ? sc : flip(sc))),
   });
-  completeRound(tour.round);
-  if (!won) {
-    tour.lostIn = tour.round;
-    for (let r = tour.round + 1; r < ROUND_NAMES.length; r++) completeRound(r);
-    tour.done = true;
-  } else if (tour.round === ROUND_NAMES.length - 1) {
-    tour.done = true;
+  if (!won) tour.lostIn = tour.round;
+  advanceRound();
+  if (won && tour.done) {
     const titles = store.get('pp3d.titles', {});
     titles[tour.tier] = (titles[tour.tier] || 0) + 1;
     store.set('pp3d.titles', titles);
-  } else {
-    tour.round++;
   }
+  saveTour();
+}
+
+/** A watched match counts like a played one (entrant a played the near end). */
+function tourRecordWatched(winner) {
+  const { r, i } = match.watch, m = tour.rounds[r][i];
+  Object.assign(m, { w: winner === 'player' ? m.a : m.b, g: [...match.games], detail: [...match.gameScores] });
+  // Once you're out, nothing waits on your match: the round ends when its last match is decided.
+  if (tour.lostIn != null && tour.rounds[r].every(x => x.w != null)) advanceRound();
   saveTour();
 }
 
@@ -2429,7 +2522,10 @@ function refreshTourPane() {
   cont.classList.toggle('hidden', !live);
   fresh.textContent = live ? 'Start Over' : 'Enter Tournament';
   fresh.classList.toggle('alt', !!live);
-  if (live) {
+  if (live && tour.lostIn != null) {
+    box.innerHTML = `<b>In progress:</b> ${TIERS[tour.tier].label} — you're out; the ${ROUND_NAMES[tour.round]} is on.`;
+    cont.textContent = `Continue: watch the ${ROUND_NAMES[tour.round]}`;
+  } else if (live) {
     const m = playerMatch(), e = tour.entrants[m.a === YOU ? m.b : m.a];
     box.innerHTML = `<b>In progress:</b> ${TIERS[tour.tier].label} — ${ROUND_NAMES[tour.round]} next, vs ${e.flag} ${e.name} (${AI_STYLES[e.style].label}).`;
     cont.textContent = `Continue: ${ROUND_NAMES[tour.round]}`;
@@ -2447,7 +2543,7 @@ function attrBars(e) {
   ].map(([k, v]) => `<span>${k}</span><div class="bar"><i style="width:${Math.round(clamp(v, 0.08, 1) * 100)}%"></i></div>`).join('');
 }
 
-function matchBox(m, r) {
+function matchBox(m, r, i) {
   if (!m) return '<div class="bm"><div class="bp"><span class="nm">TBD</span></div><div class="bp"><span class="nm">TBD</span></div></div>';
   const live = !tour.done && r === tour.round && (m.a === YOU || m.b === YOU);
   const title = m.detail ? ` title="${m.detail.join(', ')}"` : '';
@@ -2456,18 +2552,21 @@ function matchBox(m, r) {
     const cls = ['bp', m.w === e ? 'win' : '', m.w != null && m.w !== e ? 'lost' : '', e === YOU ? 'you' : ''].join(' ');
     return `<div class="${cls}"><span>${ent.flag}</span><span class="nm">${ent.short}</span><span class="sc">${m.g ? m.g[k] : ''}</span></div>`;
   };
-  return `<div class="bm${live ? ' live' : ''}"${title}>${row(m.a, 0)}${row(m.b, 1)}</div>`;
+  const watch = watchable(m, r) ? `<button class="watch" data-r="${r}" data-i="${i}">▶ Watch</button>` : '';
+  return `<div class="bm${live ? ' live' : ''}"${title}>${row(m.a, 0)}${row(m.b, 1)}${watch}</div>`;
 }
 
 function showTourHub() {
   enterMenuState();
   const tier = TIERS[tour.tier], titles = store.get('pp3d.titles', {});
   $('tour-tier').textContent = `${tier.label} · ${tier.fans.toLocaleString()} fans`;
-  $('tour-title').textContent = tour.done ? (tour.champion === YOU ? '🏆 Champion!' : 'Tournament over') : `Next: ${ROUND_NAMES[tour.round]}`;
+  const out = tour.lostIn != null;
+  $('tour-title').textContent = tour.done ? (tour.champion === YOU ? '🏆 Champion!' : 'Tournament over')
+    : out ? `${ROUND_NAMES[tour.round]} · You're out` : `Next: ${ROUND_NAMES[tour.round]}`;
   $('tour-titles').textContent = titles[tour.tier] ? `Your ${tier.label} titles: 🏆×${titles[tour.tier]}` : '';
   $('bracket').innerHTML = ROUND_NAMES.map((name, r) => {
     let html = `<div class="bcol"><h4>${name}</h4><div class="bms">`;
-    for (let i = 0; i < 4 >> r; i++) html += matchBox(tour.rounds[r] && tour.rounds[r][i], r);
+    for (let i = 0; i < 4 >> r; i++) html += matchBox(tour.rounds[r] && tour.rounds[r][i], r, i);
     if (r === ROUND_NAMES.length - 1) {
       const c = tour.champion != null ? tour.entrants[tour.champion] : null;
       html += `<div class="champ">🏆<b>${c ? `${c.flag} ${c.short}` : '?'}</b>Champion</div>`;
@@ -2482,6 +2581,9 @@ function showTourHub() {
       ? `<div class="result gold">You won the <b>${tier.label}</b> without losing a match. The crowd is on its feet!</div>`
       : `<div class="result">You went out in the <b>${ROUND_NAMES[tour.lostIn]}</b>. ${champ.flag} <b>${champ.name}</b> “${champ.nick}” took the title.</div>`;
     actions = '<button class="btn" id="btn-tour-again">New Tournament</button>';
+  } else if (out) {
+    next = `<div class="result">You went out in the <b>${ROUND_NAMES[tour.lostIn]}</b>. Watch the ${ROUND_NAMES[tour.round]} (▶ in the bracket), or skip to the end.</div>`;
+    actions = '<button class="btn" id="btn-tour-sim">Simulate to the End</button>';
   } else {
     const m = playerMatch(), e = tour.entrants[m.a === YOU ? m.b : m.a], st = AI_STYLES[e.style];
     next = `<div class="opp" style="--opp:${hex(e.color)}"><div class="opp-flag">${e.flag}</div><div style="min-width:0">
@@ -2494,8 +2596,10 @@ function showTourHub() {
   }
   $('tour-next').innerHTML = next;
   $('tour-actions').innerHTML = actions + '<button class="btn alt" id="btn-tour-menu">Main Menu</button>';
-  const play = $('btn-tour-play'), again = $('btn-tour-again');
+  const play = $('btn-tour-play'), again = $('btn-tour-again'), sim = $('btn-tour-sim');
   if (play) play.addEventListener('click', playTourMatch);
+  if (sim) sim.addEventListener('click', () => { while (!tour.done) advanceRound(); saveTour(); showTourHub(); });
+  $('bracket').querySelectorAll('.watch').forEach(b => b.addEventListener('click', () => watchTourMatch(+b.dataset.r, +b.dataset.i)));
   if (again) again.addEventListener('click', () => { newTournament(tour.tier); showTourHub(); });
   $('btn-tour-menu').addEventListener('click', () => { uiMode = 'tour'; showStartMenu(); });
   setAttendance(tier.crowd[Math.min(tour.round, 2)]);
@@ -2507,8 +2611,22 @@ function playTourMatch() {
   Sound.init();
   const m = playerMatch();
   match.mode = 'tour';
+  match.watch = null;
+  setHome(null);
   match.gamesToWin = (ROUND_BEST_OF[tour.round] + 1) / 2;
   setOpponent(tour.entrants[m.a === YOU ? m.b : m.a]);
+  startMatch();
+}
+
+/** Watch a bot-vs-bot match: entrant a plays the near end, b the far end. */
+function watchTourMatch(r, i) {
+  Sound.init();
+  const m = tour.rounds[r][i];
+  match.mode = 'tour';
+  match.watch = { r, i };
+  match.gamesToWin = (ROUND_BEST_OF[r] + 1) / 2;
+  setHome(tour.entrants[m.a]);
+  setOpponent(tour.entrants[m.b]);
   startMatch();
 }
 
@@ -2647,12 +2765,14 @@ function stepLiveBall(dt) {
   checkSmashUpgrade();
   if (checkVolley()) return;
 
-  if (canHit('player') || (DEBUG.on && rally.lastHitter === 'ai')) {   // debug also logs pre-bounce crossings
+  if (match.watch) {
+    if (canHit('player') && racketContact(player, AI_COMMON.hitRadius, 1, false) >= 0) return aiHit(nearAI);
+  } else if (canHit('player') || (DEBUG.on && rally.lastHitter === 'ai')) {   // debug also logs pre-bounce crossings
     const d = racketContact(player, PLAYER_CFG.hitRadius, PLAYER_CFG.yWeight);
     if (d >= 0 && canHit('player')) return playerHit(d);
   }
   if (canHit('ai')) {
-    if (racketContact(aiRacket, AI_COMMON.hitRadius, 1) >= 0) return aiHit();
+    if (racketContact(aiRacket, AI_COMMON.hitRadius, 1) >= 0) return aiHit(ai);
   }
   if (simTime - rally.lastHitTime > GAME.rallyTimeout) onFloor();   // safety net
 }
@@ -2694,11 +2814,12 @@ function menuStep(dt) {
 function fixedUpdate(dt) {
   simTime += dt;
   if (match.state === 'menu') return menuStep(dt);
-  updatePlayer(dt);
-  updateAI(dt);
+  if (match.watch) updateAI(nearAI, dt); else updatePlayer(dt);
+  updateAI(ai, dt);
   if (match.state === 'serve') {
     holdBallForServe();
-    if (match.server === 'ai' && simTime >= ai.serveAt) beginToss('ai', aiServeCharge());
+    const bot = botFor(match.server);
+    if (bot && simTime >= bot.serveAt) beginToss(match.server, aiServeCharge(bot));
   } else if (match.state === 'toss') {
     stepToss(dt);
   } else {
@@ -2721,7 +2842,8 @@ function updateCamera(dt) {
     return;
   }
   const k = 1 - Math.exp(-CAM_FOLLOW.rate * dt);
-  cameraPoseFor(player.pos.x, player.pos.z, _camTarget, _lookTarget);
+  if (match.watch) cameraPoseFor(player.pos.x * 0.3, CAM_FOLLOW.refZ + 0.3, _camTarget, _lookTarget);   // steadier, a bit further back
+  else cameraPoseFor(player.pos.x, player.pos.z, _camTarget, _lookTarget);
   camera.position.lerp(_camTarget, k);
   camLook.lerp(_lookTarget, k);
   camera.lookAt(camLook);
@@ -2754,7 +2876,7 @@ function frame(now) {
   renderBall(alpha, running ? dt : 0);
   // The face visibly closes with a forward swipe and opens on a pull-back (plus manual tilt).
   const swipeTilt = simTime - swing.strokeAt <= PLAYER_CFG.strokeWindow ? clamp(swing.sf, -2, 3) * 0.3 : 0;
-  player.updateMesh(dt, match.state === 'menu' ? 0 : clamp(input.tilt + swipeTilt, -1, 1));
+  player.updateMesh(dt, match.state === 'menu' ? 0 : match.watch ? player.tilt : clamp(input.tilt + swipeTilt, -1, 1));
   aiRacket.updateMesh(dt, aiRacket.tilt);
   updateCamera(dt);
   if (marker.visible) marker.material.opacity = 0.5 + 0.25 * Math.sin(now / 120);
