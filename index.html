@@ -230,7 +230,6 @@
     .opp-flag { font-size: 32px; }
     .card { padding: 20px 18px; }
   }
-  .tag.adapt { background: var(--cpu); border-color: transparent; }
   table.stats { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 14px; }
   table.stats td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
   table.stats td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -269,7 +268,7 @@
       <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
       <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
     </div>
-    <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span><span id="tag-adapt" class="tag adapt hidden"></span></div>
+    <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span></div>
     <div class="meter hidden" id="power-wrap">
       <div class="lbl"><span>SERVE POWER</span><em>red = long</em></div>
       <div class="bar"><div id="power-fill"></div><div class="zone-out"></div></div>
@@ -356,7 +355,7 @@
       &nbsp;· <b>quick flick forward</b> = smash — safe on a ball that sits up high; a low, fast or spinny ball can still go long or into the net. A gentler flick is safer<br>
       &nbsp;· <b>pull back</b> = push (backspin) — pull back <b>harder</b> for a long push · hit off-center or swipe sideways to angle the ball toward a corner<br>
       &nbsp;· <b>short touch</b>: step in and meet a slow ball <b>over the table</b>, holding still — it drops just over the net and bounces twice. The CPU can't attack it<br>
-      <b>Scout your opponents:</b> every style plays two <b>patterns</b> (a racket wind-up warns of the key shot), some players have a <b>signature shot</b> (the racket glows), and the CPU <b>targets</b> where you keep missing (🎯 in the HUD).<br>
+      <b>Scout your opponents:</b> every style plays two <b>patterns</b> (a racket wind-up warns of the key shot), some players have a <b>signature shot</b> (the racket glows).<br>
       <b>Read the spin</b> from the CPU's racket face and the ball's dots: topspin → block or drive; backspin (a chop) → push. The wrong stroke drifts long or short — a hard drive can fly out.<br>
       <b>Serve:</b> hold mouse / finger, release to toss (red zone = long). Swipe as the ball falls: forward = topspin, pull back = backspin.<br>
       <kbd>Wheel</kbd> tilts the face: backspin / topspin · on-screen buttons: ❚❚ pause, 🔊 mute<br>
@@ -593,7 +592,8 @@ const SIGNATURE_OF = Object.fromEntries(Object.entries(SIGNATURES).map(([id, s])
 
 /** Adaptation within a match (vs you only, never in watch mode, never from the score): the CPU
  *  remembers the kind of shot you missed (zone = your side × short / backspin / topspin), aims a
- *  capped share of its shots there (AI_LEVELS.adapt), says so, and switches plans every few points. */
+ *  capped share of its shots there (AI_LEVELS.adapt) and switches plans every few points. Silent:
+ *  nothing on screen tells the player about it. */
 const ADAPT = {
   decay: 0.8,             // every point, miss weights fade to this fraction
   returned: 0.35,         // a clean return of a zone takes this off its weight
@@ -2253,7 +2253,6 @@ function startMatch() {
   syncPauseButton();
   match.stats = newStats();
   for (const c of [ai, nearAI]) { c.adapt = newAdapt(); c.sigShown = false; Object.assign(c.racket, { windTarget: 0, glowColor: null, lean: 0 }); }
-  pendingCallouts = [];
   match.after = null; match.timer = 0;
   hideAllMenus();
   $('topbar').classList.remove('hidden');
@@ -2463,16 +2462,11 @@ function adaptAfterPoint(c, winner, kind) {
   if (best) {
     a.target = best[0];
     a.hold = ADAPT.hold[0] + Math.floor(Math.random() * (ADAPT.hold[1] - ADAPT.hold[0] + 1));
-    queueCallout('🎯 New plan', `${nameOf(c.owner)} is targeting ${zoneText(a.target)} — you've been missing there`, 'bad');
   } else if (was) {
     a.target = null;
     a.rest = ADAPT.rest;
-    queueCallout('Plan dropped', `${nameOf(c.owner)} stops targeting ${zoneText(was)}`, 'neutral');
   }
 }
-const ZONE_SIDE = { bh: 'backhand', fh: 'forehand', mid: 'body' };
-const ZONE_KIND = { drive: 'topspin', chop: 'backspin', short: 'short balls' };
-const zoneText = z => { const [sd, k] = z.split('-'); return `your ${ZONE_SIDE[sd]} with ${ZONE_KIND[k]}`; };
 
 function afterPoint() {
   const [p, a] = match.points;
@@ -2529,16 +2523,6 @@ function showMessage(main, sub = '', tone = 'neutral', duration = 1.4, priority 
   msgTimer = duration;
 }
 
-/** Call-outs that can wait (adaptation, a newly scouted pattern): shown one at a time while a
- *  serve is being set up and no other message is up. */
-let pendingCallouts = [];
-function queueCallout(main, sub, tone = 'neutral') { if (pendingCallouts.length < 3) pendingCallouts.push({ main, sub, tone }); }
-function showCallouts() {
-  if (!pendingCallouts.length || msgTimer > 0 || match.state !== 'serve') return;
-  const c = pendingCallouts.shift();
-  showMessage(c.main, c.sub, c.tone, 2, 2);
-}
-
 /** Set a scorebug number; a changed value gets a short "bump" so the eye catches it. */
 function setScore(id, value) {
   const el = $(id), text = String(value);
@@ -2576,10 +2560,6 @@ function updateHUD() {
   const rally = $('tag-rally');
   rally.classList.toggle('hidden', match.rallyCount < 4);
   rally.textContent = `RALLY ${match.rallyCount}`;
-  // Adaptation is visible: what the CPU is going after right now.
-  const target = isPlaying() && adapting(ai) ? ai.adapt.target : null, adapt = $('tag-adapt');
-  adapt.classList.toggle('hidden', !target);
-  if (target) adapt.textContent = `🎯 ${zoneText(target).replace('your ', '').toUpperCase()}`;
   const serving = match.state === 'serve' && isYou(match.server);
   $('power-wrap').classList.toggle('hidden', !serving);
   $('hint').classList.toggle('hidden', !serving);
@@ -3076,9 +3056,21 @@ const Sound = {
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
   },
+  /** Throw the audio context away and build a fresh one. Call from a user gesture. Fixes audio
+   *  that has gone silent while the context still says 'running' (iOS after a call or a route
+   *  change, some desktop audio drivers after sleep). */
+  restart() {
+    if (this.ctx) { this.ctx.close().catch(() => {}); this.ctx = null; }
+    this.init();
+  },
+  /** Mute, or unmute — unmuting restarts the audio, so it's also the fix when sound drops out. */
   toggleMute() {
     this.muted = !this.muted;
-    if (this.master) this.master.gain.value = this.muted ? 0 : 0.6;
+    if (this.muted) { if (this.master) this.master.gain.value = 0; }
+    else {
+      this.restart();
+      setTimeout(() => this.hit(0.5), 80);   // a tick: you hear that sound is back
+    }
     showMessage(this.muted ? 'Muted' : 'Sound on', '', 'neutral', 0.8, 3);
     $('mute-x').style.display = this.muted ? '' : 'none';
     $('mute-wave').style.display = this.muted ? 'none' : '';
@@ -3289,7 +3281,6 @@ function frame(now) {
   if (match.state !== 'menu') updateLiveHUD();
   updateCrowd(dt, now / 1000);
   if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0) $('msg').classList.remove('show'); }
-  if (match.state !== 'menu' && !match.paused) showCallouts();
 
   renderer.render(scene, camera);
 }
