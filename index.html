@@ -3226,6 +3226,7 @@ const Sound = {
    *  start audio from a tap or click. After a tab switch, iOS leaves the context 'interrupted'
    *  and it often never resumes, so it is replaced with a fresh one. */
   init() {
+    this.unlockSilentSwitch();
     if (this.ctx) {
       if (this.ctx.state === 'running') return;
       if (this.ctx.state !== 'interrupted' && this.ctx.state !== 'closed') { this.ctx.resume().catch(() => {}); return; }
@@ -3246,6 +3247,28 @@ const Sound = {
     this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  },
+  /** iOS plays Web Audio as 'ambient' sound, which the ring/silent switch mutes. Ask for
+   *  'playback' instead (iOS 17+); older iOS switches over while an <audio> element plays,
+   *  so a looping silent clip does the job there. */
+  unlockSilentSwitch() {
+    if (navigator.audioSession) { try { navigator.audioSession.type = 'playback'; } catch (e) {} return; }
+    if (!/iP(hone|ad|od)|Macintosh/.test(navigator.userAgent) || !('ontouchend' in document)) return;
+    if (!this.silentEl) {
+      // 0.1 s of 8-bit mono silence as a WAV
+      const n = 800, b = new Uint8Array(44 + n), v = new DataView(b.buffer);
+      const str = (o, s) => { for (let i = 0; i < s.length; i++) b[o + i] = s.charCodeAt(i); };
+      str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVEfmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+      str(36, 'data'); v.setUint32(40, n, true); b.fill(128, 44);
+      const el = this.silentEl = document.createElement('audio');
+      el.src = URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+      el.loop = true; el.preload = 'auto';
+      el.setAttribute('playsinline', ''); el.setAttribute('x-webkit-airplay', 'deny');
+      document.addEventListener('visibilitychange', () => { if (document.hidden) el.pause(); });
+    }
+    if (this.silentEl.paused) this.silentEl.play().catch(() => {});
   },
   /** Throw the audio context away and build a fresh one. Call from a user gesture. Fixes audio
    *  that has gone silent while the context still says 'running' (iOS after a call or a route
