@@ -484,9 +484,6 @@ const PLAYER_CFG = {
   touchZ: 1.15, touchMaxSpeed: 7, touchMaxFwd: 0.8,
   touch: { depth: 0.4, time: 0.45, top: -120 },
   cornerX: 0.66,          // corner aim saturates here (soft), so an overshot sideways swipe stays on
-  touchSwing: 0.3,        // on a touch screen, forward / back swipe speed counts this much (trackSwing).
-                          // Measured: a swipe up of 1/4–1/3 of the screen height in 0.15–0.25 s is a
-                          // drive; a smash needs a snap (1/3 of it in 0.12 s, or 1/4 in 0.08 s)
   driveFwd: 1.2,          // forward swipe (m/s) that counts as a drive against a signature (sigReturn)
   sigLuck: 0.12,          // chance a wrong stroke still gets a signature shot back
   spinRead: 60,           // spin a stroke handles (rad/s): drives/blocks topspin, pushes backspin;
@@ -1467,7 +1464,6 @@ const input = {
   ndc: new THREE.Vector2(0, -0.4),
   target: { x: 0, z: 1.8 },    // where the player wants the racket (XZ)
   wheelTilt: 0, tilt: 0,
-  touch: false,                // the last pointer was a finger (swipes are read more calmly: touchSwing)
   charging: false, chargeStart: 0,
 };
 
@@ -1477,7 +1473,6 @@ let touchLast = null;
 const TOUCH_GAIN = 1.25;
 canvas.addEventListener('pointermove', e => {
   if (e.pointerType === 'touch') {
-    input.touch = true;
     if (!touchLast) return;
     input.target.x += (e.clientX - touchLast.x) / window.innerWidth * 2 * MOUSE_MAP.xRange * TOUCH_GAIN;
     input.target.z += (e.clientY - touchLast.y) / window.innerHeight / 0.6 * (MOUSE_MAP.zNear - PLAYER_CFG.minZ) * TOUCH_GAIN;
@@ -1489,7 +1484,6 @@ canvas.addEventListener('pointermove', e => {
 });
 canvas.addEventListener('pointerdown', e => {
   Sound.init();
-  input.touch = e.pointerType === 'touch';
   if (e.pointerType === 'touch') {
     touchLast = { x: e.clientX, y: e.clientY };
     input.mouseActive = false;
@@ -1624,19 +1618,16 @@ function trackSwing(r, dt) {
   }
   swing.tPrev = { x: t.x, z: t.z };
   const ts = timeScale();
-  // A finger drags the racket a long way per centimetre (see TOUCH_GAIN), so on a phone almost
-  // any swipe up would read as a smash: forward / back speed counts less there (touchSwing).
-  const kz = input.touch ? PLAYER_CFG.touchSwing : 1, tvz = swing.tvz * kz, rvz = r.vel.z * kz;
-  const racketSwing = smashIntent(r.vel.x, -rvz);
-  const inputSwing = smashIntent(swing.tvx, -tvz);
+  const racketSwing = smashIntent(r.vel.x, -r.vel.z);
+  const inputSwing = smashIntent(swing.tvx, -swing.tvz);
   const now = Math.max(racketSwing, inputSwing) * ts;
   if (now >= swing.peak || simTime - swing.peakAt > SMASH.window) {
     swing.peak = now; swing.peakAt = simTime;
     swing.vx = (inputSwing > racketSwing ? swing.tvx : r.vel.x) * ts;
-    swing.vf = -(inputSwing > racketSwing ? tvz : rvz) * ts;
+    swing.vf = -(inputSwing > racketSwing ? swing.tvz : r.vel.z) * ts;
   }
-  const fromInput = Math.hypot(swing.tvx, tvz) >= Math.hypot(r.vel.x, rvz);
-  const sl = (fromInput ? swing.tvx : r.vel.x) * ts, sf = -(fromInput ? tvz : rvz) * ts;
+  const fromInput = Math.hypot(swing.tvx, swing.tvz) >= Math.hypot(r.vel.x, r.vel.z);
+  const sl = (fromInput ? swing.tvx : r.vel.x) * ts, sf = -(fromInput ? swing.tvz : r.vel.z) * ts;
   const mag = Math.hypot(sl * 0.5, sf);   // forward/back counts more than sideways
   if (mag >= swing.strokeMag || simTime - swing.strokeAt > PLAYER_CFG.strokeWindow) {
     swing.sl = sl; swing.sf = sf; swing.strokeMag = mag; swing.strokeAt = simTime;
