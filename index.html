@@ -484,6 +484,9 @@ const PLAYER_CFG = {
   touchZ: 1.15, touchMaxSpeed: 7, touchMaxFwd: 0.8,
   touch: { depth: 0.4, time: 0.45, top: -120 },
   cornerX: 0.66,          // corner aim saturates here (soft), so an overshot sideways swipe stays on
+  touchSmash: 0.5,        // on a touch screen a flick counts this much toward a smash (smashIntent): a finger
+                          // drags the racket ~3 m per screen height, so a steady swipe up drives and a snap
+                          // (1/3 of the screen in ~0.18 s) smashes. Aim and stroke swipes are not scaled
   driveFwd: 1.2,          // forward swipe (m/s) that counts as a drive against a signature (sigReturn)
   sigLuck: 0.12,          // chance a wrong stroke still gets a signature shot back
   spinRead: 60,           // spin a stroke handles (rad/s): drives/blocks topspin, pushes backspin;
@@ -927,8 +930,8 @@ const AIM = {
   stroke: 0.45,           // block / drive / push
   fastBall: 0.6,          // incoming speed (×1 at 6 m/s, ×1.6 at 14 m/s and above)
   lowBall: 0.8,           // contact height (×1 at 0.45 m above the table, ×1.8 at 0.2 m, ×1.96 lower)
-  smashLow: 4,            // ...for a smash (×5 at 0.2 m): in a headless sim it misses ~45% at 0.2 m,
-                          // ~30% at 0.25 m, ~17% at 0.3 m, ~5% at 0.35 m and never from 0.45 m up
+  smashLow: 2,            // ...for a smash (×3 at 0.2 m): in a headless sim (6–11 m/s balls with topspin)
+                          // it misses ~22% at 0.2 m, ~13% at 0.25 m, ~4% at 0.3 m and ~0 from 0.4 m up
   offCenter: 1.0,         // contact off the sweet spot (×1 within 40% of the racket radius, ×1.6 at the edge)
   yaw: 0.7,               // sideways error relative to up/down
   spinBias: 0.25,         // a smash against spin: degrees per 100 rad/s, topspin lifts it long and
@@ -1464,6 +1467,7 @@ const input = {
   ndc: new THREE.Vector2(0, -0.4),
   target: { x: 0, z: 1.8 },    // where the player wants the racket (XZ)
   wheelTilt: 0, tilt: 0,
+  touch: false,                // the last pointer was a finger (smash flicks need more: touchSmash)
   charging: false, chargeStart: 0,
 };
 
@@ -1473,6 +1477,7 @@ let touchLast = null;
 const TOUCH_GAIN = 1.25;
 canvas.addEventListener('pointermove', e => {
   if (e.pointerType === 'touch') {
+    input.touch = true;
     if (!touchLast) return;
     input.target.x += (e.clientX - touchLast.x) / window.innerWidth * 2 * MOUSE_MAP.xRange * TOUCH_GAIN;
     input.target.z += (e.clientY - touchLast.y) / window.innerHeight / 0.6 * (MOUSE_MAP.zNear - PLAYER_CFG.minZ) * TOUCH_GAIN;
@@ -1484,6 +1489,7 @@ canvas.addEventListener('pointermove', e => {
 });
 canvas.addEventListener('pointerdown', e => {
   Sound.init();
+  input.touch = e.pointerType === 'touch';
   if (e.pointerType === 'touch') {
     touchLast = { x: e.clientX, y: e.clientY };
     input.mouseActive = false;
@@ -1597,10 +1603,12 @@ function keepOnScreen(t) {
 }
 
 /** Smash intent of a racket motion (vx sideways, fwd = speed toward the net): its speed if it
- *  points mostly forward (within SMASH.maxAngle), otherwise 0 — so sideways moves never count. */
+ *  points mostly forward (within SMASH.maxAngle), otherwise 0 — so sideways moves never count.
+ *  On a touch screen it is scaled by PLAYER_CFG.touchSmash. */
 const FORWARD_RATIO = Math.tan((90 - SMASH.maxAngle) * Math.PI / 180);
 function smashIntent(vx, fwd) {
-  return fwd > 0 && fwd >= FORWARD_RATIO * Math.abs(vx) ? Math.hypot(vx, fwd) : 0;
+  const k = input.touch ? PLAYER_CFG.touchSmash : 1;   // a finger swipe covers more ground
+  return fwd > 0 && fwd >= FORWARD_RATIO * Math.abs(vx) ? Math.hypot(vx, fwd) * k : 0;
 }
 
 /** Swing memory (real m/s): the peak recent smash flick (peak speed, its sideways vx and forward
