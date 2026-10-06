@@ -640,15 +640,22 @@ const ROSTER = [
   { name: 'Kim Kyung-ah', short: 'Kim', nick: 'Chop Queen', flag: '🇰🇷', style: 'defender', color: 0x7f8c8d },
 ];
 
-/** Events: the level of each seed (1 = strongest) and how full the arena is per round. */
+/** Events: a weighted pool of levels each entrant's level is drawn from (so any round can bring
+ *  any level in the pool), and how full the arena is per round. */
 const TIERS = {
   club:  { label: 'Club Open', blurb: 'Friendly local event', fans: 120, crowd: [0.25, 0.3, 0.45, 0.65],
-    levels: ['medium', 'medium', 'medium', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy'] },
+    pool: { easy: 0.7, medium: 0.3 } },
   pro:   { label: 'Pro Tour', blurb: 'The real circuit', fans: 2400, crowd: [0.4, 0.5, 0.75, 1],
-    levels: ['hard', 'hard', 'hard', 'medium', 'medium', 'medium', 'medium', 'medium', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy', 'easy'] },
+    pool: { easy: 0.3, medium: 0.45, hard: 0.25 } },
   world: { label: 'World Championship', blurb: 'Only the best', fans: 9000, crowd: [0.6, 0.7, 0.9, 1],
-    levels: ['hard', 'hard', 'hard', 'hard', 'hard', 'hard', 'hard', 'hard', 'medium', 'medium', 'medium', 'medium', 'medium', 'medium', 'medium'] },
+    pool: { medium: 0.4, hard: 0.6 } },
 };
+/** A random level from a tier's pool, by weight. */
+function drawLevel(pool) {
+  let r = Math.random() * Object.values(pool).reduce((a, b) => a + b, 0);
+  for (const [level, w] of Object.entries(pool)) if ((r -= w) < 0) return level;
+  return Object.keys(pool).pop();
+}
 const TIER_ORDER = ['club', 'pro', 'world'];
 const ROUND_NAMES = ['Round of 16', 'Quarterfinal', 'Semifinal', 'Final'];
 const ROUND_BEST_OF = [3, 3, 3, 5];
@@ -3003,7 +3010,7 @@ const hex = c => '#' + new THREE.Color(c).getHexString();
 function newTournament(tierKey) {
   const tier = TIERS[tierKey];
   const bots = [...ROSTER].sort(() => Math.random() - 0.5).slice(0, BRACKET_SEEDS.length - 1)
-    .map((b, i) => ({ ...b, short: b.short || b.name.split(' ').pop(), seed: i + 1, level: tier.levels[i] }));
+    .map((b, i) => ({ ...b, short: b.short || b.name.split(' ').pop(), seed: i + 1, level: drawLevel(tier.pool) }));
   const you = { name: 'You', short: 'You', flag: YOU_FLAG, seed: 0, you: true };
   const entrants = BRACKET_SEEDS.map(seed => (seed === 0 ? you : bots[seed - 1]));
   const rounds = [Array.from({ length: entrants.length / 2 }, (_, i) => ({ a: 2 * i, b: 2 * i + 1, w: null }))];
