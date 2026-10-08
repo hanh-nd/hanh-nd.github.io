@@ -70,7 +70,7 @@
   .tag.ai { background: var(--cpu); border-color: transparent; }
   .tag.deuce { background: var(--gold); color: #10131a; border-color: transparent; }
 
-  /* ---------- On-screen HUD buttons: help, mute, pause ---------- */
+  /* ---------- On-screen HUD buttons: pause, help, settings ---------- */
   .hud-btns { display: flex; flex-direction: column; gap: 8px; }
   .hud-btn {
     pointer-events: auto; width: 44px; height: 44px; display: grid; place-items: center;
@@ -82,6 +82,7 @@
   #btn-ff { font-size: 13px; font-weight: 800; }
   #btn-help { font: inherit; font-size: 19px; font-weight: 900; }
   .hud-btn:active { background: rgba(255,255,255,.15); }
+  #btn-settings svg { width: 19px; height: 19px; }
 
   /* ---------- Center messages ("Point!", "Fault") ---------- */
   #msg {
@@ -160,6 +161,15 @@
   .levels.styles { grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); }
   .levels.styles .level-btn { padding: 10px 4px; }
   .levels.tiers { grid-template-columns: repeat(3, 1fr); }
+  /* Settings card */
+  .set-sec { margin: 0 0 18px; }
+  .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .set-row > span { font-size: 15px; font-weight: 700; }
+  .set-row .btn { margin: 0; min-width: 76px; padding: 9px 14px; }
+  .set-note { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+  .set-val { font-variant-numeric: tabular-nums; color: var(--gold); }
+  .slider-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  input[type=range] { width: 100%; margin: 10px 0 0; accent-color: var(--gold); touch-action: manipulation; }
   details.rules summary { cursor: pointer; color: var(--text); font-weight: 700; }
 
   /* Mode tabs on the start menu */
@@ -278,7 +288,7 @@
     <div class="hud-btns">
     <button id="btn-pause" class="hud-btn" aria-label="Pause"><svg viewBox="0 0 16 16" fill="currentColor"><g id="icon-pause"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></g><path id="icon-play" d="M4 2.5v11a.8.8 0 0 0 1.2.7l9-5.5a.8.8 0 0 0 0-1.4l-9-5.5A.8.8 0 0 0 4 2.5z" style="display:none"/></svg></button>
     <button id="btn-ff" class="hud-btn hidden" aria-label="Fast-forward"></button>
-    <button id="btn-mute" class="hud-btn" aria-label="Mute"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 6h3l4-3.5v11L5 10H2z"/><path id="mute-x" d="M11 5.5l4 5m0-5l-4 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none" style="display:none"/><path id="mute-wave" d="M11 5a4 4 0 0 1 0 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></button>
+    <button id="btn-settings" class="hud-btn" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     <button id="btn-help" class="hud-btn" aria-label="How to play">?</button>
     </div>
     <div id="hint" class="hidden"></div>
@@ -358,10 +368,30 @@
       <b>Scout your opponents:</b> every style plays two <b>patterns</b> (a racket wind-up warns of the key shot), headline players have a <b>signature shot</b> — the racket glows, a chime plays, and the wrong stroke against it dies in the net or flies long. Lose a point to one and you're told the counter.<br>
       <b>Read the spin</b> from the CPU's racket face and the ball's dots: topspin → block or drive; backspin (a chop) → push. The wrong stroke drifts long or short — a hard drive can fly out.<br>
       <b>Serve:</b> hold mouse / finger, release to toss (red zone = long). Swipe as the ball falls: forward = topspin, pull back = backspin.<br>
-      <kbd>Wheel</kbd> tilts the face: backspin / topspin · on-screen buttons: ❚❚ pause, 🔊 mute<br>
+      <kbd>Wheel</kbd> tilts the face: backspin / topspin · on-screen buttons: ❚❚ pause, ⚙ settings (sound, touch sensitivity)<br>
       <b>Rules:</b> let the ball bounce on your side first — touching it before is a volley and loses the point. Edge balls count; the side of the table doesn't.
     </div>
     <button class="btn" id="btn-help-close" style="margin-top:16px">Got it</button>
+  </div>
+</div>
+
+<!-- ===== Settings (the ⚙ button in the HUD) ===== -->
+<div id="menu-settings" class="menu hidden">
+  <div class="card">
+    <h2>Settings</h2>
+    <div class="set-sec">
+      <div class="row-label">Audio</div>
+      <div class="set-row"><span>Sound</span><button class="btn alt" id="btn-mute" aria-pressed="true">On</button></div>
+      <p class="set-note">Sound gone quiet? Turn it off and on again — that restarts the audio.</p>
+    </div>
+    <div class="set-sec">
+      <div class="row-label">Game</div>
+      <div class="set-row"><span>Touch sensitivity</span><span class="set-val" id="sens-val"></span></div>
+      <input type="range" id="sens" min="0" max="100" step="1" aria-label="Touch sensitivity">
+      <div class="slider-ends"><span>Slower</span><span>Faster</span></div>
+      <p class="set-note">How far the racket moves for a swipe on a touch screen. Smashes still need the same firm flick.</p>
+    </div>
+    <button class="btn" id="btn-settings-close">Done</button>
   </div>
 </div>
 
@@ -1482,12 +1512,18 @@ const input = {
 // jumps under the finger and a quick swipe becomes a swing. Mouse maps the cursor directly.
 let touchLast = null;
 const TOUCH_GAIN = 1.25;
+// Touch sensitivity (Settings): multiplies TOUCH_GAIN. The slider (0–100, middle = 1×) maps to
+// 0.5×–2× on a log scale, so each side of the middle feels the same size.
+const touchSens = {
+  value: 50,
+  get mult() { return Math.pow(2, (this.value - 50) / 50); },
+};
 canvas.addEventListener('pointermove', e => {
   if (e.pointerType === 'touch') {
     input.touch = true;
     if (!touchLast) return;
-    input.target.x += (e.clientX - touchLast.x) / window.innerWidth * 2 * MOUSE_MAP.xRange * TOUCH_GAIN;
-    input.target.z += (e.clientY - touchLast.y) / window.innerHeight / 0.6 * (MOUSE_MAP.zNear - PLAYER_CFG.minZ) * TOUCH_GAIN;
+    input.target.x += (e.clientX - touchLast.x) / window.innerWidth * 2 * MOUSE_MAP.xRange * TOUCH_GAIN * touchSens.mult;
+    input.target.z += (e.clientY - touchLast.y) / window.innerHeight / 0.6 * (MOUSE_MAP.zNear - PLAYER_CFG.minZ) * TOUCH_GAIN * touchSens.mult;
     touchLast = { x: e.clientX, y: e.clientY };
     return;
   }
@@ -1611,10 +1647,11 @@ function keepOnScreen(t) {
 
 /** Smash intent of a racket motion (vx sideways, fwd = speed toward the net): its speed if it
  *  points mostly forward (within SMASH.maxAngle), otherwise 0 — so sideways moves never count.
- *  On a touch screen it is scaled by PLAYER_CFG.touchSmash. */
+ *  On a touch screen it is scaled by PLAYER_CFG.touchSmash, and back by the touch sensitivity
+ *  so a smash needs the same finger flick at any setting. */
 const FORWARD_RATIO = Math.tan((90 - SMASH.maxAngle) * Math.PI / 180);
 function smashIntent(vx, fwd) {
-  const k = input.touch ? PLAYER_CFG.touchSmash : 1;   // a finger swipe covers more ground
+  const k = input.touch ? PLAYER_CFG.touchSmash / touchSens.mult : 1;   // a finger swipe covers more ground
   return fwd > 0 && fwd >= FORWARD_RATIO * Math.abs(vx) ? Math.hypot(vx, fwd) * k : 0;
 }
 
@@ -2768,7 +2805,7 @@ function updateLiveHUD() {
 }
 
 function hideAllMenus() {
-  for (const id of ['menu-start', 'menu-pause', 'menu-end', 'menu-tour', 'menu-help']) $(id).classList.add('hidden');
+  for (const id of ['menu-start', 'menu-pause', 'menu-end', 'menu-tour', 'menu-help', 'menu-settings']) $(id).classList.add('hidden');
 }
 
 /** localStorage, failing quietly (private windows, blocked storage). */
@@ -2882,24 +2919,33 @@ function startQuick() {
   startMatch();
 }
 
-/** How to play: opened from the HUD's ? button; the game waits while it's open. */
-let helpPaused = false;
-function showHelp() {
-  if (!isPlaying() || !$('menu-pause').classList.contains('hidden')) return;
-  helpPaused = !match.paused;
+/** HUD overlays — How to play (?) and Settings (⚙): the game waits while one is open. */
+const OVERLAYS = ['menu-help', 'menu-settings'];
+const openOverlay = () => OVERLAYS.find(id => !$(id).classList.contains('hidden'));
+let overlayPaused = false;
+function showOverlay(id) {
+  if (!isPlaying() || !$('menu-pause').classList.contains('hidden') || openOverlay()) return;
+  overlayPaused = !match.paused;
   match.paused = true;
   input.charging = false;
-  $('menu-help').classList.remove('hidden');
+  $(id).classList.remove('hidden');
 }
-function hideHelp() {
-  $('menu-help').classList.add('hidden');
-  if (helpPaused) match.paused = false;
-  helpPaused = false;
+function hideOverlay() {
+  const id = openOverlay();
+  if (id) $(id).classList.add('hidden');
+  if (overlayPaused) match.paused = false;
+  overlayPaused = false;
+}
+function syncSettings() {
+  $('btn-mute').textContent = Sound.muted ? 'Off' : 'On';
+  $('btn-mute').setAttribute('aria-pressed', String(!Sound.muted));
+  $('sens').value = touchSens.value;
+  $('sens-val').textContent = touchSens.mult.toFixed(2).replace(/0$/, '') + '×';
 }
 
 function togglePause() {
   if (!isPlaying()) return;
-  if (!$('menu-help').classList.contains('hidden')) return hideHelp();
+  if (openOverlay()) return hideOverlay();
   match.paused = !match.paused;
   input.charging = false;
   const who = match.mode === 'tour' ? `${opp.flag} ${opp.name}` : 'CPU';
@@ -3208,11 +3254,15 @@ $('btn-tour-new').addEventListener('click', () => { Sound.init(); newTournament(
 $('btn-tour-continue').addEventListener('click', () => { Sound.init(); showTourHub(); });
 $('btn-resume').addEventListener('click', togglePause);
 $('btn-pause').addEventListener('click', e => { e.stopPropagation(); togglePause(); });
-$('btn-help').addEventListener('click', e => { e.stopPropagation(); showHelp(); });
+$('btn-help').addEventListener('click', e => { e.stopPropagation(); showOverlay('menu-help'); });
+$('btn-settings').addEventListener('click', e => { e.stopPropagation(); syncSettings(); showOverlay('menu-settings'); });
 $('btn-ff').addEventListener('click', e => { e.stopPropagation(); cycleFastForward(); });
 watchSpeed = WATCH_SPEEDS.includes(store.get('pp3d.watchSpeed')) ? store.get('pp3d.watchSpeed') : watchSpeed;
-$('btn-mute').addEventListener('click', e => { e.stopPropagation(); Sound.init(); Sound.toggleMute(); });
-$('btn-help-close').addEventListener('click', hideHelp);
+$('btn-mute').addEventListener('click', e => { e.stopPropagation(); Sound.init(); Sound.toggleMute(); syncSettings(); });
+{ const v = store.get('pp3d.touchSens'); if (Number.isFinite(v)) touchSens.value = clamp(v, 0, 100); }
+$('sens').addEventListener('input', e => { touchSens.value = +e.target.value; store.set('pp3d.touchSens', touchSens.value); syncSettings(); });
+$('btn-help-close').addEventListener('click', hideOverlay);
+$('btn-settings-close').addEventListener('click', hideOverlay);
 $('btn-restart').addEventListener('click', () => startMatch());
 $('btn-quit').addEventListener('click', () => (match.mode === 'tour' ? showTourHub() : showStartMenu()));
 $('btn-again').addEventListener('click', () => startMatch());
@@ -3293,9 +3343,6 @@ const Sound = {
       setTimeout(() => this.hit(0.5), 80);   // a tick: you hear that sound is back
     }
     showMessage(this.muted ? 'Muted' : 'Sound on', '', 'neutral', 0.8, 3);
-    $('mute-x').style.display = this.muted ? '' : 'none';
-    $('mute-wave').style.display = this.muted ? 'none' : '';
-    $('btn-mute').setAttribute('aria-label', this.muted ? 'Unmute' : 'Mute');
   },
 
   ready() { return this.ctx && !this.muted && this.ctx.state === 'running'; },
