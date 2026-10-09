@@ -364,6 +364,7 @@
       &nbsp;· <b>hold still</b> = block · <b>swipe forward</b> = drive (faster = harder, more topspin)<br>
       &nbsp;· <b>quick flick forward</b> = smash — safe on a ball that sits up high; smashing a ball near net height is a gamble (often long or into the net), so push or drive those. A gentler flick is safer<br>
       &nbsp;· <b>pull back</b> = push (backspin) — pull back <b>harder</b> for a long push · hit off-center or swipe sideways to angle the ball toward a corner<br>
+      &nbsp;· <b>firm flick sideways</b> (left → right or right → left) = sidespin — a brush, not a push: the ball comes back soft, drifts a little along your flick and curves back the other way, and the spin kicks the CPU's return toward the edge. A slow sideways drag is just a normal stroke<br>
       &nbsp;· <b>short touch</b>: step in and meet a slow ball <b>over the table</b>, holding still — it drops just over the net and bounces twice. The CPU can only push it back or flick it — some love to flick<br>
       <b>Scout your opponents:</b> every style plays two <b>patterns</b> (a racket wind-up warns of the key shot), headline players have a <b>signature shot</b> — the racket glows, a chime plays, and the wrong stroke against it dies in the net or flies long. Lose a point to one and you're told the counter.<br>
       <b>Read the spin</b> from the CPU's racket face and the ball's dots: topspin → block or drive; backspin (a chop) → push. The wrong stroke drifts long or short — a hard drive can fly out.<br>
@@ -487,6 +488,30 @@ const SMASH = {
   grace: 0.1,             // a fast swing right after a normal hit ("through the ball") upgrades it
   sweepReach: 1.25,       // ...and accepts the ball slightly wider than a normal contact
 };
+
+/** Sidespin: a firm SIDEWAYS flick at contact (left → right or right → left) brushes the back of
+ *  the ball. A sideways racket adds no forward pace, so the ball comes off it like a soft block;
+ *  friction on the brush gives it a little sideways push along the flick and sidespin, and the
+ *  sidespin (Magnus) curves it back the other way. For a hollow ball (I = 2/3 m R²) a sliding
+ *  brush that grips a share `grip` of the racket's speed vb gives Δv = 0.4·grip·vb and
+ *  ω = 0.6·grip·vb / R. A slow sideways drag (just moving to the ball) stays a normal stroke; a
+ *  flick pointing mostly forward is a drive or a smash, never this. */
+const SPIN = {
+  minSwing: 2.8,          // sideways flick speed (real m/s) that plays a sidespin stroke
+  maxAngle: 35,           // flick must point within this many degrees of straight sideways
+  touch: 0.6,             // on a touch screen a flick counts this much (cf. PLAYER_CFG.touchSmash):
+                          // about 1/3 of the screen width in ~0.23 s
+  grip: 0.35,             // share of the racket's sideways speed the rubber grips on a brush
+  maxBrush: 5,            // racket speed (m/s) past which the rubber just slips: at most ~0.7 m/s
+                          // sideways and ~50 rad/s of sidespin
+  power: 0.3,             // pace (see playerHit): a soft block, no forward push
+  window: 0.22,           // a flick still counts this long after its peak (sim s)
+};
+/** The brush of a sideways flick (see SPIN): sideways push (m/s) and sidespin about +Y (rad/s). */
+function brushOf(sideVx) {
+  const vb = clamp(sideVx / timeScale(), -SPIN.maxBrush, SPIN.maxBrush);   // real → sim m/s
+  return { push: 0.4 * SPIN.grip * vb, spin: 0.6 * SPIN.grip * vb / PHYS.radius };
+}
 
 const PLAYER_CFG = {
   hitRadius: 0.17,        // generous contact sphere around the racket center
@@ -1448,6 +1473,7 @@ marker.visible = false;
 scene.add(marker);
 
 // Motion trail, shown for fast balls (smashes).
+let spinShotAt = -1;   // rally.lastHitTime of your last sidespin stroke (its trail); -1: none
 const TRAIL_N = 14;
 const trailPos = new Float32Array(TRAIL_N * 3);
 const trailGeo = new THREE.BufferGeometry();
@@ -1462,9 +1488,11 @@ function updateTrail(p) {
   trailGeo.attributes.position.needsUpdate = true;
   // Fast balls (smashes) trail orange; a signature shot trails in its own color.
   const bs = rally.botShot, sig = rally.live && bs && bs.sig && rally.lastHitter === bs.by ? SIGNATURES[bs.sig] : null;
-  const fast = sig || (rally.live && Math.hypot(ball.v.x, ball.v.y, ball.v.z) > 9.5);
+  // Your sidespin stroke trails cyan, so you can see it hook.
+  const hook = rally.live && rally.lastHitter === 'player' && rally.lastHitTime === spinShotAt;
+  const fast = sig || hook || (rally.live && Math.hypot(ball.v.x, ball.v.y, ball.v.z) > 9.5);
   if (fast && !trail.visible) for (let i = 3; i < TRAIL_N * 3; i++) trailPos[i] = trailPos[i % 3];   // restart cleanly
-  trail.material.color.setHex(sig ? sig.color : 0xffb347);
+  trail.material.color.setHex(sig ? sig.color : hook ? 0x5ad1ff : 0xffb347);
   trail.visible = !!fast;
 }
 
@@ -1654,11 +1682,19 @@ function smashIntent(vx, fwd) {
   const k = input.touch ? PLAYER_CFG.touchSmash / touchSens.mult : 1;   // a finger swipe covers more ground
   return fwd > 0 && fwd >= FORWARD_RATIO * Math.abs(vx) ? Math.hypot(vx, fwd) * k : 0;
 }
+/** Sidespin intent: the speed of a mostly sideways motion (within SPIN.maxAngle), else 0. Scaled
+ *  for touch like smashIntent. */
+const SIDE_RATIO = Math.tan(SPIN.maxAngle * Math.PI / 180);
+function sideIntent(vx, fwd) {
+  const k = input.touch ? SPIN.touch / touchSens.mult : 1;
+  return Math.abs(fwd) <= SIDE_RATIO * Math.abs(vx) ? Math.abs(vx) * k : 0;
+}
 
 /** Swing memory (real m/s): the peak recent smash flick (peak speed, its sideways vx and forward
  *  vf), the strongest recent swipe of any direction (sl, sf: it sets the stroke), and the racket's
  *  recent path. A swipe rarely peaks at the exact instant of contact, so all are kept briefly. */
-const swing = { peak: 0, peakAt: -1, vx: 0, vf: 0, sl: 0, sf: 0, strokeMag: 0, strokeAt: -1, path: [], tPrev: null, tvx: 0, tvz: 0 };
+const swing = { peak: 0, peakAt: -1, vx: 0, vf: 0, sl: 0, sf: 0, strokeMag: 0, strokeAt: -1, path: [], tPrev: null, tvx: 0, tvz: 0,
+  sidePeak: 0, sideAt: -1, sideVx: 0 };   // the peak recent sidespin flick and its sideways speed
 function trackSwing(r, dt) {
   // The finger/mouse (target) velocity registers a swipe immediately; the racket's own velocity
   // lags it slightly because of smoothing. Use whichever is faster.
@@ -1678,6 +1714,12 @@ function trackSwing(r, dt) {
     swing.vx = (inputSwing > racketSwing ? swing.tvx : r.vel.x) * ts;
     swing.vf = -(inputSwing > racketSwing ? swing.tvz : r.vel.z) * ts;
   }
+  // Sidespin comes from the finger/mouse flick only: the racket itself also moves sideways when the
+  // feet run to a wide ball and drag the arm along, and that is no brush.
+  const nowSide = sideIntent(swing.tvx, -swing.tvz) * ts;
+  if (nowSide >= swing.sidePeak || simTime - swing.sideAt > SPIN.window) {
+    swing.sidePeak = nowSide; swing.sideAt = simTime; swing.sideVx = swing.tvx * ts;
+  }
   const fromInput = Math.hypot(swing.tvx, swing.tvz) >= Math.hypot(r.vel.x, r.vel.z);
   const sl = (fromInput ? swing.tvx : r.vel.x) * ts, sf = -(fromInput ? swing.tvz : r.vel.z) * ts;
   const mag = Math.hypot(sl * 0.5, sf);   // forward/back counts more than sideways
@@ -1690,6 +1732,7 @@ function trackSwing(r, dt) {
 /** Optional diagnostics (enable from the console: PingPong.debug.on = true). */
 const DEBUG = { on: false, log: [] };
 const recentSwing = () => (simTime - swing.peakAt <= SMASH.window ? swing.peak : 0);
+const recentSide = () => (simTime - swing.sideAt <= SPIN.window ? swing.sidePeak : 0);
 
 /** Contact test: did the ball pass through the racket's face plane this step (measured relative to
  *  the moving racket, so forward swings count) within `radius` of the blade center?
@@ -1750,17 +1793,19 @@ function playerHit(contactDist) {
   // Only forward-pointing flicks count; one that peaked a moment ago still does.
   const swingSpeed = Math.max(smashIntent(sl, sf), recentSwing());
   if (swingSpeed >= SMASH.minSwing) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl, contact);
-  const push = sf <= -PLAYER_CFG.pushMin, fwd = Math.max(0, sf);
+  // A firm sideways flick: a sidespin stroke (see SPIN) — it replaces the push and the touch.
+  const spin = recentSide() >= SPIN.minSwing;
+  const push = !spin && sf <= -PLAYER_CFG.pushMin, fwd = Math.max(0, sf);
   // Short touch: a slow ball met over the table with a still racket drops just over the net.
-  let touch = !push && fwd < PLAYER_CFG.touchMaxFwd && ball.p.z < PLAYER_CFG.touchZ && contact.speedIn < PLAYER_CFG.touchMaxSpeed;
+  let touch = !spin && !push && fwd < PLAYER_CFG.touchMaxFwd && ball.p.z < PLAYER_CFG.touchZ && contact.speedIn < PLAYER_CFG.touchMaxSpeed;
   const longPush = push ? clamp((-sf - PLAYER_CFG.pushMin) * PLAYER_CFG.longPush, 0, PLAYER_CFG.longPushMax) : 0;
-  const power = push ? PLAYER_CFG.pushPower + longPush : clamp(0.38 + fwd * 0.085, 0.2, PLAYER_CFG.maxPower);
+  const power = push ? PLAYER_CFG.pushPower + longPush : spin ? SPIN.power : clamp(0.38 + fwd * 0.085, 0.2, PLAYER_CFG.maxPower);
   const tilt = input.tilt;
   const bs = rally.botShot, sig = bs && bs.sig;
   // A signature shot punishes the wrong stroke: it dies in the net or flies long (sigReturn).
   const sigMiss = sig ? sigReturn(bs, { push, touch, drive: fwd >= PLAYER_CFG.driveFwd }) : null;
   if (sigMiss === 'long') touch = false;
-  if (DEBUG.on) DEBUG.log.push({ stroke: push ? 'push' : touch ? 'touch' : fwd >= PLAYER_CFG.driveFwd ? 'drive' : 'block', sf: +sf.toFixed(2), sig, sigMiss, h: +(ball.p.y - TABLE_TOP).toFixed(2), z: +ball.p.z.toFixed(2) });
+  if (DEBUG.on) DEBUG.log.push({ stroke: spin ? 'sidespin' : push ? 'push' : touch ? 'touch' : fwd >= PLAYER_CFG.driveFwd ? 'drive' : 'block', sf: +sf.toFixed(2), sig, sigMiss, h: +(ball.p.y - TABLE_TOP).toFixed(2), z: +ball.p.z.toFixed(2) });
 
   const misread = contact.topIn - (push || touch ? -PLAYER_CFG.spinRead : PLAYER_CFG.spinRead);
   let depthShift = clamp(misread / 150 * 0.4, -0.45, 0.45) - tilt * 0.12;
@@ -1770,9 +1815,9 @@ function playerHit(contactDist) {
   // Contact off-center angles the ball (Pong-style), plus lateral swing; the aim eases into the
   // corner (softAim) so an overshot swipe stays on the table.
   const offX = contact.offX;
-  let tx = softAim(ball.p.x * 0.2 + offX * 2.4 + sl * 0.12);
+  let tx = softAim(ball.p.x * 0.2 + offX * 2.4 + (spin ? 0 : sl * 0.12));   // a brush pushes for real, below
   let top = push ? -clamp(0.6 - sf * 0.2, 0.6, 1) * 130 : clamp(tilt + fwd * 0.25, -1, 1.2) * 130;
-  const side = clamp(sl * 7, -50, 50);
+  const side = spin ? 0 : clamp(sl * 7, -50, 50);   // a brush adds its spin after the solve
   let vh = 3.2 + power * 5;
   if (touch) {
     const t = PLAYER_CFG.touch;
@@ -1797,8 +1842,12 @@ function playerHit(contactDist) {
     vh *= 0.88;
     shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
   }
+  // A brush: the face sends the ball where it points; the flick's friction then pushes it sideways
+  // and spins it — not aimed, so a brush toward a corner can carry it wide.
+  const brush = spin ? brushOf(swing.sideVx) : null;
+  if (brush) { shot.v.x += brush.push; shot.w.y += brush.spin; }
   const err = strokeError(AIM.stroke, contact.speedIn, contact.h, contact.off);
-  shot = handPlay(ball.p, shot, err, AIM.rescues);
+  shot = handPlay(ball.p, shot, err, brush ? 0 : AIM.rescues);
   if (sigMiss === 'net') intoNet(shot);   // the spin drags it down into the net
   if (sigMiss === 'long') {  // the spin kicks it off the end: it carries until it misses the table
     for (let i = 0, land; i < 25 && (land = landingOf({ p: { ...ball.p }, v: { ...shot.v }, w: { ...shot.w } }, false)) && land.table && land.z < 0; i++) {
@@ -1813,6 +1862,7 @@ function playerHit(contactDist) {
   else if (touch && !match.stats.touches) showMessage('Short touch', 'it bounces twice on their side', 'neutral', 0.9);
   if (touch) match.stats.touches++;
   registerHit('player', touch ? 0.2 : power);
+  spinShotAt = spin ? rally.lastHitTime : -1;
   pendingUpgrade = { hitTime: rally.lastHitTime, contact };
 }
 
@@ -1879,6 +1929,7 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
   match.stats.fastest = Math.max(match.stats.fastest, kmh);
   match.stats.smashes++;
+  spinShotAt = -1;
   cameraShake = SMASH.shake;
   const miss = smashMissReason(shot, contact, err);
   if (DEBUG.on) DEBUG.log.push({ stroke: 'smash', sig: rally.botShot && rally.botShot.sig, miss, h: +contact.h.toFixed(2) });
@@ -1910,6 +1961,16 @@ function checkSmashUpgrade() {
     return;
   }
   if (recentSwing() >= SMASH.minSwing && swing.peakAt >= u.hitTime) playerSmash(recentSwing(), swing.vx, u.contact, true);
+  else if (spinShotAt !== u.hitTime && recentSide() >= SPIN.minSwing && swing.sideAt >= u.hitTime) playerSpinUpgrade(u);
+}
+
+/** A sideways flick that peaks just after a normal hit (swinging through the ball): the same
+ *  stroke, plus the brush's push and sidespin (see SPIN). */
+function playerSpinUpgrade(u) {
+  const brush = brushOf(swing.sideVx);
+  ball.v.x += brush.push; ball.w.y += brush.spin;
+  spinShotAt = u.hitTime;
+  aiOnOpponentHit(ai);   // same stroke, new trajectory: the CPU has to re-read it
 }
 
 function applyShot(shot) {
@@ -2161,6 +2222,10 @@ function aiHit(c) {
   const sideSign = aiSide(c, it);
   let tx = sideSign * Math.min(0.68, 0.62 * st.wide) * (1 - cfg.aimError) + rand(-1, 1) * cfg.aimError * 0.6;   // corners
   if (it.side === 'mid') tx = aiBodyX(c);
+  // Sidespin on the incoming ball (a brush, SPIN) kicks its return off the racket toward the side
+  // the ball curved to; better players compensate more.
+  const curveIn = clamp(ball.w.y * Math.sign(ball.v.z) / 60, -1, 1);
+  if (curveIn) tx = clamp(tx + curveIn * 0.12 * (0.4 + cfg.aimError * 5), -0.74, 0.74);
   let tz = it.depth === 'long' ? clamp(1.12 + rand(-1, 1) * cfg.aimError * 0.4, 1.0, 1.27)
     : clamp(0.75 + power * 0.4 + rand(-1, 1) * cfg.aimError * 0.5, 0.45, 1.27);
   let vh = (3.4 + power * 4.5 + Math.random() * 0.6) * (1 - stretch * 0.35) * pace;
