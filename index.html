@@ -276,8 +276,11 @@
   #scorebug.armed .sb-row.you > span { background: rgba(79, 195, 255, .28); animation: armed .25s infinite alternate; }
   #scorebug.armed .sb-seal { opacity: 1; color: #fff; text-shadow: 0 0 12px #fff; }
   @keyframes armed { to { background: rgba(79, 195, 255, .5); } }
-  #jutsu-menu { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; }
+  #jutsu-menu { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+  #jutsu-menu span { pointer-events: auto; cursor: pointer; touch-action: manipulation; }
   #jutsu-menu span.off { opacity: .35; }
+  #jutsu-menu span.on { background: var(--c); color: #0a0d14; box-shadow: 0 0 12px var(--c); }
+  #jutsu-menu span.on b { color: #0a0d14; }
   #jutsu-menu span { font-size: 11px; font-weight: 900; letter-spacing: .06em; padding: 3px 9px; border-radius: 999px; background: rgba(10,13,20,.85); border: 1px solid var(--c); white-space: nowrap; }
   #jutsu-menu span b { color: var(--c); }
   .tag.flow { background: linear-gradient(90deg, #ff4d5e, #ffd23f); color: #10131a; border-color: transparent; animation: ckpulse .5s infinite alternate; }
@@ -454,7 +457,7 @@
       <div><kbd>Hold · release</kbd><span>Serve</span></div>
       <div><kbd>Wheel</kbd><span>Tilt face</span></div>
     </div>
-    <div class="row-label">Jutsu · double-tap (or tap 印) → stroke</div>
+    <div class="row-label">Jutsu · double-tap: arm / cancel</div>
     <div class="howto" id="help-kit"></div>
     <div class="row-label">Counters · read the call-out</div>
     <div class="howto">
@@ -768,9 +771,9 @@ const CHAKRA = {
   flow: 1.6,                                     // gain multiplier in FLOW
 };
 CHAKRA.max = CHAKRA.seal * CHAKRA.seals;
-const SLOTS = ['block', 'drive', 'smash'];       // the stroke that fires a kit's jutsu 1, 2, 3...
+const SLOTS = ['block', 'drive', 'smash'];       // a kit's jutsu 1, 2, 3 (named for the CPU's stroke for each)...
 const SLOT_COST = { block: 1, drive: 2, smash: 3 };   // ...and its price in seals
-const SLOT_LABEL = { block: 'BLOCK/PUSH', drive: 'DRIVE', smash: 'SMASH' };
+const SLOT_LABEL = { block: 'JUTSU 1', drive: 'JUTSU 2', smash: 'JUTSU 3' };
 /** The jutsu, as data (see jutsuShot and the effects in stepLiveBall / aiHit / playerHit).
  *  speed: m/s (unset: the stroke's own pace) · top: its topspin (− backspin) · aim: 'body' (at the
  *  receiver's racket), 'corner' (away from it), 'wide' · depth: m from the net it lands ·
@@ -1846,6 +1849,7 @@ window.addEventListener('pointerup', e => {
 window.addEventListener('pointercancel', e => { if (e.pointerId === touchId) { touchLast = null; touchId = null; } });
 window.addEventListener('keydown', e => {
   if ((e.code === 'Space' || e.code === 'KeyE') && isPlaying()) { e.preventDefault(); if (!e.repeat) armJutsu(); }
+  if (/^Digit[1-3]$/.test(e.code) && isPlaying() && !e.repeat) armJutsu(+e.code.slice(5));
   else if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
 });
 canvas.addEventListener('wheel', e => {
@@ -2081,9 +2085,8 @@ function playerHit(contactDist) {
   const tilt = input.tilt;
   const bs = rally.botShot, sig = bs && bs.sig;
   const drive = fwd >= PLAYER_CFG.driveFwd;
-  // Armed, this stroke fires your kit's jutsu for it — a drive its jutsu 2, anything else its jutsu 1
-  // (a smash went to playerSmash) — if you can pay. Its chakra pushes through a signature shot.
-  const jid = yourJutsu(drive && !spin ? 'drive' : 'block'), J = jid && JUTSU[jid];
+  // Armed, any stroke fires the jutsu you armed. Its chakra pushes through a signature shot.
+  const jid = yourJutsu(), J = jid && JUTSU[jid];
   // A signature shot punishes the wrong stroke: it dies in the net or flies long (sigReturn).
   let sigMiss = sig && !jid ? sigReturn(bs, { push, touch, drive }) : null;
   // A jutsu coming at you may need the right answer (a Sharingan cancels it): see answerMiss.
@@ -2211,8 +2214,7 @@ function contactOf(contactDist) {
  *  and the shot is re-solved from where the ball is now. */
 function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   const swing = Math.max(swingSpeed, SMASH.minSwing);
-  // Armed, a smash fires your kit's jutsu 3 (3 seals).
-  const jid = yourJutsu('smash'), J = jid && JUTSU[jid];
+  const jid = yourJutsu(), J = jid && JUTSU[jid];
   let vh = clamp(SMASH.minSpeed + (swing - SMASH.minSwing) * 1.2, SMASH.minSpeed, SMASH.maxSpeed);
   // The flick's direction leads the aim (diagonal right → right); contact point adds a little.
   const tx = clamp(contact.x * 0.3 + contact.offX * 0.6 + sl * 0.25, -0.65, 0.65);
@@ -2271,14 +2273,7 @@ function checkSmashUpgrade() {
     return;
   }
   if (u.miss) return;   // it already went wrong (a jutsu's or a signature's answer): no rescue
-  const mine = rally.jutsu && rally.jutsu.by === 'player' ? rally.jutsu : null;
-  if (mine && recentSwing() >= SMASH.minSwing && swing.peakAt >= u.hitTime) {
-    // The flick peaked just after an armed stroke: refund that jutsu and fire the smash one, if the seals allow.
-    const cost = SLOT_COST[SLOTS[kitOf('player').indexOf(mine.id)]] * CHAKRA.seal;
-    if (chakra.player + cost < SLOT_COST.smash * CHAKRA.seal) return;   // can't afford it: the stroke stays
-    chakra.player += cost; rally.fired.player = false; match.stats.jutsu--; armed = true;
-    rally.jutsu = null; clearDecoys();
-  } else if (mine) return;   // a jutsu stroke stays what it was
+  if (rally.jutsu && rally.jutsu.by === 'player') return;   // a jutsu stroke stays what it was
   if (recentSwing() >= SMASH.minSwing && swing.peakAt >= u.hitTime) playerSmash(recentSwing(), swing.vx, u.contact, true);
   else if (spinShotAt !== u.hitTime && recentSide() >= SPIN.minSwing && swing.sideAt >= u.hitTime) playerSpinUpgrade(u);
 }
@@ -2912,7 +2907,7 @@ function doServe(who, charge, top, side, tx) {
    ===================================================================== */
 const chakra = { player: 0, ai: 0 };
 const flow = { player: false, ai: false, streak: { player: 0, ai: 0 } };
-let armed = false;   // your jutsu is armed: your next stroke fires its kit jutsu
+let armed = 0;   // the jutsu (1–3 in your kit) your next stroke fires; 0: not armed
 const NO_ERROR = { pitch: 0, yaw: 0, bias: 0 };
 const sealsOf = side => Math.floor(chakra[side] / CHAKRA.seal);
 const chakraFull = side => chakra[side] >= CHAKRA.max;
@@ -2926,7 +2921,7 @@ const canFire = (side, slot) => !rally.fired[side] && sealsOf(side) >= SLOT_COST
 
 function resetJutsu() {
   chakra.player = chakra.ai = 0;
-  armed = false;
+  armed = 0;
   flow.player = flow.ai = false; flow.streak.player = flow.streak.ai = 0;
   clearDecoys();
   syncChakra(); syncFlow();
@@ -2938,23 +2933,25 @@ function gainChakra(side, amount) {
   syncChakra();
 }
 const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* no haptics */ } };
-/** A double-tap, a second finger, your scorebug row, Space or right-click: arm (a seal or more) — or disarm. */
-function armJutsu() {
-  if (match.paused || match.watch || !isPlaying()) return;
-  if (armed) { armed = false; return syncChakra(); }
-  if (sealsOf('player') < 1) return;
-  armed = true;
-  Sound.seal();
-  flashFx(0x6fe3ff);
-  buzz(25);
+/** A double-tap, a second finger, your scorebug row, Space or right-click: arm the biggest jutsu
+ *  your seals pay for — or disarm. tier (1–3, keys 1–3 or a tap on the armed list): switch to that
+ *  one (the armed one again: disarm). Any stroke then fires it. */
+function armJutsu(tier = 0) {
+  if (match.paused || match.watch || !isPlaying() || rally.fired.player) return;
+  const n = Math.min(sealsOf('player'), SLOTS.length);
+  if (tier) armed = armed === tier || tier > n ? 0 : tier;
+  else armed = armed ? 0 : n;
+  if (armed) { Sound.seal(); flashFx(JUTSU[yourKit[armed - 1]].color); buzz(25); }
   syncChakra();
 }
 /** Auto jutsu (Settings, for one-handed play): with all seals full you are armed without a tap. */
 let autoJutsu = false;
-const isArmed = () => armed || (autoJutsu && chakraFull('player') && !rally.fired.player);
-/** Your armed stroke: the kit jutsu for it, if you can pay for it (else a normal stroke, still armed). */
-const yourJutsu = slot => {
-  const id = isArmed() && canFire('player', slot) ? kitJutsu('player', slot) : null;
+const armedTier = () => armed || (autoJutsu && chakraFull('player') && !rally.fired.player ? SLOTS.length : 0);
+const isArmed = () => armedTier() > 0;
+/** Your stroke's jutsu: the one you armed, if you can still pay for it (else a normal stroke, still armed). */
+const yourJutsu = () => {
+  const slot = SLOTS[armedTier() - 1];
+  const id = slot && canFire('player', slot) ? kitJutsu('player', slot) : null;
   return id && JUTSU[id].self === 'dispel' && !incomingJutsu('player') ? null : id;   // a Sharingan needs a jutsu to read
 };
 
@@ -2965,7 +2962,7 @@ function fireJutsu(side, id, dir = 0) {
   chakra[side] = Math.max(0, chakra[side] - SLOT_COST[slot || 'block'] * CHAKRA.seal);
   rally.fired[side] = true;
   if (isYou(side)) {
-    armed = false;
+    armed = 0;
     match.stats.jutsu++;
     callout(j.kanji, j.name, '', j.color);
     buzz([20, 30, 40]);
@@ -3138,12 +3135,12 @@ function syncChakra() {
   sb.classList.toggle('ready', show && n >= 1 && !isArmed());
   sb.classList.toggle('armed', show && isArmed());
   $('jutsu-pips').textContent = '●'.repeat(n) + '○'.repeat(CHAKRA.seals - n);
-  // While armed: your kit, stroke by stroke (dimmed: not enough seals).
+  // While armed: your kit (lit: armed; dimmed: not enough seals); tap one to switch to it.
   const menu = $('jutsu-menu');
   menu.classList.toggle('hidden', !show || !isArmed());
-  if (show && isArmed()) menu.innerHTML = [...SLOTS].reverse().map(slot => {
-    const id = kitJutsu('player', slot), j = JUTSU[id];
-    return `<span class="${canFire('player', slot) ? '' : 'off'}" style="--c:${hex(j.color)}"><b>${SLOT_LABEL[slot]}</b> ${j.name} ${'●'.repeat(SLOT_COST[slot])}</span>`;
+  if (show && isArmed()) menu.innerHTML = SLOTS.map((slot, i) => {
+    const j = JUTSU[kitJutsu('player', slot)], cls = armedTier() === i + 1 ? 'on' : canFire('player', slot) ? '' : 'off';
+    return `<span class="${cls}" data-tier="${i + 1}" style="--c:${hex(j.color)}">${j.name} <b>${'●'.repeat(SLOT_COST[slot])}</b></span>`;
   }).join('');
 }
 function syncFlow() {
@@ -3529,7 +3526,7 @@ function afterPoint() {
 
 function endMatch(winner) {
   match.state = 'matchOver';
-  armed = false;
+  armed = 0;
   syncChakra();
   match.rankMove = match.watch ? null : moveRank(winner === 'player');
   Sound.fanfare(winner === 'player');
@@ -3780,7 +3777,7 @@ let overlayPaused = false;
 function showOverlay(id) {
   if (!isPlaying() || !$('menu-pause').classList.contains('hidden') || openOverlay()) return;
   if (id === 'menu-help') $('help-kit').innerHTML = SLOTS.map(slot => `<div><kbd>${SLOT_LABEL[slot]} ${'●'.repeat(SLOT_COST[slot])}</kbd><span class="j">${JUTSU[kitJutsu('player', slot)].name}</span></div>`).join('')
-    + `<div><kbd>${isDesktop ? 'Space again' : 'Double-tap again'}</kbd><span>Cancel</span></div>`;
+    + `<div><kbd>${isDesktop ? 'Keys 1–3' : 'Tap the list'}</kbd><span>Pick a smaller one</span></div>`;
   overlayPaused = !match.paused;
   match.paused = true;
   input.charging = false;
@@ -4114,6 +4111,7 @@ $('btn-start').addEventListener('click', startQuick);
 $('btn-start-duo').addEventListener('click', startDuo);
 // Tapping your scorebug row (name or chakra bar) arms too.
 for (const el of document.querySelectorAll('.sb-row.you > span')) el.addEventListener('pointerdown', e => { e.stopPropagation(); armJutsu(); });
+$('jutsu-menu').addEventListener('pointerdown', e => { const t = e.target.closest('[data-tier]'); if (t) { e.stopPropagation(); armJutsu(+t.dataset.tier); } });
 $('btn-tour-new').addEventListener('click', () => { Sound.init(); newTournament(selTier); showTourHub(); });
 $('btn-tour-continue').addEventListener('click', () => { Sound.init(); showTourHub(); });
 $('btn-resume').addEventListener('click', togglePause);

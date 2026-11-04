@@ -2,15 +2,16 @@
 
 ## Chakra and arming
 - The bar has **3 seals**. Clean returns, long rallies and every point (won or lost) fill it. A counter refunds a lot.
-- **Arm:** **double-tap** the table, tap your row in the scorebug (name, 印 or chakra bar), touch with a **second finger**, press **Space**, or right-click. Arm again to cancel.
-- **Auto jutsu** (Settings, for one hand): when all 3 seals are full, your next stroke fires its jutsu without a tap.
-- The stroke you play picks the jutsu from your player's kit:
+- **Arm:** **double-tap** the table, tap your row in the scorebug, touch with a **second finger**, press **Space**, or right-click. It arms the **biggest jutsu your seals pay for**. Do it again to cancel.
+- **Pick a smaller one:** while armed, tap a jutsu in the list under the scorebug, or press **1**, **2** or **3**. Tapping the lit one cancels too.
+- **Any stroke fires it:** block, push, drive or smash. The stroke no longer picks the jutsu.
+- **Auto jutsu** (Settings, for one hand): when all 3 seals are full, your next stroke fires jutsu 3 without a tap.
 
-| Stroke | Kit slot | Cost |
-|---|---|---|
-| Block / push | Jutsu 1 | ● |
-| Drive | Jutsu 2 | ●● |
-| Smash | Jutsu 3 | ●●● |
+| Kit slot | Cost |
+|---|---|
+| Jutsu 1 | ● |
+| Jutsu 2 | ●● |
+| Jutsu 3 | ●●● |
 
 - Each side fires at most one jutsu per point. A jutsu is chakra-guided, so it has no hand error.
 
