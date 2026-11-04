@@ -165,15 +165,23 @@
   .level-btn .ic { display: block; font-size: 20px; line-height: 1.15; }
   .levels.tiers { grid-template-columns: repeat(3, 1fr); }
   .kit { margin: 0 0 14px; }
-  .kit-slot { margin: 0 0 8px; }
-  .kit-slot em { display: block; margin: 0 0 4px; font-style: normal; font-size: 10px; font-weight: 900; letter-spacing: .12em; color: var(--muted); }
-  .kit-row { display: flex; gap: 5px; flex-wrap: wrap; }
-  .kit-row button {
-    font: inherit; font-size: 12px; font-weight: 800; color: var(--text); padding: 7px 10px; border-radius: 999px; cursor: pointer;
-    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); touch-action: manipulation;
+  /* Your 3 jutsu: one card each; tap a card to swap it for another of its cost. */
+  .kit-card {
+    display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 2px 8px; width: 100%; margin: 0 0 6px;
+    padding: 9px 12px; border-radius: 12px; border: 1px solid var(--border); border-left: 3px solid var(--c);
+    background: rgba(255,255,255,.04); color: var(--text); font: inherit; text-align: left; cursor: pointer; touch-action: manipulation;
   }
-  .kit-row button.sel { border-color: var(--c); background: color-mix(in srgb, var(--c) 28%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 45%, transparent); }
-  .kit-tip { margin: 2px 0 0; font-size: 12px; color: var(--muted); min-height: 1.4em; }
+  .kit-card i { grid-row: span 2; font-style: normal; font-size: 11px; letter-spacing: 1px; color: var(--c); }
+  .kit-card b { font-size: 14px; font-weight: 900; color: var(--c); }
+  .kit-card small { grid-column: 2; font-size: 11px; color: var(--muted); }
+  .kit-card em { grid-row: 1 / span 2; grid-column: 3; font-style: normal; font-size: 11px; font-weight: 800; color: var(--muted); }
+  .kit-card.open { background: color-mix(in srgb, var(--c) 14%, transparent); }
+  .kit-swap { display: grid; gap: 4px; margin: -2px 0 8px 14px; }
+  .kit-swap button {
+    display: flex; flex-direction: column; align-items: flex-start; padding: 7px 10px; border-radius: 10px; cursor: pointer; touch-action: manipulation;
+    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.1); border-left: 3px solid var(--c); color: var(--text); font: inherit; text-align: left;
+  }
+  .kit-swap button b { font-size: 13px; color: var(--c); } .kit-swap button small { font-size: 11px; color: var(--muted); }
   /* Settings card */
   .set-sec { margin: 0 0 18px; }
   .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -3684,18 +3692,23 @@ function buildChoices(wrapId, keys, render, isSel, onPick) {
     wrap.appendChild(b);
   }
 }
-/** Your jutsu picker: per stroke, its pool as chips (tap one to take it); the last tapped one's tip below. */
-function showKit(tipId = null) {
-  $('kit').innerHTML = SLOTS.map((slot, i) => `<div class="kit-slot"><em>${SLOT_LABEL[slot]} ${'●'.repeat(SLOT_COST[slot])}</em><div class="kit-row">${
-    JUTSU_POOL[slot].map(id => `<button class="${yourKit[i] === id ? 'sel' : ''}" data-slot="${i}" data-id="${id}" style="--c:${hex(JUTSU[id].color)}">${JUTSU[id].name}</button>`).join('')
-  }</div></div>`).join('') + `<p class="kit-tip">${JUTSU_TIP[tipId || yourKit[2]]}</p>`;
+/** Your jutsu picker: your 3 jutsu as cards; tap one to open its swaps (the other jutsu of its
+ *  cost), tap a swap to take it. */
+let kitOpen = -1;
+function showKit() {
+  const card = (id, i) => `<button class="kit-card${kitOpen === i ? ' open' : ''}" data-slot="${i}" style="--c:${hex(JUTSU[id].color)}">`
+    + `<i>${'●'.repeat(SLOT_COST[SLOTS[i]])}</i><b>${JUTSU[id].name}</b><small>${JUTSU_TIP[id]}</small><em>${kitOpen === i ? '✕' : 'Swap'}</em></button>`;
+  const swaps = i => `<div class="kit-swap">${JUTSU_POOL[SLOTS[i]].filter(id => id !== yourKit[i]).map(id =>
+    `<button data-slot="${i}" data-id="${id}" style="--c:${hex(JUTSU[id].color)}"><b>${JUTSU[id].name}</b><small>${JUTSU_TIP[id]}</small></button>`).join('')}</div>`;
+  $('kit').innerHTML = yourKit.map((id, i) => card(id, i) + (kitOpen === i ? swaps(i) : '')).join('');
 }
 $('kit').addEventListener('click', e => {
-  const b = e.target.closest('button[data-id]');
+  const b = e.target.closest('button[data-slot]');
   if (!b) return;
-  yourKit[+b.dataset.slot] = b.dataset.id;
-  store.set('pp3d.kit', yourKit);
-  showKit(b.dataset.id);
+  const i = +b.dataset.slot;
+  if (b.dataset.id) { yourKit[i] = b.dataset.id; store.set('pp3d.kit', yourKit); kitOpen = -1; }
+  else kitOpen = kitOpen === i ? -1 : i;
+  showKit();
 });
 function buildMenus() {
   buildChoices('levels', LEVEL_ORDER, k => `<b>${AI_LEVELS[k].label}</b><small>${LEVEL_BLURB[k]}</small>`, k => k === quick.level, k => { quick.level = k; });

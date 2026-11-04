@@ -37,7 +37,7 @@
 The CPU's kit depends on its style: All-rounder (Clone · Rasenshuriken · Rasengan), Blocker (Sharingan · Chidori · Amaterasu), Defender (Shield · Coffin · Tsunami), Spin Wizard (Meta Vision · Direct · Awakening), Attacker (Feint · Dribble · Monster). When a CPU fires, a call-out names the jutsu and its counter, and the CPU's racket glows.
 
 ## Your jutsu
-- You always play as yourself. In the start menu, under **Your jutsu**, pick one jutsu per stroke from that stroke's 5 (slots 1, 2, 3 in the table above). Tapping a jutsu shows a one-line tip.
+- You always play as yourself. The start menu shows **Your jutsu**: 3 cards (●, ●●, ●●●). Tap **Swap** on one to see the other 4 jutsu of that cost, then tap one to take it.
 - Your pick is saved and is used in every mode: 1v1, 2v2 and the tournament.
 
 ## FLOW, Ego rank
