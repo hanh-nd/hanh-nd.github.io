@@ -2,7 +2,7 @@
 
 ## Chakra and arming
 - The bar has **3 seals**. Clean returns, long rallies and every point (won or lost) fill it. A counter refunds a lot.
-- **Arm:** tap **印** (bottom-left), touch with a **second finger**, press **Space**, or right-click. Arm again to cancel.
+- **Arm:** **double-tap** the table, tap your row in the scorebug (name, 印 or chakra bar), touch with a **second finger**, press **Space**, or right-click. Arm again to cancel.
 - **Auto jutsu** (Settings, for one hand): when all 3 seals are full, your next stroke fires its jutsu without a tap.
 - The stroke you play picks the jutsu from your player's kit:
 
@@ -48,7 +48,7 @@ The CPU's kit depends on its style: All-rounder (Clone · Rasenshuriken · Rasen
 - Kenji, Shen and Wang are open from the start. The others unlock as your Ego rank climbs (#280, #250, #200, #150, #100).
 
 ## FLOW, Ego rank
-- **FLOW:** 3 points in a row (2 with high Mental). You aim steadier and gain chakra faster until you lose a point. The CPU can flow too.
+- **FLOW:** 3 points in a row (2 with high Mental). Until you lose a point: hand error ×0.6 (steadier aim) and chakra gain ×1.6. It does not slow time (that is Meta Vision). A CPU in FLOW makes 40% fewer mistakes.
 - **Ego rank:** starts at #300, climbs with wins (more against Hard, ×1.2 in 2v2, ×1.5 in the tournament), slips 4 on a loss. Each match ends with an S–D grade.
 
 ## 2v2

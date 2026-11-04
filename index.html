@@ -263,29 +263,17 @@
   .sb-ck i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #2d7bff, #6fe3ff); transition: width .25s; }
   .sb-ck.full i { background: linear-gradient(90deg, #6fe3ff, #fff); animation: ckpulse .6s infinite alternate; }
   @keyframes ckpulse { to { filter: brightness(1.6); } }
-  .jutsu-btn {
-    position: fixed; left: 14px; bottom: 18px; z-index: 7; width: 74px; height: 74px; border-radius: 50%;
-    border: 0; padding: 0; cursor: pointer; touch-action: manipulation; font: inherit; color: #fff;
-    background: conic-gradient(#4fc3ff calc(var(--ck, 0) * 1%), rgba(10, 13, 20, 0.82) 0);
-    box-shadow: 0 6px 22px rgba(0,0,0,.4); display: grid; place-items: center;
-  }
-  .jutsu-btn::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: rgba(10, 13, 20, 0.9); }
-  .jutsu-btn span { position: relative; font-size: 30px; font-weight: 900; line-height: 1; opacity: .45; }
-  .jutsu-btn .pips { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-size: 11px; letter-spacing: 2px; color: #6fe3ff; white-space: nowrap; text-shadow: 0 0 6px #000; }
-  .jutsu-btn small { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--muted); white-space: nowrap; }
-  .jutsu-btn.ready span { opacity: 1; text-shadow: 0 0 12px #6fe3ff; }
-  .jutsu-btn.ready { animation: ready 0.7s infinite alternate; }
-  @keyframes ready { to { box-shadow: 0 0 26px #4fc3ff, 0 0 4px #fff; transform: scale(1.06); } }
-  .jutsu-btn.armed { background: conic-gradient(#fff 100%, #fff 0); animation: armed .25s infinite alternate; }
-  .jutsu-btn.armed::before { background: #12304d; }
-  @keyframes armed { to { box-shadow: 0 0 40px #6fe3ff, 0 0 10px #fff; } }
-  #jutsu-menu { position: fixed; left: 98px; bottom: 22px; z-index: 7; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+  /* Your row in the scorebug is the seal: tap it (or double-tap the table) to arm. */
+  .sb-row.you > span, #ckbar-p { pointer-events: auto; cursor: pointer; touch-action: manipulation; }
+  #ckbar-p { height: 7px; }
+  .sb-seal { margin-left: 7px; font-size: 1.15em; font-weight: 900; letter-spacing: 0; opacity: .35; transition: opacity .2s; }
+  .sb-seal i { font-style: normal; font-size: .62em; letter-spacing: 1px; margin-left: 3px; color: #6fe3ff; vertical-align: middle; }
+  #scorebug.ready .sb-seal { opacity: 1; color: #6fe3ff; text-shadow: 0 0 10px #4fc3ff; animation: ckpulse .7s infinite alternate; }
+  #scorebug.armed .sb-row.you > span { background: rgba(79, 195, 255, .28); animation: armed .25s infinite alternate; }
+  #scorebug.armed .sb-seal { opacity: 1; color: #fff; text-shadow: 0 0 12px #fff; }
+  @keyframes armed { to { background: rgba(79, 195, 255, .5); } }
+  #jutsu-menu { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; }
   #jutsu-menu span.off { opacity: .35; }
-  /* Phones (touch first): a bigger seal for the free thumb; the kit stacks above it, clear of the racket. */
-  @media (pointer: coarse) {
-    .jutsu-btn { width: 84px; height: 84px; left: 12px; bottom: 26px; } .jutsu-btn span { font-size: 34px; }
-    #jutsu-menu { left: 12px; bottom: 132px; }
-  }
   #jutsu-menu span { font-size: 11px; font-weight: 900; letter-spacing: .06em; padding: 3px 9px; border-radius: 999px; background: rgba(10,13,20,.85); border: 1px solid var(--c); white-space: nowrap; }
   #jutsu-menu span b { color: var(--c); }
   .tag.flow { background: linear-gradient(90deg, #ff4d5e, #ffd23f); color: #10131a; border-color: transparent; animation: ckpulse .5s infinite alternate; }
@@ -347,8 +335,6 @@
     .meter { width: 170px; padding: 4px 9px 6px; }
     .hud-btn { width: 38px; height: 38px; }
     #msg { top: 45%; }
-    .jutsu-btn { width: 64px; height: 64px; bottom: 18px; } .jutsu-btn span { font-size: 26px; }
-    #jutsu-menu { left: 88px; bottom: 14px; }
     #callout { top: 30%; }
   }
 </style>
@@ -361,12 +347,13 @@
   <div class="hud-col">
     <div id="scorebug" aria-label="Score">
       <div class="sb-head" id="sb-head"></div>
-      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
+      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small><b class="sb-seal" id="sb-seal">印<i id="jutsu-pips"></i></b></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
       <div class="sb-ck" id="ckbar-p"><i id="ck-p"></i></div>
       <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
       <div class="sb-ck" id="ckbar-a"><i id="ck-a"></i></div>
     </div>
     <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span><span id="tag-flow" class="tag flow hidden">FLOW</span><span id="tag-turn" class="tag hidden"></span></div>
+    <div id="jutsu-menu" class="hidden"></div>
     <div class="meter hidden" id="power-wrap">
       <div class="lbl"><span>POWER</span><em>red = long</em></div>
       <div class="bar"><div id="power-fill"></div><div class="zone-out"></div></div>
@@ -386,8 +373,6 @@
 <div id="msg"><div id="msg-main"></div><div id="msg-sub"></div></div>
 <div id="flow-vignette"></div>
 <div id="fx"><div id="speedlines"></div><div id="flash"></div><div id="callout"><span class="kanji"></span><b></b><small></small></div></div>
-<button id="btn-jutsu" class="jutsu-btn hidden" aria-label="Jutsu"><i class="pips" id="jutsu-pips"></i><span>印</span><small id="jutsu-key">SPACE</small></button>
-<div id="jutsu-menu" class="hidden"></div>
 
 
 <!-- ===== Start menu ===== -->
@@ -468,7 +453,7 @@
       <div><kbd>Hold · release</kbd><span>Serve</span></div>
       <div><kbd>Wheel</kbd><span>Tilt face</span></div>
     </div>
-    <div class="row-label">Jutsu · tap 印 (or 2nd finger) → stroke</div>
+    <div class="row-label">Jutsu · double-tap (or tap 印) → stroke</div>
     <div class="howto" id="help-kit"></div>
     <div class="row-label">Counters · read the call-out</div>
     <div class="howto">
@@ -771,7 +756,7 @@ const SIGNATURE_OF = Object.fromEntries(Object.entries(SIGNATURES).map(([id, s])
 
 /** Chakra and jutsu. Each side has a chakra bar of 3 seals (in 2v2 the team shares one: only you
  *  spend yours, your ally just fills it). Clean strokes, long rallies and every point fill it. With a
- *  seal or more you arm (the 印 button, a second finger, Space or right-click) and your next stroke
+ *  seal or more you arm (double-tap, a second finger, your scorebug row, Space or right-click) and your next stroke
  *  fires the jutsu of your character's kit for that stroke: block / push = jutsu 1 (1 seal), drive =
  *  jutsu 2 (2 seals), smash = jutsu 3 (3 seals). Each has a counter; returning a jutsu is a COUNTER
  *  and refunds chakra. One jutsu per side per point. */
@@ -1812,8 +1797,11 @@ const touchSens = {
   value: 50,
   get mult() { return Math.pow(2, (this.value - 50) / 50); },
 };
-// Only the first finger drives the racket; a second finger's tap arms a jutsu.
+// Only the first finger drives the racket; a second finger's tap arms a jutsu, and so does a
+// double-tap (two short, still taps close together — a re-grip to drag again is longer or moves).
 let touchId = null;
+const DOUBLE_TAP = { gap: 300, hold: 220, move: 14, dist: 50 };
+let tapDown = null, lastTap = null;
 canvas.addEventListener('pointermove', e => {
   if (e.pointerType === 'touch') {
     input.touch = true;
@@ -1832,6 +1820,13 @@ canvas.addEventListener('pointerdown', e => {
   if (e.pointerType === 'touch') {
     if (touchLast && e.pointerId !== touchId) return armJutsu();   // second finger
     touchLast = { x: e.clientX, y: e.clientY }; touchId = e.pointerId;
+    const now = performance.now();
+    if (lastTap && now - lastTap.t < DOUBLE_TAP.gap && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < DOUBLE_TAP.dist) {
+      lastTap = null; tapDown = null; armJutsu();
+      input.mouseActive = false;
+      return;
+    }
+    tapDown = { t: now, x: e.clientX, y: e.clientY };
     input.mouseActive = false;
   } else {
     input.ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -1842,6 +1837,11 @@ canvas.addEventListener('pointerdown', e => {
 });
 window.addEventListener('pointerup', e => {
   if (e.pointerType === 'touch' && touchId != null && e.pointerId !== touchId) return;
+  if (e.pointerType === 'touch' && tapDown) {
+    const now = performance.now(), still = Math.hypot(e.clientX - tapDown.x, e.clientY - tapDown.y) < DOUBLE_TAP.move;
+    lastTap = still && now - tapDown.t < DOUBLE_TAP.hold ? { t: now, x: e.clientX, y: e.clientY } : null;
+    tapDown = null;
+  }
   touchLast = null; touchId = null;
   if (e.button === 0) releaseCharge();
 });
@@ -2946,7 +2946,7 @@ function gainChakra(side, amount) {
   syncChakra();
 }
 const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* no haptics */ } };
-/** The 印 button, a second finger, Space or right-click: arm (a seal or more) — or disarm. */
+/** A double-tap, a second finger, your scorebug row, Space or right-click: arm (a seal or more) — or disarm. */
 function armJutsu() {
   if (match.paused || match.watch || !isPlaying()) return;
   if (armed) { armed = false; return syncChakra(); }
@@ -3136,17 +3136,16 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matc
 function speedLines() { if (!reducedMotion) restart($('speedlines')); }
 function flashFx(color) { if (reducedMotion) return; $('flash').style.setProperty('--c', hex(color)); restart($('flash')); }
 
-/** HUD: both chakra bars, the 印 button (ready / armed) and, while armed, what each stroke fires. */
+/** HUD: both chakra bars, your 印 seal in the scorebug (ready / armed) and, while armed, what each stroke fires. */
 function syncChakra() {
   for (const [side, k] of [['player', 'p'], ['ai', 'a']]) {
     $('ck-' + k).style.width = `${chakra[side] / CHAKRA.max * 100}%`;
     $('ckbar-' + k).classList.toggle('full', chakraFull(side));
   }
-  const btn = $('btn-jutsu'), show = isPlaying() && !match.watch, n = sealsOf('player');
-  btn.classList.toggle('hidden', !show);
-  btn.style.setProperty('--ck', chakra.player / CHAKRA.max * 100);
-  btn.classList.toggle('ready', n >= 1 && !isArmed());
-  btn.classList.toggle('armed', isArmed());
+  const sb = $('scorebug'), show = isPlaying() && !match.watch, n = sealsOf('player');
+  $('sb-seal').classList.toggle('hidden', !show);
+  sb.classList.toggle('ready', show && n >= 1 && !isArmed());
+  sb.classList.toggle('armed', show && isArmed());
   $('jutsu-pips').textContent = '●'.repeat(n) + '○'.repeat(CHAKRA.seals - n);
   // While armed: your kit, stroke by stroke (dimmed: not enough seals).
   const menu = $('jutsu-menu');
@@ -3793,7 +3792,7 @@ let overlayPaused = false;
 function showOverlay(id) {
   if (!isPlaying() || !$('menu-pause').classList.contains('hidden') || openOverlay()) return;
   if (id === 'menu-help') $('help-kit').innerHTML = SLOTS.map(slot => `<div><kbd>${SLOT_LABEL[slot]} ${'●'.repeat(SLOT_COST[slot])}</kbd><span class="j">${JUTSU[kitJutsu('player', slot)].name}</span></div>`).join('')
-    + '<div><kbd>Tap 印 again</kbd><span>Cancel</span></div>';
+    + `<div><kbd>${isDesktop ? 'Space again' : 'Double-tap again'}</kbd><span>Cancel</span></div>`;
   overlayPaused = !match.paused;
   match.paused = true;
   input.charging = false;
@@ -4125,8 +4124,8 @@ for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) d
 document.addEventListener('visibilitychange', () => { if (!document.hidden) Sound.init(); });
 $('btn-start').addEventListener('click', startQuick);
 $('btn-start-duo').addEventListener('click', startDuo);
-$('btn-jutsu').addEventListener('click', e => { e.stopPropagation(); armJutsu(); });
-$('jutsu-key').textContent = isDesktop ? 'SPACE' : 'TAP · 2 FINGERS';
+// Tapping your scorebug row (name or chakra bar) arms too.
+for (const el of [...document.querySelectorAll('.sb-row.you > span'), $('ckbar-p')]) el.addEventListener('pointerdown', e => { e.stopPropagation(); armJutsu(); });
 $('btn-tour-new').addEventListener('click', () => { Sound.init(); newTournament(selTier); showTourHub(); });
 $('btn-tour-continue').addEventListener('click', () => { Sound.init(); showTourHub(); });
 $('btn-resume').addEventListener('click', togglePause);
