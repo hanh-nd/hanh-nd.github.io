@@ -164,16 +164,16 @@
   .levels.styles .level-btn { padding: 10px 4px; }
   .level-btn .ic { display: block; font-size: 20px; line-height: 1.15; }
   .levels.tiers { grid-template-columns: repeat(3, 1fr); }
-  .levels.chars { grid-template-columns: repeat(4, 1fr); margin-bottom: 8px; }
-  .levels.chars .level-btn { padding: 8px 2px; } .levels.chars .ic { display: block; font-size: 22px; line-height: 1.1; }
   .kit { margin: 0 0 14px; }
-  .kit .attrs { max-width: none; grid-template-columns: auto 1fr auto 1fr; margin: 0 0 8px; }
-  .kit .attrs .bar i { background: var(--gold); }
-  .kit-row { display: flex; gap: 4px; flex-wrap: wrap; }
-  .level-btn.locked { opacity: .4; cursor: default; }
-  .kit-row span { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid var(--c); }
-  .kit-row span i { font-style: normal; color: var(--c); }
-  .kit .attrs span { font-size: 11px; color: var(--muted); }
+  .kit-slot { margin: 0 0 8px; }
+  .kit-slot em { display: block; margin: 0 0 4px; font-style: normal; font-size: 10px; font-weight: 900; letter-spacing: .12em; color: var(--muted); }
+  .kit-row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .kit-row button {
+    font: inherit; font-size: 12px; font-weight: 800; color: var(--text); padding: 7px 10px; border-radius: 999px; cursor: pointer;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); touch-action: manipulation;
+  }
+  .kit-row button.sel { border-color: var(--c); background: color-mix(in srgb, var(--c) 28%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 45%, transparent); }
+  .kit-tip { margin: 2px 0 0; font-size: 12px; color: var(--muted); min-height: 1.4em; }
   /* Settings card */
   .set-sec { margin: 0 0 18px; }
   .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -258,16 +258,16 @@
   table.stats td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
   /* ---------- Chakra (scorebug bars + the seal button) ---------- */
-  /* Chakra fills the name cell behind the name, left to right (3 seals); full → it glows. */
-  .sb-name { position: relative; isolation: isolate; }
-  .sb-ck { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-  .sb-ck::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent calc(33.3% - 1px), rgba(10,13,20,.9) 0 33.3%, transparent 0 calc(66.6% - 1px), rgba(10,13,20,.9) 0 66.6%, transparent 0); }
-  .sb-ck i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, rgba(45,123,255,.5), rgba(111,227,255,.75)); transition: width .25s; }
-  .sb-ck.full::after { display: none; }
-  .sb-ck.full i { background: linear-gradient(90deg, rgba(45,123,255,.55), rgba(111,227,255,.6)); animation: ckpulse .6s infinite alternate; }
-  .sb-name:has(.sb-ck.full) small { color: #dff7ff; }
-  .sb-name:has(.sb-ck.full) { box-shadow: inset 0 0 0 2px #6fe3ff, inset 0 0 14px rgba(111,227,255,.8); text-shadow: 0 0 8px #6fe3ff; }
+  /* Chakra runs around the name cell, clockwise from the top-left corner; full → it glows. */
+  .sb-name { position: relative; }
+  .sb-ck { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); overflow: visible; pointer-events: none; }
+  .sb-ck rect { fill: none; stroke-width: 2.5px; }
+  .sb-ck .trk { stroke: rgba(255,255,255,.08); }
+  .sb-ck .run { stroke: #4fc3ff; stroke-dasharray: 100 100; stroke-dashoffset: 100; transition: stroke-dashoffset .25s; filter: drop-shadow(0 0 3px #4fc3ff); }
+  .sb-ck.full .run { stroke: #bff1ff; animation: ckglow .6s infinite alternate; }
   @keyframes ckpulse { to { filter: brightness(1.6); } }
+  @keyframes ckglow { to { filter: drop-shadow(0 0 7px #6fe3ff) brightness(1.4); } }
+  .sb-name:has(.sb-ck.full) { box-shadow: inset 0 0 14px rgba(111,227,255,.55); text-shadow: 0 0 8px #6fe3ff; }
   /* Your row in the scorebug is the seal: tap it (or double-tap the table) to arm. */
   .sb-row.you > span { pointer-events: auto; cursor: pointer; touch-action: manipulation; }
   .sb-seal { margin-left: 7px; font-size: 1.15em; font-weight: 900; letter-spacing: 0; opacity: .35; transition: opacity .2s; }
@@ -351,8 +351,8 @@
   <div class="hud-col">
     <div id="scorebug" aria-label="Score">
       <div class="sb-head" id="sb-head"></div>
-      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small><b class="sb-seal" id="sb-seal">印<i id="jutsu-pips"></i></b><span class="sb-ck" id="ckbar-p"><i id="ck-p"></i></span></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
-      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small><span class="sb-ck" id="ckbar-a"><i id="ck-a"></i></span></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
+      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small><b class="sb-seal" id="sb-seal">印<i id="jutsu-pips"></i></b><svg class="sb-ck" id="ckbar-p"><rect class="trk" width="100%" height="100%" rx="4"/><rect class="run" id="ck-p" width="100%" height="100%" rx="4" pathLength="100"/></svg></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
+      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small><svg class="sb-ck" id="ckbar-a"><rect class="trk" width="100%" height="100%" rx="4"/><rect class="run" id="ck-a" width="100%" height="100%" rx="4" pathLength="100"/></svg></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
     </div>
     <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span><span id="tag-flow" class="tag flow hidden">FLOW</span><span id="tag-turn" class="tag hidden"></span></div>
     <div id="jutsu-menu" class="hidden"></div>
@@ -387,8 +387,7 @@
       <button class="tab" data-mode="duo" role="tab">2v2</button>
       <button class="tab" data-mode="tour" role="tab">🏆 Tour</button>
     </div>
-    <div class="row-label">You play as</div>
-    <div class="levels chars" id="chars"></div>
+    <div class="row-label">Your jutsu</div>
     <div class="kit" id="kit"></div>
     <div id="pane-quick">
       <p class="sub">Best of 3 · first to 11</p>
@@ -806,7 +805,7 @@ const JUTSU = {
   monster:   { name: 'Monster Shot', kanji: '怪物弾', color: 0xff7a00, counter: 'STEP BACK', speed: [11.5, 12.5], top: 80, kick: 1.8 },
 };
 JUTSU.clone.reveal = 0.1;   // the clones vanish this long after the real ball's bounce (s)
-/** Jutsu kits — block / drive / smash. Each CPU style has one; each roster player (PLAYERS) too. */
+/** Jutsu kits — block / drive / smash. Each CPU style has one; you pick yours (JUTSU_POOL). */
 const STYLE_KIT = {
   allround: ['clone', 'shuriken', 'rasengan'],
   blocker:  ['sharingan', 'chidori', 'amaterasu'],
@@ -814,33 +813,30 @@ const STYLE_KIT = {
   wizard:   ['metavision', 'direct', 'awaken'],
   attacker: ['feint', 'dribble', 'monster'],
 };
-/** The roster you play as (start menu). Same stat budget (45), spread differently, 1–10 around an
- *  average of 6 (see STAT). unlock: the Ego rank that unlocks them (0: from the start). */
-const STATS = ['power', 'spin', 'speed', 'control', 'reach', 'chakra', 'mental'];
-const STAT_LABEL = { power: 'Power', spin: 'Spin', speed: 'Speed', control: 'Control', reach: 'Reach', chakra: 'Chakra', mental: 'Mental' };
-const PLAYERS = {
-  kenji:  { name: 'Kenji Sato',   nick: 'Nine Tails', flag: '🇯🇵', unlock: 0,   kit: ['clone', 'shuriken', 'rasengan'],
-            stats: { power: 7, spin: 6, speed: 6, control: 5, reach: 6, chakra: 9, mental: 6 } },
-  shen:   { name: 'Shen Yu',      nick: 'Lightning',  flag: '🇨🇳', unlock: 0,   kit: ['sharingan', 'chidori', 'amaterasu'],
-            stats: { power: 7, spin: 5, speed: 9, control: 6, reach: 5, chakra: 6, mental: 7 } },
-  wang:   { name: 'Wang Lei',     nick: 'The Wall',   flag: '🇨🇳', unlock: 0,   kit: ['shield', 'coffin', 'tsunami'],
-            stats: { power: 5, spin: 6, speed: 6, control: 9, reach: 8, chakra: 5, mental: 6 } },
-  park:   { name: 'Park Min-jun', nick: 'Meta Eye',   flag: '🇰🇷', unlock: 280, kit: ['metavision', 'direct', 'awaken'],
-            stats: { power: 5, spin: 6, speed: 6, control: 8, reach: 5, chakra: 6, mental: 9 } },
-  lucas:  { name: 'Lucas Moreau', nick: 'Monster',    flag: '🇫🇷', unlock: 250, kit: ['feint', 'dribble', 'monster'],
-            stats: { power: 8, spin: 9, speed: 6, control: 4, reach: 6, chakra: 6, mental: 6 } },
-  ana:    { name: 'Ana Silva',    nick: 'Storm',      flag: '🇧🇷', unlock: 200, kit: ['clone', 'chidori', 'rasengan'],
-            stats: { power: 8, spin: 6, speed: 7, control: 5, reach: 5, chakra: 7, mental: 7 } },
-  mei:    { name: 'Mei Lin',      nick: 'Spin Queen', flag: '🇸🇬', unlock: 150, kit: ['sharingan', 'dribble', 'amaterasu'],
-            stats: { power: 4, spin: 9, speed: 6, control: 7, reach: 6, chakra: 7, mental: 6 } },
-  arjun:  { name: 'Arjun Rao',    nick: 'Sandstorm',  flag: '🇮🇳', unlock: 100, kit: ['feint', 'coffin', 'awaken'],
-            stats: { power: 6, spin: 7, speed: 7, control: 6, reach: 7, chakra: 6, mental: 6 } },
+/** Your jutsu (start menu): one per stroke, picked from that stroke's pool; kept in storage. */
+const JUTSU_POOL = {
+  block: ['clone', 'sharingan', 'shield', 'metavision', 'feint'],
+  drive: ['shuriken', 'chidori', 'coffin', 'direct', 'dribble'],
+  smash: ['rasengan', 'amaterasu', 'tsunami', 'awaken', 'monster'],
 };
-const PLAYER_ORDER = Object.keys(PLAYERS);
-/** What one point of a stat (above / below 6) does for you: × stroke pace, × spin, × footwork,
- *  − hand error, × reach (hit radius and arm), × chakra gain, − hand error at big points (DEUCE,
- *  GAME POINT); a Mental of 8+ also gets FLOW after 2 points in a row. */
-const STAT = { power: 0.03, spin: 0.06, speed: 0.05, control: 0.07, reach: 0.04, chakra: 0.08, mental: 0.08, flowMental: 8 };
+/** One line each for the picker. */
+const JUTSU_TIP = {
+  clone: 'Two decoy balls — only the real one has a shadow',
+  sharingan: 'Cancels their jutsu; your return counters',
+  shield: 'Deep, dead chop',
+  metavision: 'Their balls come in slow motion',
+  feint: 'Dead drop just over the net',
+  shuriken: 'Swerves as it crosses the net',
+  chidori: 'Jinks sideways at the bounce',
+  coffin: 'Hangs over the net, then jinks',
+  direct: 'Fast, to the corner away from them',
+  dribble: 'Swerves at the net, jinks at the bounce',
+  rasengan: 'Huge spiral smash — they must block it',
+  amaterasu: 'Skids low off the bounce — they must push it',
+  tsunami: 'Wide, kicks out to the side line',
+  awaken: 'Perfect corner smash + instant FLOW',
+  monster: 'Kicks up high and deep',
+};
 /** Bots against a jutsu, by level: chance to answer it with the right stroke (else it flies long /
  *  dies in the net), to pick the real ball among the clones, and to read a jink, swerve, hang or
  *  kick in time (else it freezes for reread × its reaction); extra error chance against any jutsu.
@@ -1910,8 +1906,8 @@ function updatePlayer(dt) {
   const tx = serving ? clamp(input.target.x, match.doubles ? DOUBLES.serveMinX : -PLAYER_CFG.serveMaxX, PLAYER_CFG.serveMaxX) : input.target.x;
   const tz = serving ? clamp(input.target.z, PLAYER_CFG.serveMinZ, PLAYER_CFG.serveMaxZ) : input.target.z;
   const body = playerBody;
-  const fast = statK('speed'), arm = REACH.armX * statK('reach');   // your Speed and Reach
-  moveBody(body, tx, Math.max(tz, HALF_L + REACH.bodyBehind), PLAYER_CFG.bodySpeed * fast, PLAYER_CFG.bodyAccel * fast, dt);
+  const arm = REACH.armX;
+  moveBody(body, tx, Math.max(tz, HALF_L + REACH.bodyBehind), PLAYER_CFG.bodySpeed, PLAYER_CFG.bodyAccel, dt);
   if (!(serving && match.state === 'toss')) {   // during the toss the racket waits under the ball
     r.pos.x += (clamp(tx, body.x - arm, body.x + arm) - r.pos.x) * k;
     r.pos.z += (clamp(tz, body.z - REACH.armZ, body.z + REACH.armZ) - r.pos.z) * k;
@@ -2106,8 +2102,7 @@ function playerHit(contactDist) {
   let tx = softAim(ball.p.x * 0.2 + offX * 2.4 + (spin ? 0 : sl * 0.12));   // a brush pushes for real, below
   let top = push ? -clamp(0.6 - sf * 0.2, 0.6, 1) * 130 : clamp(tilt + fwd * 0.25, -1, 1.2) * 130;
   const side = spin ? 0 : clamp(sl * 7, -50, 50);   // a brush adds its spin after the solve
-  let vh = (3.2 + power * 5) * statK('power');   // your Power
-  top *= statK('spin');                           // ...and Spin
+  let vh = 3.2 + power * 5;
   if (touch) {
     const t = PLAYER_CFG.touch;
     tz = -clamp(t.depth + depthShift * 0.3, 0.25, 0.6);   // the incoming spin still nudges it
@@ -2121,7 +2116,7 @@ function playerHit(contactDist) {
   }
 
   let edge = false;
-  if (contactDist / (PLAYER_CFG.hitRadius * statK('reach')) > 0.85) {   // frame/edge hit: unpredictable
+  if (contactDist / PLAYER_CFG.hitRadius > 0.85) {   // frame/edge hit: unpredictable
     edge = true;
     tx += rand(-0.5, 0.5); tz -= rand(-0.15, 0.3); vh *= 0.85;
   }
@@ -2139,7 +2134,7 @@ function playerHit(contactDist) {
   // FLOW and Sasuke's perk steady the hand.
   const js = jid && jutsuShot(jid, 'player');
   if (js) shot = js.shot;
-  const err = jid ? NO_ERROR : strokeError(AIM.stroke * (flow.player ? FLOW.aim : 1) * yourAim(), contact.speedIn, contact.h, contact.off);
+  const err = jid ? NO_ERROR : strokeError(AIM.stroke * (flow.player ? FLOW.aim : 1), contact.speedIn, contact.h, contact.off);
   shot = handPlay(ball.p, shot, err, brush ? 0 : AIM.rescues);
   if (sigMiss === 'net') intoNet(shot);   // the spin drags it down into the net
   if (sigMiss === 'long') {  // the spin kicks it off the end: it carries until it misses the table
@@ -2204,7 +2199,7 @@ const softAim = x => PLAYER_CFG.cornerX * Math.tanh(x / PLAYER_CFG.cornerX);
 function contactOf(contactDist) {
   return {
     offX: ball.p.x - player.pos.x, x: ball.p.x, h: ball.p.y - TABLE_TOP,
-    off: contactDist / (PLAYER_CFG.hitRadius * statK('reach')), speedIn: Math.hypot(ball.v.x, ball.v.y, ball.v.z),
+    off: contactDist / PLAYER_CFG.hitRadius, speedIn: Math.hypot(ball.v.x, ball.v.y, ball.v.z),
     topIn: topspinOf(unreadSpin(), ball.v),
   };
 }
@@ -2218,7 +2213,7 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   const swing = Math.max(swingSpeed, SMASH.minSwing);
   // Armed, a smash fires your kit's jutsu 3 (3 seals).
   const jid = yourJutsu('smash'), J = jid && JUTSU[jid];
-  let vh = clamp(SMASH.minSpeed + (swing - SMASH.minSwing) * 1.2, SMASH.minSpeed, SMASH.maxSpeed) * statK('power');
+  let vh = clamp(SMASH.minSpeed + (swing - SMASH.minSwing) * 1.2, SMASH.minSpeed, SMASH.maxSpeed);
   // The flick's direction leads the aim (diagonal right → right); contact point adds a little.
   const tx = clamp(contact.x * 0.3 + contact.offX * 0.6 + sl * 0.25, -0.65, 0.65);
   const tz = -rand(0.95, 1.25);
@@ -2230,7 +2225,7 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   }
   const js = jid && jutsuShot(jid, 'player');
   if (js) shot = js.shot;
-  const err = jid ? NO_ERROR : strokeError(AIM.smash * (flow.player ? FLOW.aim : 1) * yourAim(), contact.speedIn, contact.h, contact.off, contact.topIn - input.tilt * 80, AIM.smashLow);
+  const err = jid ? NO_ERROR : strokeError(AIM.smash * (flow.player ? FLOW.aim : 1), contact.speedIn, contact.h, contact.off, contact.topIn - input.tilt * 80, AIM.smashLow);
   shot = handPlay(ball.p, shot, err, AIM.rescues);
   // Smashing into a jutsu that wants a block or a push: it flies long / dies in the net.
   const miss0 = answerMiss(J, { still: false, push: false });
@@ -2921,16 +2916,11 @@ let armed = false;   // your jutsu is armed: your next stroke fires its kit juts
 const NO_ERROR = { pitch: 0, yaw: 0, bias: 0 };
 const sealsOf = side => Math.floor(chakra[side] / CHAKRA.seal);
 const chakraFull = side => chakra[side] >= CHAKRA.max;
-/** Your character (start menu) and its perk; a bot plays its style's character. */
-let youChar = 'kenji';   // your roster player, restored from storage with the menus (buildMenus)
-const you = () => PLAYERS[youChar];
-/** Your stat edge: 1 + (stat − 6) × STAT[k] (or × −STAT[k] for one that lowers error). */
-const statK = (k, sign = 1) => 1 + sign * (you().stats[k] - 6) * STAT[k];
+/** Your kit (start menu), restored from storage with the menus (buildMenus). */
+let yourKit = [...STYLE_KIT.allround];
 const kitOfBot = c => STYLE_KIT[c.style] || STYLE_KIT.allround;
 /** The kit of whoever plays `side`'s strokes: yours, or that side's bot's style kit. */
-const kitOf = side => (isYou(side) ? you().kit : kitOfBot(memberBot(side, rally.turn[side]) || ai));
-/** Your hand error multiplier: Control, plus Mental at a big point. */
-const yourAim = () => statK('control', -1) * (pointSituation() ? statK('mental', -1) : 1);
+const kitOf = side => (isYou(side) ? yourKit : kitOfBot(memberBot(side, rally.turn[side]) || ai));
 const kitJutsu = (side, slot) => kitOf(side)[SLOTS.indexOf(slot)];
 const canFire = (side, slot) => !rally.fired[side] && sealsOf(side) >= SLOT_COST[slot];
 
@@ -2943,7 +2933,7 @@ function resetJutsu() {
 }
 function gainChakra(side, amount) {
   if (!isPlaying()) return;
-  const k = (flow[side] ? CHAKRA.flow : 1) * (isYou(side) ? statK('chakra') : 1);
+  const k = flow[side] ? CHAKRA.flow : 1;
   chakra[side] = Math.min(CHAKRA.max, chakra[side] + amount * k);
   syncChakra();
 }
@@ -3093,13 +3083,12 @@ function strokeLanded(side) {
   } else showMessage('Countered', '', 'bad', 0.9, 2);
 }
 
-/** FLOW: FLOW.streak points in a row (a Mental of 8+: one fewer); losing one ends it. */
+/** FLOW: FLOW.streak points in a row; losing one ends it. */
 function updateFlow(winner) {
   const loser = other(winner), st = flow.streak;
   st[winner]++; st[loser] = 0;
   flow[loser] = false;
-  const need = isYou(winner) && you().stats.mental >= STAT.flowMental ? FLOW.streak - 1 : FLOW.streak;
-  if (!flow[winner] && st[winner] >= need) {
+  if (!flow[winner] && st[winner] >= FLOW.streak) {
     flow[winner] = true;
     if (isYou(winner)) { match.stats.flows++; callout('覚醒', 'FLOW', 'EGO AWAKENED', 0xffd23f); Sound.flow(); buzz([30, 40, 60]); }
     else callout('覚醒', `${nameOf(winner).toUpperCase()} · FLOW`, '', opp.color);
@@ -3141,7 +3130,7 @@ function flashFx(color) { if (reducedMotion) return; $('flash').style.setPropert
 /** HUD: both chakra bars, your 印 seal in the scorebug (ready / armed) and, while armed, what each stroke fires. */
 function syncChakra() {
   for (const [side, k] of [['player', 'p'], ['ai', 'a']]) {
-    $('ck-' + k).style.width = `${chakra[side] / CHAKRA.max * 100}%`;
+    $('ck-' + k).style.strokeDashoffset = 100 - chakra[side] / CHAKRA.max * 100;
     $('ckbar-' + k).classList.toggle('full', chakraFull(side));
   }
   const sb = $('scorebug'), show = isPlaying() && !match.watch, n = sealsOf('player');
@@ -3698,28 +3687,25 @@ function buildChoices(wrapId, keys, render, isSel, onPick) {
     wrap.appendChild(b);
   }
 }
-/** Under the roster: your player's stats and super powers (jutsu: the stroke that fires each, its seals). */
-function showKit() {
-  const pl = you();
-  $('kit').innerHTML = `<div class="attrs">${STATS.map(k => `<span>${STAT_LABEL[k]}</span><div class="bar"><i style="width:${pl.stats[k] * 10}%"></i></div>`).join('')}</div>`
-    + `<div class="kit-row">${SLOTS.map((slot, i) => {
-      const j = JUTSU[pl.kit[i]];
-      return `<span style="--c:${hex(j.color)}"><i>${SLOT_LABEL[slot]}</i> ${j.name} ${'●'.repeat(SLOT_COST[slot])}</span>`;
-    }).join('')}</div>`;
+/** Your jutsu picker: per stroke, its pool as chips (tap one to take it); the last tapped one's tip below. */
+function showKit(tipId = null) {
+  $('kit').innerHTML = SLOTS.map((slot, i) => `<div class="kit-slot"><em>${SLOT_LABEL[slot]} ${'●'.repeat(SLOT_COST[slot])}</em><div class="kit-row">${
+    JUTSU_POOL[slot].map(id => `<button class="${yourKit[i] === id ? 'sel' : ''}" data-slot="${i}" data-id="${id}" style="--c:${hex(JUTSU[id].color)}">${JUTSU[id].name}</button>`).join('')
+  }</div></div>`).join('') + `<p class="kit-tip">${JUTSU_TIP[tipId || yourKit[2]]}</p>`;
 }
-/** Unlocked roster players: by your Ego rank. */
-const unlocked = k => rankNow() <= (PLAYERS[k].unlock || 999);
+$('kit').addEventListener('click', e => {
+  const b = e.target.closest('button[data-id]');
+  if (!b) return;
+  yourKit[+b.dataset.slot] = b.dataset.id;
+  store.set('pp3d.kit', yourKit);
+  showKit(b.dataset.id);
+});
 function buildMenus() {
   buildChoices('levels', LEVEL_ORDER, k => `<b>${AI_LEVELS[k].label}</b><small>${LEVEL_BLURB[k]}</small>`, k => k === quick.level, k => { quick.level = k; });
   buildChoices('levels-duo', LEVEL_ORDER, k => `<b>${AI_LEVELS[k].label}</b><small>${LEVEL_BLURB[k]}</small>`, k => k === duo.level, k => { duo.level = k; });
   $('rank-badge').textContent = `EGO RANK #${rankNow()}`;
-  const saved = store.get('pp3d.char', youChar);
-  if (PLAYERS[saved] && unlocked(saved)) youChar = saved;
-  buildChoices('chars', PLAYER_ORDER, k => {
-    const pl = PLAYERS[k], lock = !unlocked(k);
-    return `<span class="ic">${lock ? '🔒' : pl.flag}</span><b>${pl.name.split(' ')[0]}</b><small>${lock ? `Rank #${pl.unlock}` : pl.nick}</small>`;
-  }, k => k === youChar, k => { if (!unlocked(k)) return; youChar = k; store.set('pp3d.char', k); showKit(); });
-  for (const b of $('chars').querySelectorAll('.level-btn')) b.classList.toggle('locked', !unlocked(b.dataset.key));
+  const saved = store.get('pp3d.kit', null);
+  if (Array.isArray(saved) && SLOTS.every((slot, i) => JUTSU_POOL[slot].includes(saved[i]))) yourKit = [...saved];
   showKit();
   buildChoices('styles', STYLE_ORDER, k => `<b>${AI_STYLES[k].label}</b><small>${AI_STYLES[k].tag}</small>`, k => k === quick.style, k => { quick.style = k; });
   buildChoices('speeds', Object.keys(GAME.speeds), k => `<b>${GAME.speeds[k].label}</b><small>${Math.round(GAME.speeds[k].scale * 100)}% speed</small>`,
@@ -4345,7 +4331,7 @@ function stepLiveBall(dt) {
   if (near) {
     if (canHit('player') && racketContact(near.racket, AI_COMMON.hitRadius, botYWeight, false) >= 0) return aiHit(near);
   } else if (canHit('player') || (DEBUG.on && rally.lastHitter === 'ai')) {   // debug also logs pre-bounce crossings
-    const d = racketContact(player, PLAYER_CFG.hitRadius * statK('reach'), PLAYER_CFG.yWeight);
+    const d = racketContact(player, PLAYER_CFG.hitRadius, PLAYER_CFG.yWeight);
     if (d >= 0 && canHit('player')) return playerHit(d);
   }
   if (canHit('ai')) {

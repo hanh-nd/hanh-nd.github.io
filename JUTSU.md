@@ -35,20 +35,12 @@
 
 The CPU's kit depends on its style: All-rounder (Clone · Rasenshuriken · Rasengan), Blocker (Sharingan · Chidori · Amaterasu), Defender (Shield · Coffin · Tsunami), Spin Wizard (Meta Vision · Direct · Awakening), Attacker (Feint · Dribble · Monster). When a CPU fires, a call-out names the jutsu and its counter, and the CPU's racket glows.
 
-## You play as (roster)
-- 8 fictional players. Each has the same stat budget (45), spread differently, plus a 3-jutsu kit.
-- **Stats:**
-  - **Power:** stroke pace
-  - **Spin:** topspin
-  - **Speed:** footwork
-  - **Control:** hand error
-  - **Reach:** hit radius and arm
-  - **Chakra:** gain
-  - **Mental:** steadier at deuce or game point; 8+ reaches FLOW one point sooner
-- Kenji, Shen and Wang are open from the start. The others unlock as your Ego rank climbs (#280, #250, #200, #150, #100).
+## Your jutsu
+- You always play as yourself. In the start menu, under **Your jutsu**, pick one jutsu per stroke from that stroke's 5 (slots 1, 2, 3 in the table above). Tapping a jutsu shows a one-line tip.
+- Your pick is saved and is used in every mode: 1v1, 2v2 and the tournament.
 
 ## FLOW, Ego rank
-- **FLOW:** 3 points in a row (2 with high Mental). Until you lose a point: hand error ×0.6 (steadier aim) and chakra gain ×1.6. It does not slow time (that is Meta Vision). A CPU in FLOW makes 40% fewer mistakes.
+- **FLOW:** 3 points in a row. Until you lose a point: hand error ×0.6 (steadier aim) and chakra gain ×1.6. It does not slow time (that is Meta Vision). A CPU in FLOW makes 40% fewer mistakes.
 - **Ego rank:** starts at #300, climbs with wins (more against Hard, ×1.2 in 2v2, ×1.5 in the tournament), slips 4 on a loss. Each match ends with an S–D grade.
 
 ## 2v2
