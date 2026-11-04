@@ -258,14 +258,18 @@
   table.stats td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
   /* ---------- Chakra (scorebug bars + the seal button) ---------- */
-  .sb-ck { grid-column: 1 / -1; height: 5px; background: rgba(255,255,255,.06); position: relative; overflow: hidden; }
-  .sb-ck::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent calc(33.3% - 1px), #0a0d14 0 33.3%, transparent 0 calc(66.6% - 1px), #0a0d14 0 66.6%, transparent 0); }
-  .sb-ck i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #2d7bff, #6fe3ff); transition: width .25s; }
-  .sb-ck.full i { background: linear-gradient(90deg, #6fe3ff, #fff); animation: ckpulse .6s infinite alternate; }
+  /* Chakra fills the name cell behind the name, left to right (3 seals); full → it glows. */
+  .sb-name { position: relative; isolation: isolate; }
+  .sb-ck { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+  .sb-ck::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent calc(33.3% - 1px), rgba(10,13,20,.9) 0 33.3%, transparent 0 calc(66.6% - 1px), rgba(10,13,20,.9) 0 66.6%, transparent 0); }
+  .sb-ck i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, rgba(45,123,255,.5), rgba(111,227,255,.75)); transition: width .25s; }
+  .sb-ck.full::after { display: none; }
+  .sb-ck.full i { background: linear-gradient(90deg, rgba(45,123,255,.55), rgba(111,227,255,.6)); animation: ckpulse .6s infinite alternate; }
+  .sb-name:has(.sb-ck.full) small { color: #dff7ff; }
+  .sb-name:has(.sb-ck.full) { box-shadow: inset 0 0 0 2px #6fe3ff, inset 0 0 14px rgba(111,227,255,.8); text-shadow: 0 0 8px #6fe3ff; }
   @keyframes ckpulse { to { filter: brightness(1.6); } }
   /* Your row in the scorebug is the seal: tap it (or double-tap the table) to arm. */
-  .sb-row.you > span, #ckbar-p { pointer-events: auto; cursor: pointer; touch-action: manipulation; }
-  #ckbar-p { height: 7px; }
+  .sb-row.you > span { pointer-events: auto; cursor: pointer; touch-action: manipulation; }
   .sb-seal { margin-left: 7px; font-size: 1.15em; font-weight: 900; letter-spacing: 0; opacity: .35; transition: opacity .2s; }
   .sb-seal i { font-style: normal; font-size: .62em; letter-spacing: 1px; margin-left: 3px; color: #6fe3ff; vertical-align: middle; }
   #scorebug.ready .sb-seal { opacity: 1; color: #6fe3ff; text-shadow: 0 0 10px #4fc3ff; animation: ckpulse .7s infinite alternate; }
@@ -347,10 +351,8 @@
   <div class="hud-col">
     <div id="scorebug" aria-label="Score">
       <div class="sb-head" id="sb-head"></div>
-      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small><b class="sb-seal" id="sb-seal">印<i id="jutsu-pips"></i></b></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
-      <div class="sb-ck" id="ckbar-p"><i id="ck-p"></i></div>
-      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
-      <div class="sb-ck" id="ckbar-a"><i id="ck-a"></i></div>
+      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small><b class="sb-seal" id="sb-seal">印<i id="jutsu-pips"></i></b><span class="sb-ck" id="ckbar-p"><i id="ck-p"></i></span></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
+      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small><span class="sb-ck" id="ckbar-a"><i id="ck-a"></i></span></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
     </div>
     <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span><span id="tag-flow" class="tag flow hidden">FLOW</span><span id="tag-turn" class="tag hidden"></span></div>
     <div id="jutsu-menu" class="hidden"></div>
@@ -4125,7 +4127,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) Soun
 $('btn-start').addEventListener('click', startQuick);
 $('btn-start-duo').addEventListener('click', startDuo);
 // Tapping your scorebug row (name or chakra bar) arms too.
-for (const el of [...document.querySelectorAll('.sb-row.you > span'), $('ckbar-p')]) el.addEventListener('pointerdown', e => { e.stopPropagation(); armJutsu(); });
+for (const el of document.querySelectorAll('.sb-row.you > span')) el.addEventListener('pointerdown', e => { e.stopPropagation(); armJutsu(); });
 $('btn-tour-new').addEventListener('click', () => { Sound.init(); newTournament(selTier); showTourHub(); });
 $('btn-tour-continue').addEventListener('click', () => { Sound.init(); showTourHub(); });
 $('btn-resume').addEventListener('click', togglePause);
