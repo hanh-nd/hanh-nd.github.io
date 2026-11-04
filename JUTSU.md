@@ -1,7 +1,7 @@
 # Jutsu, FLOW, 2v2
 
 ## Chakra and arming
-- Chakra is the ring around each name in the scorebug, cut into **3 seals**; it glows when full. Next to the name, **LV 1–3** shows how many seals are ready, in the colour of the jutsu that level fires.
+- Chakra is the ring around each name in the scorebug, cut into **3 seals**; it glows when full. Next to each name, **3 seal orbs** light up one per seal, in the colour of the jutsu that level fires, and the ring takes the colour of the jutsu ready now. When you reach a new level, **"Rasengan ready"** (or whichever) pops up once with a chime.
 - The ring has **3 seals**. Clean returns, long rallies and every point (won or lost) fill it. A counter refunds a lot.
 - **Arm:** **double-tap** the table, tap your row in the scorebug, touch with a **second finger**, press **Space**, or right-click. It arms the **biggest jutsu your seals pay for**. Do it again to cancel.
 - **Pick a smaller one:** while armed, tap a jutsu in the list under the scorebug, or press **1**, **2** or **3**. Tapping the lit one cancels too.

@@ -52,7 +52,7 @@
   .sb-row > span { display: flex; align-items: center; justify-content: center; height: var(--row); }
   .sb-row.cpu > span { border-top: 1px solid var(--border); }
   .sb-team { width: 4px; } .you .sb-team { background: var(--player); } .cpu .sb-team { background: var(--cpu); }
-  .sb-name { justify-content: flex-start !important; padding: 0 6px 0 10px; font-size: 12px; font-weight: 800; letter-spacing: .12em; white-space: nowrap; }
+  .sb-name { justify-content: flex-start !important; padding: 0 14px 0 16px; min-width: 130px; font-size: 12px; font-weight: 800; letter-spacing: .12em; white-space: nowrap; }
   .sb-name small { margin-left: 5px; font-size: .78em; font-weight: 700; letter-spacing: .04em; color: var(--muted); }
   .sb-srv { width: 16px; }
   .sb-srv i { width: 7px; height: 7px; border-radius: 50%; background: transparent; transition: all .2s; }
@@ -165,21 +165,16 @@
   .level-btn .ic { display: block; font-size: 20px; line-height: 1.15; }
   .levels.tiers { grid-template-columns: repeat(3, 1fr); }
   .kit { margin: 0 0 14px; }
-  /* Your 3 jutsu: one row of chips; tap one to swap it for another of its cost (they open below). */
-  .kit-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .kit-chips button, .kit-swap button {
-    display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; padding: 7px 6px; border-radius: 12px;
-    border: 1px solid var(--border); border-bottom: 3px solid var(--c); background: rgba(255,255,255,.04); color: var(--text);
-    font: inherit; cursor: pointer; touch-action: manipulation;
-  }
-  .kit-chips i { font-style: normal; font-size: 9px; letter-spacing: 1px; color: var(--c); }
-  .kit-chips b, .kit-swap b { max-width: 100%; font-size: 12px; line-height: 1.15; font-weight: 900; color: var(--c); overflow-wrap: anywhere; }
-  .kit-chips b { text-align: center; font-size: 11px; overflow-wrap: normal; letter-spacing: -.01em; }
-  .kit-chips button.open { background: color-mix(in srgb, var(--c) 18%, transparent); border-color: var(--c); }
-  .kit-swap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 8px 0 0; }
-  .kit-swap button { align-items: flex-start; text-align: left; border-bottom-width: 1px; border-left: 3px solid var(--c); }
-  .kit-swap small, .kit-tip { font-size: 10.5px; line-height: 1.3; color: var(--muted); }
-  .kit-tip { margin: 6px 2px 0; }
+  /* Your 3 jutsu: one row of buttons (like the level picker); tap one to swap it for another of its cost. */
+  .kit-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .kit-swap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0 0; }
+  .kit-chips .level-btn, .kit-swap .level-btn { min-width: 0; padding: 8px 6px; }
+  .kit-chips .level-btn b { font-size: 13px; line-height: 1.15; }
+  .kit-chips .level-btn small { display: block; letter-spacing: 2px; }
+  .kit-swap .level-btn b { font-size: 13px; }
+  .kit-swap .level-btn small { display: block; line-height: 1.3; }
+  .kit-tip { margin: 8px 2px 0; font-size: 12px; line-height: 1.35; color: var(--muted); }
+  .kit-tip b { color: var(--text); }
   /* Settings card */
   .set-sec { margin: 0 0 18px; }
   .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -279,12 +274,22 @@
   .sb-name:has(.sb-ck.full) { box-shadow: inset 0 0 14px rgba(111,227,255,.55); text-shadow: 0 0 8px #6fe3ff; }
   /* Your row in the scorebug is the seal: tap it (or double-tap the table) to arm. */
   .sb-row.you > span { pointer-events: auto; cursor: pointer; touch-action: manipulation; }
-  /* Jutsu level: LV 1–3 (seals ready), in the color of the jutsu that level fires; blank at 0. */
-  .sb-lv { margin-left: 7px; padding: 1px 6px; border-radius: 6px; font-size: .78em; font-weight: 900; letter-spacing: .06em; line-height: 1.35;
-    color: #0a0d14; background: var(--c, #6fe3ff); box-shadow: 0 0 8px var(--c, #6fe3ff); white-space: nowrap; }
-  .sb-lv:empty { display: none; }
+  /* Seal orbs (Naruto Storm style): one per seal, lit in the color of the jutsu that seal level
+   fires; a new one flashes; all 3 lit, the last keeps flashing; armed, the armed one turns white. */
+  .sb-orbs { display: inline-flex; gap: 4px; margin-left: 8px; }
+  .sb-orbs i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.22); box-sizing: border-box; transition: background .2s, box-shadow .2s; }
+  .sb-orbs i.on { background: var(--c); border-color: var(--c); box-shadow: 0 0 7px var(--c); }
+  .sb-orbs i.new { animation: orbnew .18s 4 alternate; }
+  .sb-orbs.full i:last-child { animation: orbfull .45s infinite alternate; }
+  .sb-orbs i.armed { background: #fff; border-color: #fff; box-shadow: 0 0 10px #fff, 0 0 4px var(--c); }
+  @keyframes orbnew { to { transform: scale(1.7); box-shadow: 0 0 14px var(--c), 0 0 4px #fff; } }
+  @keyframes orbfull { to { transform: scale(1.35); background: #fff; box-shadow: 0 0 12px var(--c), 0 0 4px #fff; } }
+  /* "Rasengan ready": a short pop under the scorebug when a new seal level unlocks. */
+  #ready-pop { align-self: flex-start; font-size: 12px; font-weight: 900; letter-spacing: .06em; padding: 4px 10px; border-radius: 999px;
+    background: rgba(10,13,20,.88); border: 1px solid var(--c); color: var(--c); box-shadow: 0 0 12px color-mix(in srgb, var(--c) 50%, transparent); }
+  #ready-pop.go { animation: readypop 1.6s ease-out forwards; }
+  @keyframes readypop { 0% { opacity: 0; transform: translateX(-12px) scale(.9); } 12% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
   #scorebug.armed .sb-row.you > span { background: rgba(79, 195, 255, .28); animation: armed .25s infinite alternate; }
-  #scorebug.armed .sb-lv { background: #fff; box-shadow: 0 0 14px #fff, 0 0 4px var(--c); animation: ckpulse .3s infinite alternate; }
   @keyframes armed { to { background: rgba(79, 195, 255, .5); } }
   #jutsu-menu { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
   #jutsu-menu span { pointer-events: auto; cursor: pointer; touch-action: manipulation; }
@@ -364,10 +369,11 @@
   <div class="hud-col">
     <div id="scorebug" aria-label="Score">
       <div class="sb-head" id="sb-head"></div>
-      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small><b class="sb-lv" id="lv-p"></b><svg class="sb-ck" id="ckbar-p"><defs><linearGradient id="ckg-p" x1="0" y1="0" x2="1" y2="0" spreadMethod="reflect"><stop offset="0" stop-color="#2f6bff"/><stop offset=".35" stop-color="#6fe3ff"/><stop offset=".55" stop-color="#ffffff"/><stop offset="1" stop-color="#b98cff"/><animateTransform attributeName="gradientTransform" type="translate" from="-1 0" to="1 0" dur="2.4s" repeatCount="indefinite"/></linearGradient></defs><rect class="trk" width="100%" height="100%" rx="4"/><rect class="run" id="ck-p" width="100%" height="100%" rx="4" pathLength="100" stroke="url(#ckg-p)"/><rect class="cut" width="100%" height="100%" rx="4" pathLength="100" fill="none"/></svg></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
-      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small><b class="sb-lv" id="lv-a"></b><svg class="sb-ck" id="ckbar-a"><defs><linearGradient id="ckg-a" x1="0" y1="0" x2="1" y2="0" spreadMethod="reflect"><stop offset="0" stop-color="#2f6bff"/><stop offset=".35" stop-color="#6fe3ff"/><stop offset=".55" stop-color="#ffffff"/><stop offset="1" stop-color="#b98cff"/><animateTransform attributeName="gradientTransform" type="translate" from="-1 0" to="1 0" dur="2.4s" repeatCount="indefinite"/></linearGradient></defs><rect class="trk" width="100%" height="100%" rx="4"/><rect class="run" id="ck-a" width="100%" height="100%" rx="4" pathLength="100" stroke="url(#ckg-a)"/><rect class="cut" width="100%" height="100%" rx="4" pathLength="100" fill="none"/></svg></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
+      <div class="sb-row you"><span class="sb-team"></span><span class="sb-name"><span id="you-name">YOU</span><small id="you-level"></small><span class="sb-orbs" id="orbs-p"><i></i><i></i><i></i></span><svg class="sb-ck" id="ckbar-p"><defs><linearGradient id="ckg-p" x1="0" y1="0" x2="1" y2="0" spreadMethod="reflect"><stop offset="0" style="stop-color: var(--g1, #2f6bff)"/><stop offset=".35" style="stop-color: var(--g2, #6fe3ff)"/><stop offset=".55" stop-color="#ffffff"/><stop offset="1" style="stop-color: var(--g3, #b98cff)"/><animateTransform attributeName="gradientTransform" type="translate" from="-1 0" to="1 0" dur="2.4s" repeatCount="indefinite"/></linearGradient></defs><rect class="trk" width="100%" height="100%" rx="4"/><rect class="run" id="ck-p" width="100%" height="100%" rx="4" pathLength="100" stroke="url(#ckg-p)"/><rect class="cut" width="100%" height="100%" rx="4" pathLength="100" fill="none"/></svg></span><span class="sb-srv"><i id="serve-p"></i></span><span class="sb-games" id="games-p" title="Games won">0</span><span class="sb-pts" id="score-p">0</span></div>
+      <div class="sb-row cpu"><span class="sb-team"></span><span class="sb-name"><span id="opp-name">CPU</span><small id="cpu-level"></small><span class="sb-orbs" id="orbs-a"><i></i><i></i><i></i></span><svg class="sb-ck" id="ckbar-a"><defs><linearGradient id="ckg-a" x1="0" y1="0" x2="1" y2="0" spreadMethod="reflect"><stop offset="0" style="stop-color: var(--g1, #2f6bff)"/><stop offset=".35" style="stop-color: var(--g2, #6fe3ff)"/><stop offset=".55" stop-color="#ffffff"/><stop offset="1" style="stop-color: var(--g3, #b98cff)"/><animateTransform attributeName="gradientTransform" type="translate" from="-1 0" to="1 0" dur="2.4s" repeatCount="indefinite"/></linearGradient></defs><rect class="trk" width="100%" height="100%" rx="4"/><rect class="run" id="ck-a" width="100%" height="100%" rx="4" pathLength="100" stroke="url(#ckg-a)"/><rect class="cut" width="100%" height="100%" rx="4" pathLength="100" fill="none"/></svg></span><span class="sb-srv"><i id="serve-a"></i></span><span class="sb-games" id="games-a" title="Games won">0</span><span class="sb-pts" id="score-a">0</span></div>
     </div>
     <div class="tags"><span id="tag-point" class="tag hidden"></span><span id="tag-rally" class="tag hidden"></span><span id="tag-flow" class="tag flow hidden">FLOW</span><span id="tag-turn" class="tag hidden"></span></div>
+    <div id="ready-pop" class="hidden"></div>
     <div id="jutsu-menu" class="hidden"></div>
     <div class="meter hidden" id="power-wrap">
       <div class="lbl"><span>POWER</span><em>red = long</em></div>
@@ -3348,26 +3354,48 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matc
 function speedLines() { if (!reducedMotion) restart($('speedlines')); }
 function flashFx(color) { if (reducedMotion) return; $('flash').style.setProperty('--c', hex(color)); restart($('flash')); }
 
-/** HUD: both chakra rings, each side's jutsu level (LV 1–3: the seals ready, in the color of the
- *  jutsu that level fires — for you: armed, the one armed) and, while armed, your kit. */
+/** HUD (Naruto Storm style): each side's chakra ring takes the color of the jutsu its seals fire
+ *  now; its seal orbs light one by one in their jutsu's colors (a new one flashes, a full set keeps
+ *  flashing). When you reach a new seal level, "<jutsu> ready" pops up once. While armed: your kit. */
+const sealsShown = { player: 0, ai: 0 };
 function syncChakra() {
   const show = isPlaying() && !match.watch;
   for (const [side, k] of [['player', 'p'], ['ai', 'a']]) {
     $('ck-' + k).style.strokeDashoffset = 100 - chakra[side] / CHAKRA.max * 100;
     $('ckbar-' + k).classList.toggle('full', chakraFull(side));
-    const lv = rally.fired[side] ? 0 : isYou(side) && isArmed() ? armedTier() : Math.min(sealsOf(side), SLOTS.length), el = $('lv-' + k);
-    el.textContent = isPlaying() && lv ? `LV ${lv}` : '';
-    if (lv) el.style.setProperty('--c', hex(JUTSU[kitJutsu(side, SLOTS[lv - 1])].color));
+    const n = isPlaying() && !rally.fired[side] ? Math.min(sealsOf(side), SLOTS.length) : 0, kit = kitOf(side);
+    const color = i => hex(JUTSU[kit[i]].color), ring = $('ckbar-' + k).style;
+    ring.setProperty('--g1', n ? color(n - 1) : ''); ring.setProperty('--g2', n ? color(n - 1) : ''); ring.setProperty('--g3', n ? color(n - 1) : '');
+    const orbs = $('orbs-' + k);
+    orbs.classList.toggle('full', n === SLOTS.length);
+    [...orbs.children].forEach((o, i) => {
+      o.style.setProperty('--c', color(i));
+      o.classList.toggle('on', i < n);
+      o.classList.toggle('armed', isYou(side) && armedTier() === i + 1);
+      if (i < n && i >= sealsShown[side]) { o.classList.remove('new'); void o.offsetWidth; o.classList.add('new'); }
+    });
+    if (show && isYou(side) && n > sealsShown[side]) readyPop(kit[n - 1]);
+    sealsShown[side] = n;
   }
   const sb = $('scorebug');
   sb.classList.toggle('armed', show && isArmed());
   // While armed: your kit (lit: armed; dimmed: not enough seals); tap one to switch to it.
-  const menu = $('jutsu-menu'), n = sealsOf('player');
+  const menu = $('jutsu-menu');
   menu.classList.toggle('hidden', !show || !isArmed());
   if (show && isArmed()) menu.innerHTML = SLOTS.map((slot, i) => {
     const j = JUTSU[kitJutsu('player', slot)], cls = armedTier() === i + 1 ? 'on' : canFire('player', slot) ? '' : 'off';
     return `<span class="${cls}" data-tier="${i + 1}" style="--c:${hex(j.color)}">${j.name} <b>${'●'.repeat(SLOT_COST[slot])}</b></span>`;
   }).join('');
+}
+/** "<jutsu> ready": a new seal level is up (with a chime and a tap on the phone). */
+function readyPop(id) {
+  const el = $('ready-pop'), j = JUTSU[id];
+  el.textContent = `${j.name} ready`;
+  el.style.setProperty('--c', hex(j.color));
+  el.classList.remove('hidden');
+  restart(el);
+  Sound.sealReady();
+  buzz(15);
 }
 function syncFlow() {
   const tag = $('tag-flow'), side = flow.player ? 'player' : flow.ai ? 'ai' : null;
@@ -3917,12 +3945,12 @@ function buildChoices(wrapId, keys, render, isSel, onPick) {
  *  of its cost, with what each does), tap a swap to take it. */
 let kitOpen = -1;
 function showKit() {
-  const chips = yourKit.map((id, i) => `<button class="${kitOpen === i ? 'open' : ''}" data-slot="${i}" style="--c:${hex(JUTSU[id].color)}">`
-    + `<i>${'●'.repeat(SLOT_COST[SLOTS[i]])}</i><b>${JUTSU[id].name}</b></button>`).join('');
+  const chips = yourKit.map((id, i) => `<button class="level-btn${kitOpen === i ? ' sel' : ''}" data-slot="${i}">`
+    + `<b>${JUTSU[id].name}</b><small>${'●'.repeat(SLOT_COST[SLOTS[i]])}</small></button>`).join('');
   const open = kitOpen >= 0 ? yourKit[kitOpen] : null;
   const swaps = open ? `<div class="kit-swap">${JUTSU_POOL[SLOTS[kitOpen]].filter(id => id !== open).map(id =>
-    `<button data-slot="${kitOpen}" data-id="${id}" style="--c:${hex(JUTSU[id].color)}"><b>${JUTSU[id].name}</b><small>${JUTSU_TIP[id]}</small></button>`).join('')}</div>` : '';
-  $('kit').innerHTML = `<div class="kit-chips">${chips}</div>` + (open ? `<p class="kit-tip"><b style="color:${hex(JUTSU[open].color)}">${JUTSU[open].name}:</b> ${JUTSU_TIP[open]}</p>` : '') + swaps;
+    `<button class="level-btn" data-slot="${kitOpen}" data-id="${id}"><b>${JUTSU[id].name}</b><small>${JUTSU_TIP[id]}</small></button>`).join('')}</div>` : '';
+  $('kit').innerHTML = `<div class="kit-chips">${chips}</div>` + (open ? `<p class="kit-tip"><b>${JUTSU[open].name}:</b> ${JUTSU_TIP[open]}</p>` : '') + swaps;
 }
 $('kit').addEventListener('click', e => {
   const b = e.target.closest('button[data-slot]');
@@ -4480,6 +4508,7 @@ const Sound = {
     this.tone(220, 140, 0.2, 'sawtooth', 0.12);
   },
   /** Jutsu: the seal (arming / a CPU's call-out), then each jutsu's own sound. */
+  sealReady() { this.tone(988, 1319, 0.1, 'sine', 0.12); this.tone(1319, 1760, 0.12, 'sine', 0.1, 0.07); },
   seal() { this.tone(300, 900, 0.18, 'sine', 0.2); this.click(6000, 0.05, 0.2); },
   sharingan() { this.tone(1400, 300, 0.25, 'sawtooth', 0.08); this.tone(700, 1400, 0.2, 'sine', 0.12, 0.08); },
   zeroshiki() { this.tone(900, 1800, 0.12, 'sine', 0.14); this.tone(1800, 600, 0.3, 'triangle', 0.1, 0.1); },
