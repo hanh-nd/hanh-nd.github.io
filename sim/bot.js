@@ -26,6 +26,16 @@ window.runSim = function (opts) {
     if (d <= s) { t.x = x; t.z = z; } else { t.x += dx / d * s; t.z += dz / d * s; }
   }
 
+  // opts.jutsu: { kit: [j1, j2, j3], tier: 1|2|3|'max' } — arm that jutsu whenever the seals pay for it
+  // (as a player would, before the stroke). Fired jutsu are counted per side in agg.jutsu.
+  const J = opts.jutsu;
+  function armJutsu() {
+    if (!J || rally.fired.player || P.armed) return;
+    const n = T.sealsOf('player'), tier = J.tier === 'max' ? Math.min(n, 3) : J.tier || 0;
+    if (!tier || n < tier) return;
+    match.paused = false; P.armJutsu(tier); match.paused = true;   // armJutsu ignores a paused game
+  }
+
   function choose(ip) {
     // opts.switcher: smash-happy until it loses a game, then it mixes it up (a player changing plan)
     if (opts.switcher) { const lostGame = match.games[1] > 0; return chooseP(ip, lostGame ? 'mixed' : 'smash', lostGame ? 0.3 : 0.15); }
@@ -40,7 +50,8 @@ window.runSim = function (opts) {
       if (k) return k;
     }
     const h = ip.y - TABLE_TOP, short = ip.z < 1.2, speed = Math.hypot(ball.v.x, ball.v.y, ball.v.z), spin = topIn(ball);
-    if (h >= smashMinH && !short) return 'smash';
+    const mirror = opts.aware && rally.mirror && rally.mirror.ai === 'up';   // it knows not to smash into a Yata Mirror
+    if (h >= smashMinH && !short && !mirror) return 'smash';
     if (short) return speed < 7 && Math.random() < (pol === 'mixed' ? 0.5 : 0.3) ? 'touch' : 'push';
     if (pol === 'mixed') {
       if (spin < -40) return Math.random() < 0.6 ? 'push' : 'drive';
@@ -64,6 +75,7 @@ window.runSim = function (opts) {
       p = bot.plan = { hitTime: rally.lastHitTime, readyAt: now + Math.max(0.08, reaction + randn() * 0.04), ip: null, tContact: 0, stroke: null, nextRead: 0,
         ex: randn() * posErr, ez: randn() * posErr * 0.6, et: randn() * timeErr, side: aimSide(), started: false, sw: null, minD: 9 };
       agg.plans++;
+      armJutsu();
       bot.prevSmash = bot.lastPlan && bot.lastPlan.stroke === 'smash' && bot.lastPlan.hitTime !== undefined && rally.rallyHits !== 0 && P.match.rallyCount > 1 && bot.smashedThisRally;
       bot.smashedThisRally = false;
       bot.lastPlan = p;
@@ -112,15 +124,21 @@ window.runSim = function (opts) {
     T.setHome(null);
     match.gamesToWin = opts.gamesToWin || 2;
     T.setOpponent({ ...e, level: opts.level || 'hard' });
+    if (J && J.kit) T.setKit(J.kit);
     P.startMatch();
     match.paused = true;   // the page's own frame loop stays out of it
     input.touch = true; input.mouseActive = false;
     bot.plan = null; bot.serveAt = 0;
     let hadSmash = false, lastPts = [0, 0], lastSm = 0, lastCpuSm = 0, steps = 0, lastHitter = null, trail = false, smash = null, sigId = null;
+    const firedNow = { player: null, ai: null };
     while (match.state !== 'matchOver' && steps < 240 * 60 * 40) {
       step();
       T.fixedUpdate(dt);
       steps++;
+      if (rally.live) {   // (after the point, rally.fired stays set until the next serve)
+        for (const jt of [rally.pendingJutsu, rally.jutsu]) if (jt && !firedNow[jt.by]) firedNow[jt.by] = jt.id;
+        for (const side of ['player', 'ai']) if (rally.fired[side] && !firedNow[side]) firedNow[side] = 'fizzle';
+      }
       const st = match.stats;
       if (st.smashes !== lastSm) { lastSm = st.smashes; smash = 'pending'; agg.smashes++; hadSmash = true; bot.smashedThisRally = true;
         if (opts.debug && (agg.samples ||= []).length < 30) { const v = ball.v; agg.samples.push({ h: +(ball.p.y - TABLE_TOP).toFixed(2), z: +ball.p.z.toFixed(2), x: +ball.p.x.toFixed(2), vh: +Math.hypot(v.x, v.z).toFixed(1), vx: +v.x.toFixed(1), aiX: +P.aiRacket.pos.x.toFixed(2), aiZ: +P.aiRacket.pos.z.toFixed(2), lvl: P.ai.level }); } }
@@ -140,6 +158,11 @@ window.runSim = function (opts) {
         if (smash === 'pending') youWon ? agg.smashWin++ : agg.smashErr++;
         if (sigId) { const s = agg.sig[sigId] ||= { n: 0, cpuWon: 0 }; s.n++; if (!youWon) s.cpuWon++; }   // cpuWon: the signature won the point outright
         agg.rallies++; agg.rallyHits += match.rallyCount;
+        agg.jutsu ||= { you: {}, cpu: {}, cpuPts: 0, youPts: 0 };
+        for (const [side, k] of [['player', 'you'], ['ai', 'cpu']]) if (firedNow[side]) {
+          const e = agg.jutsu[k][firedNow[side]] ||= { n: 0, won: 0 }; e.n++; if (youWon === (side === 'player')) e.won++;
+          agg.jutsu[k + 'Pts']++; firedNow[side] = null;
+        }
         if (hadSmash) { agg.smashRallies = (agg.smashRallies || 0) + 1; if (youWon) agg.smashRalliesWon = (agg.smashRalliesWon || 0) + 1; }
         hadSmash = false; smash = null; sigId = null; lastHitter = null;
         lastPts = [...pts];

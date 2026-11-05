@@ -16,8 +16,8 @@
 
 - Each side fires at most one jutsu per point. A jutsu is chakra-guided, so it has no hand error.
 
-## The 14 jutsu, by angle
-Each jutsu wins the point from one of six **angles**, and no two do the same thing. The picker shows each jutsu's angle.
+## The 16 jutsu, by angle
+Each jutsu wins the point from one of seven **angles**, and no two do the same thing. The picker shows each jutsu's angle.
 
 | Angle | How it wins |
 |---|---|
@@ -27,6 +27,7 @@ Each jutsu wins the point from one of six **angles**, and no two do the same thi
 | 🛡️ Guard | Saves you on defense |
 | ⏳ Tempo | Bends time |
 | 🔥 Spirit | Chakra and momentum |
+| 🕸️ Control | Plays their stroke for them |
 
 | Angle | Jutsu (from) | Cost | What it does | Counter | Look |
 |---|---|---|---|---|---|
@@ -38,17 +39,29 @@ Each jutsu wins the point from one of six **angles**, and no two do the same thi
 | Illusion | Misdirection (Kuroko's Basketball) | ●● | Ball and shadow vanish after the net and reappear at the bounce | Trust the arc | Pale haze, no trail |
 | Guard | Copy Wheel (Naruto) | ● | Cancels their incoming jutsu and fires it back at them | — | Red eye |
 | Guard | Flying Thunder God (Naruto) | ●● | Rest of the point: your racket warps to the ball (huge reach, no edge hits; a CPU reacts and moves faster and is never stretched) | Hit through it | Yellow seal under the racket, a flash on each stroke |
+| Guard | Yata Mirror (Naruto) | ●● | Your ball floats up deep as **bait**. If the next ball they hit at you is hard (a smash, Rasengan, Black Flash, a hard signature: 11.5 m/s or more), the mirror catches it from far and fires it back **faster**, flat, to the open corner. That counts as a COUNTER. Anything softer **shatters** it. A CPU reads it 50/60/70% of the time (Easy/Medium/Hard); otherwise it smashes the bait | **Don't smash it** | Eight-sided mirror on the racket, brighter when primed |
 | Guard | God Hand (Inazuma Eleven) | ●●● | Saves you once this point: the ball that would lose you the point (a winner, or your own ball out or in the net) is caught behind your end line and played back deep | Win it twice | Golden hand behind the racket; it flares on the catch |
 | Tempo | Meta Vision (Blue Lock) | ● | Rest of the point: their balls come in slow motion (a CPU: fewer errors) | — | — |
 | Tempo | Time Stop (JoJo) | ●● | Time stops as it crosses the net (the screen goes grey and the receiver freezes), then it darts off to the open corner | Wait for it | Clock-face aura, grey world |
 | Tempo | Infinite Void (Jujutsu Kaisen) | ●●● | Domain for the rest of the point: the other side reacts late and moves slower | Focus on the ball | Starfield replaces the arena |
-| Spirit | Samehada (Naruto) | ● | Eats 2 of their seals and keeps 1. It only fires when they have a seal | Spend your seals first | Their seal orbs shake |
+| Spirit | Samehada (Naruto) | ● | Marks the point: **if you win it**, it eats 2 of their seals and you keep 1. Seals they spend during the point are safe. It only fires when they have a seal | **Spend your seals first** (a CPU that notices fires its biggest jutsu right away) | Their seal orbs shake |
 | Spirit | Awakening (Blue Lock) | ●●● | Instant FLOW that holds through one lost point | Break their streak | FLOW glow |
+| Control | Shadow Possession (Naruto) | ●● | Their **next stroke is yours**: whatever they swing, the ball floats to your racket and sits up (~0.5 m), ready for your smash. A possessed CPU is still in the shadow and reacts late to your next ball. A CPU caster smashes the set-up 55/80/95% of the time | **Fire a jutsu** with that stroke (chakra breaks the shadow; a CPU that notices does) | Purple ring around the bound racket |
 
-CPU kits by style: All-rounder (Shadow Clone · Boomerang Snake · Rasengan), Blocker (Copy Wheel · Flying Thunder God · God Hand), Defender (Meta Vision · Time Stop · Infinite Void), Spin Wizard (Zero-Shiki · Misdirection · Awakening), Attacker (Samehada · Black Flash · Rasengan). When a CPU fires, a call-out names the jutsu and its counter, and the CPU's racket glows. A CPU saves its seals more than before, so the bigger jutsu show up more often.
+CPU kits by style: All-rounder (Shadow Clone · Boomerang Snake · Rasengan), Blocker (Copy Wheel · Yata Mirror · God Hand), Defender (Meta Vision · Time Stop · Infinite Void), Spin Wizard (Zero-Shiki · Misdirection · Awakening), Attacker (Samehada · Shadow Possession · Rasengan). Black Flash and Flying Thunder God are yours only. When a CPU fires, a call-out names the jutsu and its counter, and the CPU's racket glows. A CPU saves its seals more than before, so the bigger jutsu show up more often.
+
+### Reads and combos (Nov 2026)
+Jutsu now interact, and the strongest plays are reads:
+- **Bait the smash:** arm Yata Mirror. Your ball floats up, and if they take the bait and smash, it comes back faster than they hit it. If they read it and play soft, the mirror shatters and they have a high ball to attack.
+- **Possession → smash:** Shadow Possession makes their next ball float to you. Smash it. Against a CPU Possession, keep a seal and fire anything on the bound stroke to break it.
+- **Possession vs Mirror:** bound, fire Yata Mirror. It breaks the shadow, and your stroke becomes the bait for the smash they were setting up.
+- **Copy Wheel** copies Possession and Mirror too.
+- **Samehada is a forcing move:** fire it and they must spend now (or lose 2 seals if you win the point). Spamming it no longer locks the CPU out. In the sim it used to cut the CPU's jutsu from 0.21 to 0.02 per point; now it stays at 0.20.
 
 ### Balance
 The numbers come from CPU-vs-CPU duels at Medium: each point, one side gets 1–3 seals and the other gets none. A point with no jutsu is won 50% of the time. With a jutsu, the win rate is 64–77% for ●, 71–79% for ●●, and 69–84% for ●●●. Awakening's FLOW and Samehada's drain pay off in later points, so these numbers undersell them.
+
+Against the scripted human bot (`sim/jutsu.sh`, the bot arms the jutsu whenever it can, Medium / Hard), you win 45% / 34% of points with no jutsu. With **Yata Mirror** it's 62% / 47%, and with **Shadow Possession** 70% / 64%. CPU-vs-CPU duels undersell both, because a CPU defends a CPU smash well.
 
 ## Your jutsu
 - You always play as yourself. **Your jutsu** is one row of 3 chips (●, ●●, ●●●), shown on the **Ready** screen before every Practice, 1v1 and 2v2 match, and in the tournament hub under your next opponent. Each chip shows its angle. Tap a chip to see what it does and the other jutsu of that cost, then tap one to swap it in.

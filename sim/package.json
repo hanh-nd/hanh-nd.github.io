@@ -1,0 +1,6 @@
+{
+  "name": "pingpong-sim",
+  "private": true,
+  "type": "module",
+  "dependencies": { "playwright-core": "^1.55.0" }
+}

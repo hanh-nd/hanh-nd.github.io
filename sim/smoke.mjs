@@ -1,14 +1,12 @@
 // Smoke test of the modes the bot sim doesn't play: CPU vs CPU (watch), 2v2, and a 1v1 through the
 // real menus' start path. Steps the game headlessly and reports page errors and how far each got.
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const pw = require(process.env.PLAYWRIGHT_CORE || 'playwright-core');
-const browser = await pw.chromium.launch({ headless: true });
+import { launch, gameUrl } from './browser.mjs';
+const browser = await launch();
 const page = await browser.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push(e.message));
 page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-await page.goto(process.env.SIM_URL || 'http://localhost:8765/index.html');
+await page.goto(gameUrl());
 await page.waitForFunction(() => window.PingPong && window.PingPong.test);
 const out = await page.evaluate(() => {
   const P = PingPong, T = P.test, dt = 1 / 240, res = {};
