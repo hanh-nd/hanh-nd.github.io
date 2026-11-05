@@ -174,6 +174,12 @@
   .kit-swap .level-btn b { font-size: 13px; }
   .kit-swap .level-btn small { display: block; line-height: 1.3; }
   .kit-tip { margin: 8px 2px 0; font-size: 12px; line-height: 1.35; color: var(--muted); }
+  .kit-angle { display: block; font-style: normal; font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+  .kit-chips .kit-angle { margin-top: 2px; }
+  .kit-swap .kit-angle { margin-bottom: 2px; }
+  body.timestop #game { filter: grayscale(1) contrast(1.2) brightness(.85); }
+  .sb-orbs.drained i { animation: drained .6s ease-out; }
+  @keyframes drained { 0%, 100% { transform: none; } 25% { transform: translateX(-2px); background: #ff4d6d; } 50% { transform: translateX(2px); } }
   .kit-tip b { color: var(--text); }
   /* Settings card */
   .set-sec { margin: 0 0 18px; }
@@ -793,94 +799,105 @@ const SLOTS = ['block', 'drive', 'smash'];       // a kit's jutsu 1, 2, 3 (named
 const SLOT_COST = { block: 1, drive: 2, smash: 3 };   // ...and its price in seals
 const SLOT_LABEL = { block: 'JUTSU 1', drive: 'JUTSU 2', smash: 'JUTSU 3' };
 /** The jutsu, as data (see jutsuShot and the effects in stepLiveBall / aiHit / playerHit). Each one
- *  does one thing no other does, and asks for its own answer.
+ *  does one thing no other does, from one of six angles (JUTSU_ANGLE).
  *  speed: m/s (unset: the stroke's own pace) · top: its topspin (− backspin) · aim: 'body' (at the
- *  receiver's racket), 'corner' (away from it) · depth: m from the net it lands · lean: the CPU's
- *  racket leans to the side it will blink (its tell) · on the way —
- *  decoys: two clones (only the real ball casts a shadow) · swerve: sideways kick (m/s) as it
- *  crosses the net · blink: it teleports this far sideways at the net (a spark marks the spot) ·
- *  vanish: ball and shadow disappear from the net to the bounce · snake: it bows this far out past
- *  the side line and curls back in (around the net post) · at its bounce on the receiver's half —
- *  kick: bounce height × · skid: it skids on low and fast · rollback: it hops back toward the net
- *  (a second bounce unless met early) · answer: the stroke
- *  that returns it ('block': anything but a drive or a smash flies long; 'push': anything else dies
- *  in the net) · flash: Black Flash — lands only off the racket's center (contact off-center below
- *  this; a CPU: JUTSU_AI.flash), else it fizzles into a normal stroke · self (no shot of its own) —
- *  'copy' (with an incoming jutsu: cancels it and fires it back), 'hand' (a huge racket and no edge
- *  hits for the rest of the point), 'slow' (their balls in slow motion; a CPU: few errors), 'void'
- *  (the rest of the point the other side is slow to react), 'flow' (FLOW now).
- *  fx: its look — aura (swirl, blade, spark, flame, ring, smoke, shard, eye, none), spin (aura rad/s),
- *  size, trail ('zigzag' crackles, 'none'), mark (what its bounce leaves: scorch, burst, ripple). */
+ *  receiver's racket), 'corner' (away from it) · depth: m from the net it lands · on the way —
+ *  decoys: two clones (only the real ball casts a shadow) · vanish: ball and shadow disappear from
+ *  the net to the bounce · snake: it bows this far out past the side line and curls back in (around
+ *  the net post) · stop: time stops as it crosses the net (STOP), then it flies off to the corner
+ *  away from the receiver · at its bounce on the receiver's half — rollback: it hops back toward
+ *  the net (a second bounce unless met early) · answer: the stroke that returns it ('block':
+ *  anything but a drive or a smash flies long) · flash: Black Flash — lands only off the racket's
+ *  center (contact off-center below this; a CPU: JUTSU_AI.flash), else it fizzles into a normal
+ *  stroke · self (no shot of its own) — 'copy' (with an incoming jutsu: cancels it and fires it
+ *  back), 'warp' (the rest of the point your racket blinks to the ball: HIRAISHIN), 'hand' (the
+ *  first ball that would lose you the point is caught and sent back: GODHAND), 'slow' (their balls in
+ *  slow motion; a CPU: few errors), 'void' (the rest of the point the other side is slow to react),
+ *  'drain' (eats their seals: SAMEHADA), 'flow' (FLOW now, and it holds through one lost point).
+ *  fx: its look — aura (swirl, spark, ring, smoke, eye, clock, none), spin (aura rad/s), size,
+ *  trail ('zigzag' crackles, 'none'), mark (what its bounce leaves: ripple). */
 const JUTSU = {
-  // 🍥 Naruto
-  clone:      { name: 'Shadow Clone', kanji: '影分身', color: 0xffa630, counter: 'FOLLOW THE SHADOW', decoys: true, fx: { aura: 'none' } },
-  sharingan:  { name: 'Copy Wheel', kanji: '写輪眼', color: 0xff2b3a, counter: '', self: 'copy', fx: { aura: 'eye', spin: 9 } },
-  shuriken:   { name: 'Rasenshuriken', kanji: '螺旋手裏剣', color: 0x9fe8ff, counter: 'WAIT FOR IT', speed: [10.5, 11.5], top: 50, swerve: 3.4, fx: { aura: 'blade', spin: 30, size: 0.16 } },
-  chidori:    { name: 'Lightning Blink', kanji: '千鳥', color: 0xc9a6ff, counter: 'WATCH THE SPARK', speed: [11.5, 12.5], top: 40, depth: [0.8, 1.05], blink: 0.5, lean: true, fx: { aura: 'spark', spin: 2, trail: 'zigzag' } },
-  rasengan:   { name: 'Rasengan', kanji: '螺旋丸', color: 0x4fc3ff, counter: 'BLOCK IT', speed: [15.5, 17], top: 110, aim: 'body', answer: 'block', fx: { aura: 'swirl', spin: 22, size: 0.22, big: true } },
-  amaterasu:  { name: 'Amaterasu', kanji: '天照', color: 0x9b4dff, counter: 'PUSH IT', speed: [10, 11], top: 60, skid: true, answer: 'push', fx: { aura: 'flame', spin: 1, mark: 'scorch' } },
-  // 🎾 Prince of Tennis
-  zeroshiki:  { name: 'Zero-Shiki Drop', kanji: '零式', color: 0x9cff6e, counter: 'STEP IN', speed: [7, 7.8], top: -260, depth: [1.0, 1.12], rollback: true, fx: { aura: 'ring', spin: -12, mark: 'ripple' } },
-  snake:      { name: 'Boomerang Snake', kanji: '蛇', color: 0x2ee6a8, counter: 'STEP WIDE', speed: [9.5, 10.5], top: 40, depth: [0.85, 1.1], snake: 0.55, fx: { aura: 'ring', spin: 6 } },
-  // ⚽ Inazuma Eleven
-  godhand:    { name: 'God Hand', kanji: '神の手', color: 0xffd23f, counter: '', self: 'hand', fx: { aura: 'none' } },
-  // 🏀 Kuroko's Basketball
-  misdirect:  { name: 'Misdirection', kanji: '視線誘導', color: 0xd6f2ff, counter: 'TRUST THE ARC', speed: [10.5, 11.5], top: 60, aim: 'corner', vanish: true, fx: { aura: 'smoke', spin: 1, trail: 'none', mark: 'ripple' } },
-  // 🌀 Jujutsu Kaisen
-  blackflash: { name: 'Black Flash', kanji: '黒閃', color: 0xff1744, counter: 'GET BACK', speed: [12.5, 13.5], top: 100, aim: 'corner', flash: 0.4, fx: { aura: 'spark', spin: 3, trail: 'zigzag', size: 0.15 } },
-  void:       { name: 'Infinite Void', kanji: '無量空処', color: 0x7b6bff, counter: 'FOCUS ON THE BALL', self: 'void', fx: { aura: 'none' } },
-  // 👁️ Blue Lock
-  metavision: { name: 'Meta Vision', kanji: '空間認識', color: 0x5ad1ff, counter: '', self: 'slow', fx: { aura: 'none' } },
-  awaken:     { name: 'Awakening', kanji: '覚醒', color: 0x2f6bff, counter: 'COVER THE CORNERS', speed: [12.5, 13.5], top: 90, aim: 'corner', self: 'flow', fx: { aura: 'shard', spin: 5, size: 0.17 } },
-  monster:    { name: 'Monster Shot', kanji: '怪物弾', color: 0xff7a00, counter: 'STEP BACK', speed: [12.5, 13.5], top: 80, kick: 2.4, fx: { aura: 'flame', spin: 2, mark: 'burst' } },
+  // ⚔️ Power
+  rasengan:   { angle: 'power', name: 'Rasengan', kanji: '螺旋丸', color: 0x4fc3ff, counter: 'BLOCK IT', speed: [15.5, 17], top: 110, aim: 'body', answer: 'block', fx: { aura: 'swirl', spin: 22, size: 0.22, big: true } },
+  blackflash: { angle: 'power', name: 'Black Flash', kanji: '黒閃', color: 0xff1744, counter: 'GET BACK', speed: [12.5, 13.5], top: 100, aim: 'corner', flash: 0.4, fx: { aura: 'spark', spin: 3, trail: 'zigzag', size: 0.15 } },
+  // 🌀 Curve
+  zeroshiki:  { angle: 'curve', name: 'Zero-Shiki Drop', kanji: '零式', color: 0x9cff6e, counter: 'STEP IN', speed: [7, 7.8], top: -260, depth: [1.0, 1.12], rollback: true, fx: { aura: 'ring', spin: -12, mark: 'ripple' } },
+  snake:      { angle: 'curve', name: 'Boomerang Snake', kanji: '蛇', color: 0x2ee6a8, counter: 'STEP WIDE', speed: [9.5, 10.5], top: 40, depth: [0.85, 1.1], snake: 0.42, fx: { aura: 'ring', spin: 6 } },
+  // 👁️ Illusion
+  clone:      { angle: 'illusion', name: 'Shadow Clone', kanji: '影分身', color: 0xffa630, counter: 'FOLLOW THE SHADOW', decoys: true, fx: { aura: 'none' } },
+  misdirect:  { angle: 'illusion', name: 'Misdirection', kanji: '視線誘導', color: 0xd6f2ff, counter: 'TRUST THE ARC', speed: [10.5, 11.5], top: 60, aim: 'corner', vanish: true, fx: { aura: 'smoke', spin: 1, trail: 'none', mark: 'ripple' } },
+  // 🛡️ Guard
+  sharingan:  { angle: 'guard', name: 'Copy Wheel', kanji: '写輪眼', color: 0xff2b3a, counter: '', self: 'copy', fx: { aura: 'eye', spin: 9 } },
+  hiraishin:  { angle: 'guard', name: 'Flying Thunder God', kanji: '飛雷神', color: 0xffe066, counter: 'HIT THROUGH IT', self: 'warp', fx: { aura: 'none' } },
+  godhand:    { angle: 'guard', name: 'God Hand', kanji: '神の手', color: 0xffb020, counter: 'WIN IT TWICE', self: 'hand', fx: { aura: 'none' } },
+  // ⏳ Tempo
+  metavision: { angle: 'tempo', name: 'Meta Vision', kanji: '空間認識', color: 0x5ad1ff, counter: '', self: 'slow', fx: { aura: 'none' } },
+  timestop:   { angle: 'tempo', name: 'Time Stop', kanji: '時止め', color: 0xe8e8ff, counter: 'WAIT FOR IT', speed: [10, 11], top: 50, depth: [0.9, 1.05], stop: true, fx: { aura: 'clock', spin: 2, size: 0.16 } },
+  void:       { angle: 'tempo', name: 'Infinite Void', kanji: '無量空処', color: 0x7b6bff, counter: 'FOCUS ON THE BALL', self: 'void', fx: { aura: 'none' } },
+  // 🔥 Spirit
+  samehada:   { angle: 'spirit', name: 'Samehada', kanji: '鮫肌', color: 0x3a7bd5, counter: 'SPEND FIRST', self: 'drain', fx: { aura: 'none' } },
+  awaken:     { angle: 'spirit', name: 'Awakening', kanji: '覚醒', color: 0x2f6bff, counter: 'BREAK THEIR STREAK', self: 'flow', fx: { aura: 'none' } },
 };
-JUTSU.clone.reveal = 0.1;   // the clones vanish this long after the real ball's bounce (s)
-/** God Hand: your contact reach ×; a CPU's errors ×. Infinite Void: the other side's extra reaction
- *  time (s) after each of the caster's strokes, and its footwork ×. */
-const GODHAND = { reach: 1.55, mistake: 0.2 };
-const VOID = { delay: 0.22, speed: 0.7 };
-/** Jutsu kits — jutsu 1 / 2 / 3. Each CPU style has one (every jutsu is in exactly one kit); you
- *  pick yours (JUTSU_POOL). */
+JUTSU.clone.reveal = 0;   // the clones vanish this long after the real ball's bounce (s)
+/** The six angles a jutsu comes from: how it wins you the point. */
+const JUTSU_ANGLE = {
+  power:    { label: 'Power', blurb: 'overwhelms with force' },
+  curve:    { label: 'Curve', blurb: 'an impossible path' },
+  illusion: { label: 'Illusion', blurb: 'fools the eye' },
+  guard:    { label: 'Guard', blurb: 'saves you on defense' },
+  tempo:    { label: 'Tempo', blurb: 'bends time' },
+  spirit:   { label: 'Spirit', blurb: 'chakra and momentum' },
+};
+/** Flying Thunder God: contact reach × and footwork × (rest of the point). God Hand: the save it
+ *  plays back (m/s, topspin). Time Stop: how long time stands still (s). Samehada: seals it eats,
+ *  and how many of them it keeps. Infinite Void: the other side's extra reaction time (s) after each
+ *  of the caster's strokes, and its footwork ×. */
+const HIRAISHIN = { reach: 1.8, speed: 2 };
+const GODHAND = { speed: [8.5, 9.5], top: 60 };
+const STOP = { time: 0.4 };
+const SAMEHADA = { take: 2, keep: 1 };
+const VOID = { delay: 0.16, speed: 0.78 };
+/** Jutsu kits — jutsu 1 / 2 / 3. Each CPU style has one (every jutsu 1 and 2 is in exactly one
+ *  kit); you pick yours (JUTSU_POOL). */
 const STYLE_KIT = {
-  allround: ['clone', 'shuriken', 'rasengan'],
-  blocker:  ['sharingan', 'chidori', 'amaterasu'],
-  defender: ['godhand', 'misdirect', 'void'],
-  wizard:   ['metavision', 'snake', 'awaken'],
-  attacker: ['zeroshiki', 'blackflash', 'monster'],
+  allround: ['clone', 'snake', 'rasengan'],
+  blocker:  ['sharingan', 'hiraishin', 'godhand'],
+  defender: ['metavision', 'timestop', 'void'],
+  wizard:   ['zeroshiki', 'misdirect', 'awaken'],
+  attacker: ['samehada', 'blackflash', 'rasengan'],
 };
-/** Your jutsu (start menu): one per stroke, picked from that stroke's pool; kept in storage. */
+/** Your jutsu (start menu): one per cost, picked from that cost's pool; kept in storage. */
 const JUTSU_POOL = {
-  block: ['clone', 'sharingan', 'zeroshiki', 'godhand', 'metavision'],
-  drive: ['shuriken', 'chidori', 'misdirect', 'snake', 'blackflash'],
-  smash: ['rasengan', 'amaterasu', 'void', 'awaken', 'monster'],
+  block: ['clone', 'sharingan', 'zeroshiki', 'metavision', 'samehada'],
+  drive: ['snake', 'misdirect', 'blackflash', 'hiraishin', 'timestop'],
+  smash: ['rasengan', 'godhand', 'void', 'awaken'],
 };
 /** One line each for the picker. */
 const JUTSU_TIP = {
   clone: 'Two decoy balls — only the real one has a shadow',
   sharingan: 'Cancels their jutsu and fires it back at them',
   zeroshiki: 'Drop shot that rolls back toward the net',
-  godhand: 'Huge racket, no edge hits — rest of the point',
-  metavision: 'Their balls come in slow motion',
-  shuriken: 'Swerves as it crosses the net',
-  chidori: 'Teleports sideways at the net — a spark marks where',
-  misdirect: 'Vanishes after the net, reappears at the bounce',
+  metavision: 'Rest of the point: their balls come in slow motion',
+  samehada: 'Eats 2 of their seals — you keep 1',
   snake: 'Curls out around the net post and back in',
+  misdirect: 'Vanishes after the net, reappears at the bounce',
   blackflash: 'Hit dead center: a blazing drive + a seal back',
+  hiraishin: 'Rest of the point: your racket warps to the ball',
+  timestop: 'Freezes over the net, then darts to the open corner',
   rasengan: 'Huge spiral smash — they must block it',
-  amaterasu: 'Skids low off the bounce — they must push it',
+  godhand: 'Saves you once: the ball that would lose you the point is caught and sent back',
   void: 'Domain: they react late for the rest of the point',
-  awaken: 'Perfect corner smash + instant FLOW',
-  monster: 'Kicks up high and deep',
+  awaken: 'Instant FLOW that holds through one lost point',
 };
-/** Bots against a jutsu, by level: chance to answer it with the right stroke (else it flies long /
- *  dies in the net), to pick the real ball among the clones, and to read a swerve, blink, vanish,
- *  curl or bounce trick in time (else it freezes for reread × its reaction); extra error chance
+/** Bots against a jutsu, by level: chance to answer it with the right stroke (else it flies long),
+ *  to pick the real ball among the clones, and to read a vanish, curl, time stop or roll-back in
+ *  time (else it freezes for reread × its reaction); extra error chance
  *  against any jutsu. use: chance to fire one of its own when it can, per stroke · flash: chance its
  *  Black Flash lands. */
 const JUTSU_AI = {
-  easy:   { block: 0.38, see: 0.5,  rattle: 0.25, reread: 0.55, use: 0.35, flash: 0.45 },
-  medium: { block: 0.45, see: 0.6,  rattle: 0.2,  reread: 0.4,  use: 0.55, flash: 0.6 },
-  hard:   { block: 0.52, see: 0.7,  rattle: 0.15, reread: 0.3,  use: 0.8,  flash: 0.75 },
+  easy:   { block: 0.32, see: 0.5,  rattle: 0.25, reread: 0.55, use: 0.35, flash: 0.45 },
+  medium: { block: 0.4,  see: 0.6,  rattle: 0.2,  reread: 0.4,  use: 0.55, flash: 0.6 },
+  hard:   { block: 0.48, see: 0.7,  rattle: 0.15, reread: 0.3,  use: 0.8,  flash: 0.75 },
 };
 /** FLOW: this many points in a row and a side plays in flow until it loses one — steadier hands
  *  (you: smaller aim error; a bot: fewer mistakes) and faster chakra. */
@@ -1752,25 +1769,21 @@ function auraTexture(kind) {
   if (kind === 'swirl') {   // Rasengan: spiral arms
     glow(1);
     for (let k = 0; k < 4; k++) { g.lineWidth = 5; g.beginPath(); for (let t = 0; t < 1; t += 0.04) { const a = k * Math.PI / 2 + t * 4.5, r = 10 + t * 48; g.lineTo(C + Math.cos(a) * r, C + Math.sin(a) * r); } g.stroke(); }
-  } else if (kind === 'blade') {   // Rasenshuriken: four wind blades and a core
-    glow(0.7, 30);
-    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; g.beginPath(); g.moveTo(C, C); g.quadraticCurveTo(C + Math.cos(a) * 60, C + Math.sin(a) * 60, C + Math.cos(a + 0.55) * 62, C + Math.sin(a + 0.55) * 62); g.quadraticCurveTo(C + Math.cos(a + 0.3) * 30, C + Math.sin(a + 0.3) * 30, C, C); g.fill(); }
-  } else if (kind === 'spark') {   // Lightning Blink, Black Flash: jagged bolts
+  } else if (kind === 'spark') {   // Black Flash: jagged bolts
     glow(0.8, 40);
     g.lineWidth = 3;
     for (let k = 0; k < 7; k++) { let a = k * 0.9, r = 8; g.beginPath(); g.moveTo(C, C); while (r < 60) { r += 9; a += (Math.random() - 0.5) * 0.9; g.lineTo(C + Math.cos(a) * r, C + Math.sin(a) * r); } g.stroke(); }
-  } else if (kind === 'flame') {   // Amaterasu, Monster Shot: licking tongues of fire
-    glow(1, 44);
-    for (let k = 0; k < 9; k++) { const a = k * 0.7, r = 34 + (k % 3) * 9; g.beginPath(); g.moveTo(C + Math.cos(a - 0.3) * 16, C + Math.sin(a - 0.3) * 16); g.quadraticCurveTo(C + Math.cos(a) * r * 0.8, C + Math.sin(a) * r * 0.8, C + Math.cos(a + 0.25) * r, C + Math.sin(a + 0.25) * r); g.quadraticCurveTo(C + Math.cos(a + 0.3) * 18, C + Math.sin(a + 0.3) * 18, C + Math.cos(a + 0.3) * 16, C + Math.sin(a + 0.3) * 16); g.fill(); }
   } else if (kind === 'ring') {   // Zero-Shiki, Snake: a spinning ring with a gap
     glow(0.6, 26);
     g.lineWidth = 6; g.beginPath(); g.arc(C, C, 40, 0.4, Math.PI * 2 - 0.4); g.stroke();
     g.lineWidth = 3; g.beginPath(); g.arc(C, C, 52, 2.2, 2.2 + Math.PI * 1.2); g.stroke();
   } else if (kind === 'smoke') {   // Misdirection: a pale ghostly haze
     for (let k = 0; k < 7; k++) { const a = k * 0.9, x = C + Math.cos(a) * 22, y = C + Math.sin(a) * 22, gr = g.createRadialGradient(x, y, 1, x, y, 30); gr.addColorStop(0, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); }
-  } else if (kind === 'shard') {   // Awakening: jigsaw shards breaking off
-    glow(0.9, 34);
-    for (let k = 0; k < 8; k++) { const a = k * 0.8, r = 30 + (k % 3) * 10; g.beginPath(); g.moveTo(C + Math.cos(a) * r, C + Math.sin(a) * r); g.lineTo(C + Math.cos(a + 0.18) * (r + 14), C + Math.sin(a + 0.18) * (r + 14)); g.lineTo(C + Math.cos(a + 0.32) * (r + 2), C + Math.sin(a + 0.32) * (r + 2)); g.closePath(); g.fill(); }
+  } else if (kind === 'clock') {   // Time Stop: a clock face, twelve ticks and two hands
+    glow(0.7, 30);
+    g.lineWidth = 4; g.beginPath(); g.arc(C, C, 46, 0, Math.PI * 2); g.stroke();
+    for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6, r0 = k % 3 ? 38 : 32; g.lineWidth = k % 3 ? 2 : 4; g.beginPath(); g.moveTo(C + Math.cos(a) * r0, C + Math.sin(a) * r0); g.lineTo(C + Math.cos(a) * 44, C + Math.sin(a) * 44); g.stroke(); }
+    g.lineWidth = 4; g.beginPath(); g.moveTo(C, C); g.lineTo(C, C - 30); g.moveTo(C, C); g.lineTo(C + 20, C + 8); g.stroke();
   } else if (kind === 'eye') {   // Copy Wheel: three tomoe round a pupil
     g.lineWidth = 4; g.beginPath(); g.arc(C, C, 44, 0, Math.PI * 2); g.stroke();
     g.beginPath(); g.arc(C, C, 10, 0, Math.PI * 2); g.fill();
@@ -1784,10 +1797,10 @@ const auraMat = new THREE.SpriteMaterial({ color: 0xffffff, transparent: true, b
 const aura = new THREE.Sprite(auraMat);
 aura.visible = false;
 scene.add(aura);
-/** One-off effects: a burst (a flat flash that grows and fades, at any point), table marks (a scorch,
- *  a ripple, an explosion ring left where a jutsu bounced), the Lightning Blink's spark at the net,
- *  and the God Hand behind a racket. */
-const FX_TEX = { burst: auraTexture('glow'), ring: auraTexture('ring'), flame: auraTexture('flame'), spark: auraTexture('spark') };
+/** One-off effects: a burst (a flat flash that grows and fades, at any point), table marks (a
+ *  ripple left where a jutsu bounced), the God Hand behind a racket and the Flying Thunder God's
+ *  seal under one. */
+const FX_TEX = { burst: auraTexture('glow'), ring: auraTexture('ring') };
 const fxPool = [];
 function fxSprite(tex, color, x, y, z, size, life, grow = 2) {
   let f = fxPool.find(o => !o.alive);
@@ -1798,32 +1811,20 @@ function fxSprite(tex, color, x, y, z, size, life, grow = 2) {
 }
 const fxBurst = (x, y, z, color, size) => fxSprite(FX_TEX.burst, color, x, y, z, size, 0.35);
 const markMeshes = [0, 1, 2].map(() => {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: FX_TEX.ring, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   m.rotation.x = -Math.PI / 2; m.visible = false; scene.add(m); return { m, t: 0, life: 0, size: 0, grow: 0 };
 });
 let markNext = 0;
-/** A mark on the table where a jutsu bounced: scorch (dark flames that linger), burst (a blast
- *  ring), ripple (a quick ring). */
-function fxMark(x, z, color, kind) {
-  const k = markMeshes[markNext++ % markMeshes.length], scorch = kind === 'scorch';
-  k.m.material.map = scorch ? FX_TEX.flame : FX_TEX.ring;
-  k.m.material.blending = scorch ? THREE.NormalBlending : THREE.AdditiveBlending;
-  k.m.material.color.setHex(scorch ? 0x2a0a40 : color); k.m.material.needsUpdate = true;
+/** A quick ring on the table where a jutsu bounced. */
+function fxMark(x, z, color) {
+  const k = markMeshes[markNext++ % markMeshes.length];
+  k.m.material.color.setHex(color);
   k.m.position.set(x, TABLE_TOP + 0.003, z);
-  Object.assign(k, { t: 0, life: scorch ? 2.5 : kind === 'burst' ? 0.6 : 0.45, size: scorch ? 0.22 : kind === 'burst' ? 0.12 : 0.08, grow: scorch ? 0.3 : kind === 'burst' ? 6 : 4 });
+  Object.assign(k, { t: 0, life: 0.45, size: 0.08, grow: 4 });
   k.m.visible = true;
-  if (scorch) fxSprite(FX_TEX.flame, color, x, TABLE_TOP + 0.06, z, 0.14, 0.7, 1.5);
-  if (kind === 'burst') fxSprite(FX_TEX.burst, color, x, TABLE_TOP + 0.05, z, 0.3, 0.4, 2.5);
 }
-const sparkFx = new THREE.Sprite(new THREE.SpriteMaterial({ map: FX_TEX.spark, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-sparkFx.visible = false; scene.add(sparkFx);
-/** The Lightning Blink's spark where the ball will reappear over the net (null: put it out). */
-function fxSpark(x, y, color) {
-  sparkFx.visible = x != null;
-  if (x == null) return;
-  sparkFx.position.set(x, y, 0); sparkFx.material.color.setHex(color);
-}
-/** God Hand: a big golden hand behind the racket of each side that has one up. */
+/** God Hand: a big golden hand behind the racket of each side that has one up (and in the catch).
+ *  Flying Thunder God: a spinning seal under the racket. */
 function handTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const g = c.getContext('2d');
@@ -1836,9 +1837,14 @@ function handTexture() {
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
+const HAND_TEX = handTexture();
 const handFx = ['player', 'ai'].map(() => {
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: handTexture(), color: JUTSU.godhand.color, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: HAND_TEX, color: JUTSU.godhand.color, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
   sp.visible = false; scene.add(sp); return sp;
+});
+const warpFx = ['player', 'ai'].map(() => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: auraTexture('ring'), color: JUTSU.hiraishin.color, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending }));
+  m.rotation.x = -Math.PI / 2; m.visible = false; scene.add(m); return m;
 });
 function updateFx(dt) {
   for (const f of fxPool) if (f.alive) {
@@ -1853,12 +1859,15 @@ function updateFx(dt) {
     if (u >= 1) { k.m.visible = false; continue; }
     k.m.scale.setScalar(k.size * (1 + u * k.grow)); k.m.material.opacity = (1 - u) * (k.life > 1 ? 0.9 : 1);
   }
-  if (sparkFx.visible) { sparkFx.scale.setScalar(0.12 + 0.05 * Math.random()); sparkFx.material.rotation = Math.random() * 6; }
   ['player', 'ai'].forEach((side, i) => {
     const on = rally.live && rally.hand[side], r = turnRacket(side);
     handFx[i].visible = !!on;
     if (on) { handFx[i].position.set(r.pos.x, r.pos.y + 0.12, r.pos.z + (side === 'player' ? 0.08 : -0.08)); handFx[i].scale.setScalar(0.62 + 0.03 * Math.sin(performance.now() / 160)); }
+    const w = warpFx[i];
+    w.visible = !!(rally.live && rally.warp[side]);
+    if (w.visible) { w.position.set(r.pos.x, (Math.abs(r.pos.z) < HALF_L ? TABLE_TOP : 0) + 0.006, r.pos.z); w.scale.setScalar(0.42); w.rotation.z += dt * 3; }
   });
+  document.body.classList.toggle('timestop', !!(rally.live && rally.stop));
   updateVoid(dt);
 }
 /** Infinite Void: the arena gives way to a starfield, the lights drop and the ball glows — deeper
@@ -2282,7 +2291,7 @@ function playerHit(contactDist) {
   }
 
   let edge = false;
-  if (contactDist / yourReach() > 0.85 && !rally.hand.player) {   // frame/edge hit: unpredictable (God Hand: never)
+  if (contactDist / yourReach() > 0.85 && !rally.warp.player) {   // frame/edge hit: unpredictable (Flying Thunder God: never)
     edge = true;
     tx += rand(-0.5, 0.5); tz -= rand(-0.15, 0.3); vh *= 0.85;
   }
@@ -2526,10 +2535,11 @@ function aiOnOpponentHit(c) {
   }
   // Boomerang Snake: unless it reads the curl, it follows the ball out wide.
   if (jt && JUTSU[jt.id].snake && jt.by !== c.owner && Math.random() >= JUTSU_AI[c.level].see) {
-    c.plan.err = { x: Math.sign(ball.p.x || 1) * 0.3, y: 0, z: 0 };
+    c.plan.err = { x: Math.sign(ball.p.x || 1) * 0.22, y: 0, z: 0 };
   }
-  // Infinite Void: the other side's domain — it reacts late.
+  // Infinite Void: the other side's domain — it reacts late. Flying Thunder God: it is there at once.
   if (rally.void && rally.void !== c.owner) c.plan.readyAt += VOID.delay;
+  if (rally.warp[c.owner]) c.plan.readyAt = simTime + (c.plan.readyAt - simTime) * 0.5;
   if (!c.intent) c.intent = decideIntent(c);
 }
 
@@ -2546,14 +2556,12 @@ function contactJutsu(c, pt) {
   const kit = kitOfBot(c), high = pt.y - TABLE_TOP > 0.3, r = Math.random();
   // It saves up: with one seal it mostly waits, with more it goes bigger.
   const slot = seals >= 3 ? (high || r < 0.5 ? 'smash' : r < 0.8 ? 'drive' : 'block')
-    : seals === 2 ? (r < 0.5 ? 'drive' : r < 0.75 ? 'block' : null)
-    : r < 0.35 ? 'block' : null;
+    : seals === 2 ? (r < 0.4 ? 'drive' : r < 0.5 ? 'block' : null)
+    : r < 0.25 ? 'block' : null;
   if (!slot || !canFire(side, slot)) return;
-  let id = kit[SLOTS.indexOf(slot)];
-  const self = JUTSU[id].self;
-  if (self === 'copy' && !incomingJutsu(side)) return;   // a Copy Wheel waits for a jutsu to copy
-  const j = JUTSU[id], lean = j.lean ? (Math.random() < 0.5 ? -1 : 1) : 0;
-  c.intent = { ...(c.intent || {}), jutsu: id, key: true, sig: null, lean };
+  const id = kit[SLOTS.indexOf(slot)], j = JUTSU[id];
+  if (idleJutsu(side, id)) return;   // e.g. a Copy Wheel waits for a jutsu to copy
+  c.intent = { ...(c.intent || {}), jutsu: id, key: true, sig: null, lean: 0 };
   callout(j.kanji, j.name, !match.watch && side === 'ai' ? j.counter : '', j.color);   // aimed at your side: the counter
   Sound.seal();
 }
@@ -2642,7 +2650,7 @@ function aiTells(c) {
   const it = serving ? c.serveIntent : rally.live && c.plan ? c.intent : null;   // from the moment it decides
   r.windTarget = !serving && it && (it.key || it.sig) ? 1 : 0;
   r.glowColor = it && it.jutsu ? JUTSU[it.jutsu].color : it && it.sig ? SIGNATURES[it.sig].color : null;
-  r.lean = it && it.lean && (serving || it.jutsu) ? it.lean : 0;   // a sidespin serve, a Chidori's jink
+  r.lean = it && it.lean && (serving || it.jutsu) ? it.lean : 0;   // a sidespin serve
 }
 
 /** Bookkeeping after c played a stroke: tag it on the rally (adaptation, scouting, signature
@@ -2711,6 +2719,7 @@ function aiIntercept(c, take, b0 = ball) {
 
 function updateAI(c, dt) {
   const cfg = levelCfg(c), r = c.racket;
+  if (rally.stop && rally.stop.side === c.owner) return r.integrateVelocity(dt);   // Time Stop: frozen with the ball
   const homeZ = c.s * (-AI_COMMON.home.z + styleCfg(c).depth);
   let goal = { x: ball.p.x * 0.3, y: AI_COMMON.home.y, z: homeZ };   // drift home, shading the ball
   const pre = match.state === 'serve' || match.state === 'toss';
@@ -2732,7 +2741,8 @@ function updateAI(c, dt) {
   // follow-through after a hit); the arm moves the racket quickly within reach of the body.
   const body = c.body, recovering = simTime < c.recoverUntil;
   const bodyZ = c.s * Math.max(c.s * (recovering ? body.z : goal.z), HALF_L + REACH.bodyBehind);
-  const voided = rally.live && rally.void && rally.void !== c.owner ? VOID.speed : 1;   // inside the other side's Infinite Void
+  const voided = (rally.live && rally.void && rally.void !== c.owner ? VOID.speed : 1)   // inside the other side's Infinite Void
+    * (rally.live && rally.warp[c.owner] ? HIRAISHIN.speed : 1);                          // Flying Thunder God
   moveBody(body, recovering ? body.x : goal.x, bodyZ, cfg.speed * voided, cfg.accel * voided, dt);
   const ax = clamp(goal.x, body.x - REACH.armX, body.x + REACH.armX) - r.pos.x;
   const az = clamp(goal.z, body.z - REACH.armZ, body.z + REACH.armZ) - r.pos.z, d = Math.hypot(ax, az);
@@ -2755,8 +2765,8 @@ function aiHit(c) {
   const spinIn = Math.hypot(ball.w.x, ball.w.y, ball.w.z);
   // Fast or spinny balls, and being stretched (racket far from the body, or still running),
   // raise the chance of an error and take pace off the return.
-  const stretch = clamp(Math.hypot((r.pos.x - body.x) / REACH.armX, (r.pos.z - body.z) / REACH.armZ) - 0.6, 0, 0.6)
-    + clamp(Math.hypot(body.vx, body.vz) / cfg.speed - 0.5, 0, 0.5);
+  const stretch = rally.warp[c.owner] ? 0 : clamp(Math.hypot((r.pos.x - body.x) / REACH.armX, (r.pos.z - body.z) / REACH.armZ) - 0.6, 0, 0.6)
+    + clamp(Math.hypot(body.vx, body.vz) / cfg.speed - 0.5, 0, 0.5);   // (Flying Thunder God: never)
   const pressure = clamp((speedIn - 6) / 8, 0, 1) * 0.6 + clamp(spinIn / 250, 0, 0.6) + stretch;
   // A jutsu coming at it: one that wants an answer must get it (a Copy Wheel of its own cancels
   // it); any jutsu rattles it a little.
@@ -2764,13 +2774,14 @@ function aiHit(c) {
   const copy = c.intent && c.intent.jutsu && JUTSU[c.intent.jutsu].self === 'copy';
   if (jIn && JUTSU[jIn].answer && !copy) return aiAnswerJutsu(c, JUTSU[jIn].answer);
   const calm = flow[c.owner] ? FLOW.mistake : 1;
-  const steady = (rally.zone === c.owner ? 0.2 : 1) * (rally.hand[c.owner] ? GODHAND.mistake : 1);   // Meta Vision, God Hand: few errors this point
+  const steady = rally.zone === c.owner ? 0.6 : 1;   // Meta Vision: fewer errors this point
   const mistake = Math.random() < (cfg.mistakeRate * st.mistake * (1 + pressure * 1.5) * calm + (jIn && !copy ? ja.rattle : 0)) * steady;
   // Its plan for this stroke (pattern step, signature, jutsu, adaptive bias — see decideIntent).
   let it = c.intent || {};
   // A ball met over the table (a short ball) leaves no room to swing: a push, a flick or a drop.
   const overTable = c.s * ball.p.z < HALF_L - 0.1;
-  if (it.jutsu && !overTable) return aiJutsu(c, it);   // chakra-guided: no mistake
+  const payable = it.jutsu && canFire(c.owner, SLOTS[kitOfBot(c).indexOf(it.jutsu)]);   // (a Samehada may have eaten the seals)
+  if (payable && !overTable) return aiJutsu(c, it);   // chakra-guided: no mistake
   if (it.jutsu) it = { ...it, jutsu: null };              // the contact changed: it keeps its chakra
   // A ball that sits up (high and slow) invites a smash; the higher, the more likely.
   const sitsUp = clamp((ball.p.y - TABLE_TOP - AI_COMMON.smashHeight) / AI_COMMON.smashFull, 0, 1);
@@ -3077,16 +3088,18 @@ function doServe(who, charge, top, side, tx) {
    JUTSU — chakra, arming, the three jutsu, counters, FLOW, Ego rank
    ===================================================================== */
 const chakra = { player: 0, ai: 0 };
-const flow = { player: false, ai: false, streak: { player: 0, ai: 0 } };
+const flow = { player: false, ai: false, streak: { player: 0, ai: 0 }, deep: { player: false, ai: false } };   // deep: an Awakening's FLOW, it survives a lost point
 let armed = 0;   // the jutsu (1–3 in your kit) your next stroke fires; 0: not armed
 const NO_ERROR = { pitch: 0, yaw: 0, bias: 0 };
 const sealsOf = side => Math.floor(chakra[side] / CHAKRA.seal);
 const chakraFull = side => chakra[side] >= CHAKRA.max;
 /** Your kit (start menu), restored from storage with the menus (buildMenus). */
 let yourKit = [...STYLE_KIT.allround];
-/** Your contact reach: God Hand makes it huge for the rest of the point. */
-const yourReach = () => PLAYER_CFG.hitRadius * (rally.hand.player ? GODHAND.reach : 1);
-const kitOfBot = c => STYLE_KIT[c.style] || STYLE_KIT.allround;
+/** Your contact reach: Flying Thunder God makes it huge for the rest of the point. */
+const yourReach = () => PLAYER_CFG.hitRadius * (rally.warp.player ? HIRAISHIN.reach : 1);
+/** A bot's contact reach (Flying Thunder God: bigger). */
+const botReach = side => AI_COMMON.hitRadius * (rally.warp[side] ? HIRAISHIN.reach : 1);
+const kitOfBot = c => c.kit || STYLE_KIT[c.style] || STYLE_KIT.allround;   // (c.kit: a test's override)
 /** The kit of whoever plays `side`'s strokes: yours, or that side's bot's style kit. */
 const kitOf = side => (isYou(side) ? yourKit : kitOfBot(memberBot(side, rally.turn[side]) || ai));
 const kitJutsu = (side, slot) => kitOf(side)[SLOTS.indexOf(slot)];
@@ -3095,7 +3108,7 @@ const canFire = (side, slot) => !rally.fired[side] && sealsOf(side) >= SLOT_COST
 function resetJutsu() {
   chakra.player = chakra.ai = 0;
   armed = 0;
-  flow.player = flow.ai = false; flow.streak.player = flow.streak.ai = 0;
+  flow.player = flow.ai = false; flow.streak.player = flow.streak.ai = 0; flow.deep.player = flow.deep.ai = false;
   clearDecoys();
   syncChakra(); syncFlow();
 }
@@ -3125,11 +3138,18 @@ const isArmed = () => armedTier() > 0;
 const yourJutsu = () => {
   const slot = SLOTS[armedTier() - 1];
   const id = slot && canFire('player', slot) ? kitJutsu('player', slot) : null;
-  return id && JUTSU[id].self === 'copy' && !incomingJutsu('player') ? null : id;   // a Copy Wheel needs a jutsu to copy
+  return id && idleJutsu('player', id) ? null : id;
 };
+/** A self jutsu with nothing to do right now: a Copy Wheel with no jutsu to copy, a Samehada with
+ *  no seals to eat, an Awakening already in FLOW, a Guard already up. */
+function idleJutsu(side, id) {
+  const self = JUTSU[id].self;
+  return self === 'copy' ? !incomingJutsu(side) : self === 'drain' ? sealsOf(other(side)) < 1
+    : self === 'flow' ? flow.deep[side] : self === 'warp' ? rally.warp[side] : self === 'hand' ? rally.hand[side] : false;
+}
 
-/** `side`'s stroke fires jutsu `id`: seals spent; it goes live in registerHit. dir: the side (world
- *  X sign) it blinks / swerves to — a CPU's lean; 0 = away from the receiver's racket. A Copy Wheel
+/** `side`'s stroke fires jutsu `id`: seals spent; it goes live in registerHit. dir: the corner (world
+ *  X sign) it aims at; 0 = away from the receiver's racket. A Copy Wheel
  *  fires the incoming jutsu back instead (its seals: the Copy Wheel's). fizzle: a Black Flash that
  *  missed the center — the seals are gone, the stroke is a normal one. */
 function fireJutsu(side, id, dir = 0, fizzle = false) {
@@ -3151,18 +3171,73 @@ function fireJutsu(side, id, dir = 0, fizzle = false) {
   else if (name !== j.name) callout(j.kanji, name, match.watch ? '' : j.counter, j.color);
   if (j.flash) { chakra[side] = Math.min(CHAKRA.max, chakra[side] + CHAKRA.seal); cameraShake = SMASH.shake * 2.2; }   // Black Flash: a seal back
   if (j.self === 'slow') { if (isYou(side)) rally.slow = true; else rally.zone = side; }   // a CPU's Meta Vision: few errors
+  if (j.self === 'warp') rally.warp[side] = true;
   if (j.self === 'hand') rally.hand[side] = true;
   if (j.self === 'void') rally.void = side;
-  if (j.self === 'flow' && !flow[side]) { flow[side] = true; flow.streak[side] = Math.max(flow.streak[side], FLOW.streak); syncFlow(); }
+  if (j.self === 'drain') drainSeals(side);
+  if (j.self === 'flow') { flow[side] = flow.deep[side] = true; flow.streak[side] = Math.max(flow.streak[side], FLOW.streak); syncFlow(); }
   rally.pendingJutsu = { id, by: side, dir };
   syncChakra();
+}
+/** Samehada: eats up to SAMEHADA.take of the other side's seals and keeps some; whatever they had
+ *  armed or planned that they can no longer pay for stays unplayed. */
+function drainSeals(side) {
+  const foe = other(side), took = Math.min(SAMEHADA.take, sealsOf(foe));
+  chakra[foe] -= took * CHAKRA.seal;
+  chakra[side] = Math.min(CHAKRA.max, chakra[side] + Math.min(took, SAMEHADA.keep) * CHAKRA.seal);
+  if (isYou(foe)) armed = Math.min(armed, sealsOf(foe));
+  const orbs = $(foe === 'player' ? 'orbs-p' : 'orbs-a');
+  if (orbs) { orbs.classList.remove('drained'); void orbs.offsetWidth; orbs.classList.add('drained'); }
+  fxBurst(turnRacket(foe).pos.x, turnRacket(foe).pos.y, turnRacket(foe).pos.z, JUTSU.samehada.color, 0.4);
+}
+/** God Hand: the first ball that would lose `side` the point (it beat them, or their own went out
+ *  or into the net) is caught behind their end line and played back, deep — the point goes on. */
+function godHandSave(side) {
+  rally.hand[side] = false;
+  const s = side === 'player' ? 1 : -1, j = JUTSU.godhand;
+  const p = { x: clamp(ball.p.x, -HALF_W + 0.15, HALF_W - 0.15), y: TABLE_TOP + 0.32, z: s * (HALF_L + 0.25) };
+  const tgt = { x: -(Math.sign(turnRacket(other(side)).pos.x) || 1) * rand(0.3, 0.55), z: -s * rand(0.95, 1.15) };   // away from them
+  let vh = rand(...GODHAND.speed), shot = solveShot(p, tgt, vh, GODHAND.top, 0);
+  for (let i = 0; i < 12 && !(shot.land && shot.land.table && !shot.land.net); i++) shot = solveShot(p, tgt, vh *= 0.92, GODHAND.top, 0);
+  setBall(p, shot.v, shot.w);
+  fxSprite(HAND_TEX, j.color, p.x, p.y + 0.12, p.z, 0.5, 0.7, 0.6);
+  fxBurst(p.x, p.y, p.z, j.color, 0.45);
+  flashFx(j.color); Sound.godhand(); buzz(40);
+  callout(j.kanji, j.name, 'CAUGHT', j.color);
+  rally.pendingJutsu = null;
+  registerHit(side, 0.8);
+}
+/** Time Stop: the ball hangs over the net while the receiving side stands frozen (STOP.time). */
+function stopTime(side) {
+  rally.stop = { side, until: simTime + STOP.time };
+  flashFx(JUTSU.timestop.color); Sound.timestop();
+}
+/** Time flows again: the ball darts off to the corner away from the receiver's racket. */
+function resumeTime() {
+  const side = rally.stop.side, jt = liveJutsu(), j = jt && JUTSU[jt.id];
+  rally.stop = null;
+  if (!j) return;
+  const toward = side === 'player' ? 1 : -1, recv = turnRacket(side);
+  const tgt = { x: -(Math.sign(recv.pos.x) || 1) * rand(0.3, 0.45), z: toward * rand(...j.depth) };
+  let vh = rand(...j.speed), shot = solveShot(ball.p, tgt, vh, j.top, 0);
+  const lands = sh => sh.land && sh.land.table && !sh.land.net && Math.sign(sh.land.z) === toward;
+  for (let i = 0; i < 12 && !lands(shot); i++) shot = solveShot(ball.p, tgt, vh *= 0.92, j.top, 0);
+  if (!lands(shot)) return;   // no room: it goes on as it was
+  Object.assign(ball.v, shot.v); Object.assign(ball.w, shot.w);
+  fxBurst(ball.p.x, ball.p.y, ball.p.z, j.color, 0.3);
+  Sound.poof();
+  if (yourTurn() && side === 'player') {
+    const m = predictBounce(ball, 1);
+    marker.visible = !!m;
+    if (m) marker.position.set(m.x, TABLE_TOP + 0.003, m.z);
+  }
+  rereadJutsu(side);
 }
 /** A jutsu goes live on the ball (its stroke was just registered). */
 function startJutsu(jt) {
   const j = JUTSU[jt.id];
   speedLines();
   if (j.decoys) spawnClones();
-  if (j.blink) planBlink(jt);
   if (j.snake && nextSnake) { rally.snake = { ...nextSnake, t0: simTime, off: 0 }; nextSnake = null; }
   (Sound[jt.id] || Sound.jutsu).call(Sound, jt.id);
 }
@@ -3227,7 +3302,7 @@ function revealClones() {
     c.plan.readyAt = simTime + levelCfg(c).reactionMs * styleCfg(c).reaction / 1000 * 0.8;
   }
 }
-/** A jutsu changed the ball's path (a swerve, blink, curl or bounce trick) on its way to `side`:
+/** A jutsu changed the ball's path (a vanish, curl, time stop or roll-back) on its way to `side`:
  *  that side's bot re-reads it at once if it saw it coming (JUTSU_AI.see), else it freezes for a
  *  moment (× freezeK: longer for a ball it lost sight of). */
 function rereadJutsu(side, freezeK = 1) {
@@ -3237,33 +3312,10 @@ function rereadJutsu(side, freezeK = 1) {
   c.plan.computed = false; c.plan.err = null;
   c.plan.readyAt = simTime + levelCfg(c).reactionMs * styleCfg(c).reaction / 1000 * freeze;
 }
-/** Sideways direction for a swerve / blink toward `side`: the CPU's lean, or away from the receiver's racket. */
-function jinkDir(jt, side) {
-  const d = ball.p.x - turnRacket(side).pos.x;
-  return jt.dir || (Math.abs(d) > 0.05 ? Math.sign(d) : Math.random() < 0.5 ? -1 : 1);
-}
-/** Lightning Blink: where it will cross the net, and where it reappears (on the side of the table
- *  that has room for it to still land in): a spark marks that spot from the stroke on. */
-function planBlink(jt) {
-  const j = JUTSU[jt.id], side = other(jt.by);
-  const cross = simulate(ball, 1.5, b => (Math.sign(b.p.z) !== Math.sign(ball.p.z) ? { x: b.p.x, y: b.p.y } : undefined));
-  const land = landingOf(ball, false);
-  if (!cross || !land) return;
-  let dir = jinkDir(jt, side);
-  const room = d => HALF_W - 0.06 - Math.abs(land.x + d * j.blink);
-  if (room(dir) < 0 && room(-dir) > room(dir)) dir = -dir;
-  jt.blinkDx = dir * Math.min(j.blink, j.blink + room(dir));
-  fxSpark(cross.x + jt.blinkDx, Math.max(cross.y, NET_TOP + 0.04), j.color);
-}
-/** The live jutsu crosses the net toward `side`: a swerve, a blink, or it vanishes. */
+/** The live jutsu crosses the net toward `side`: it vanishes, or time stops. */
 function jutsuAtNet(jt, side) {
   const j = JUTSU[jt.id];
-  if (j.swerve) { ball.v.x += jinkDir(jt, side) * j.swerve; flashFx(j.color); Sound.chidori(); rereadJutsu(side); }
-  if (j.blink && jt.blinkDx) {
-    ball.p.x += jt.blinkDx; ballPrev.x += jt.blinkDx;
-    fxSpark(null); fxBurst(ball.p.x, ball.p.y, ball.p.z, j.color, 0.25);
-    flashFx(j.color); Sound.chidori(); rereadJutsu(side);
-  }
+  if (j.stop) stopTime(side);
   if (j.vanish) { rally.hidden = true; fxBurst(ball.p.x, ball.p.y, ball.p.z, j.color, 0.18); Sound.poof(); rereadJutsu(side, 2.2); }
 }
 /** Boomerang Snake, every step until its bounce: the ball bows out past the side line and curls
@@ -3274,22 +3326,18 @@ function stepSnake() {
   const u = clamp((simTime - sn.t0) / sn.T, 0, 1), off = 4 * sn.out * u * (1 - u);
   ball.p.x += off - sn.off; sn.off = off;
 }
-/** The live jutsu bounces on `side`'s half (its first bounce there): kick, skid or roll back. */
+/** The live jutsu bounces on `side`'s half (its first bounce there): it may roll back. */
 function jutsuAtBounce(jt, side) {
   const j = JUTSU[jt.id];
   if (j.decoys) rally.cloneRevealAt = Math.min(rally.cloneRevealAt, simTime + JUTSU.clone.reveal);
   if (j.vanish) { rally.hidden = false; fxMark(ball.p.x, ball.p.z, j.color, 'ripple'); Sound.poof(); }
   if (j.snake) { if (rally.snake) ball.p.x -= rally.snake.off; rally.snake = null; }
-  if (!j.kick && !j.skid && !j.rollback) return;
-  if (j.kick) { ball.v.y *= j.kick; ball.v.z *= 1.1; }
-  if (j.skid) { ball.v.y *= 0.45; ball.v.z *= 1.1; }
-  if (j.rollback) {   // the backspin bites: it hops back toward the net
-    ball.v.x *= 0.3; ball.v.y = 1.8; ball.v.z = -Math.sign(ball.p.z) * 0.85;
-    ball.w.x = ball.w.y = ball.w.z = 0;
-  }
-  if (j.fx.mark) fxMark(ball.p.x, ball.p.z, j.color, j.fx.mark);
-  flashFx(j.color);
-  if (j.kick) Sound.monster(); else Sound.poof();
+  if (!j.rollback) return;
+  // The backspin bites: it hops back toward the net.
+  ball.v.x *= 0.3; ball.v.y = 1.5; ball.v.z = -Math.sign(ball.p.z) * 1.0;
+  ball.w.x = ball.w.y = ball.w.z = 0;
+  fxMark(ball.p.x, ball.p.z, j.color, j.fx.mark);
+  flashFx(j.color); Sound.poof();
   rereadJutsu(side);
 }
 
@@ -3314,7 +3362,8 @@ function strokeLanded(side) {
 function updateFlow(winner) {
   const loser = other(winner), st = flow.streak;
   st[winner]++; st[loser] = 0;
-  flow[loser] = false;
+  if (flow.deep[loser]) flow.deep[loser] = false;   // an Awakening's FLOW holds once
+  else flow[loser] = false;
   if (!flow[winner] && st[winner] >= FLOW.streak) {
     flow[winner] = true;
     if (isYou(winner)) { match.stats.flows++; callout('覚醒', 'FLOW', 'EGO AWAKENED', 0xffd23f); Sound.flow(); buzz([30, 40, 60]); }
@@ -3564,8 +3613,8 @@ function setupServe(first = false) {
   match.state = 'serve';
   match.rallyCount = 0;
   Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0, botShot: null, answering: null,
-    turn: { [match.server]: match.serverIdx, [other(match.server)]: match.receiverIdx }, jutsu: null, pendingJutsu: null, jutsuAnswer: null, cloneRevealAt: Infinity, fired: { player: false, ai: false }, slow: false, zone: null, hand: { player: false, ai: false }, void: null, hidden: false, snake: null });
-  clearDecoys(); fxSpark(null);
+    turn: { [match.server]: match.serverIdx, [other(match.server)]: match.receiverIdx }, jutsu: null, pendingJutsu: null, jutsuAnswer: null, cloneRevealAt: Infinity, fired: { player: false, ai: false }, slow: false, zone: null, warp: { player: false, ai: false }, hand: { player: false, ai: false }, void: null, hidden: false, snake: null, stop: null });
+  clearDecoys();
   match.toss = null;
   for (const c of BOTS) { c.plan = null; c.recoverUntil = 0; }
   for (const c of activeBots()) aiStartPoint(c);
@@ -3618,6 +3667,7 @@ function registerHit(who, intensity) {
   match.rallyCount++;
   if (match.doubles) rally.turn[who] ^= 1;   // partners alternate (the serve counts too)
   Sound.hit(intensity);
+  if (rally.warp[who]) { const r = turnRacket(who); fxBurst(r.pos.x, r.pos.y, r.pos.z, JUTSU.hiraishin.color, 0.3); fxSprite(FX_TEX.ring, JUTSU.hiraishin.color, r.pos.x, TABLE_TOP + 0.01, r.pos.z, 0.2, 0.4, 2); }
   const opponent = turnBot(other(who));
   if (self) self.plan = null;
   if (youHit) rally.answering = rally.botShot;   // your return of the CPU's last stroke
@@ -3699,6 +3749,7 @@ const say = (who, what) => `${nameOf(who)} · ${what}`;
  *  kind: 'error' (loser hit out/net), 'miss' (loser failed to return), 'fault' (serve fault). */
 function endPoint(winner, why, kind) {
   if (!rally.live) return;
+  if (kind !== 'fault' && rally.hand[other(winner)]) return godHandSave(other(winner));
   rally.live = false;
   for (const c of BOTS) c.plan = null;
   clearDecoys();
@@ -3946,11 +3997,12 @@ function buildChoices(wrapId, keys, render, isSel, onPick) {
 let kitOpen = -1;
 function showKit() {
   const chips = yourKit.map((id, i) => `<button class="level-btn${kitOpen === i ? ' sel' : ''}" data-slot="${i}">`
-    + `<b>${JUTSU[id].name}</b><small>${'●'.repeat(SLOT_COST[SLOTS[i]])}</small></button>`).join('');
+    + `<b>${JUTSU[id].name}</b><small>${'●'.repeat(SLOT_COST[SLOTS[i]])}</small><i class="kit-angle">${JUTSU_ANGLE[JUTSU[id].angle].label}</i></button>`).join('');
   const open = kitOpen >= 0 ? yourKit[kitOpen] : null;
   const swaps = open ? `<div class="kit-swap">${JUTSU_POOL[SLOTS[kitOpen]].filter(id => id !== open).map(id =>
-    `<button class="level-btn" data-slot="${kitOpen}" data-id="${id}"><b>${JUTSU[id].name}</b><small>${JUTSU_TIP[id]}</small></button>`).join('')}</div>` : '';
-  $('kit').innerHTML = `<div class="kit-chips">${chips}</div>` + (open ? `<p class="kit-tip"><b>${JUTSU[open].name}:</b> ${JUTSU_TIP[open]}</p>` : '') + swaps;
+    `<button class="level-btn" data-slot="${kitOpen}" data-id="${id}"><i class="kit-angle">${JUTSU_ANGLE[JUTSU[id].angle].label}</i><b>${JUTSU[id].name}</b><small>${JUTSU_TIP[id]}</small></button>`).join('')}</div>` : '';
+  const tip = open && `<p class="kit-tip"><b>${JUTSU[open].name}</b> · ${JUTSU_ANGLE[JUTSU[open].angle].label}, ${JUTSU_ANGLE[JUTSU[open].angle].blurb}: ${JUTSU_TIP[open]}</p>`;
+  $('kit').innerHTML = `<div class="kit-chips">${chips}</div>` + (tip || '') + swaps;
 }
 $('kit').addEventListener('click', e => {
   const b = e.target.closest('button[data-slot]');
@@ -4519,13 +4571,13 @@ const Sound = {
   void() { this.tone(60, 55, 1.2, 'sine', 0.3); [523, 659, 784, 1047].forEach((f, k) => this.tone(f, f * 0.99, 0.6, 'sine', 0.05, 0.1 + k * 0.1)); },
   metavision() { this.tone(500, 250, 0.4, 'sine', 0.12); },
   awaken() { [392, 587, 784].forEach((f, k) => this.tone(f, f * 1.5, 0.18, 'sawtooth', 0.07, k * 0.04)); this.click(3000, 0.1, 0.5); },
-  amaterasu() { this.click(300, 0.4, 0.5); this.tone(150, 90, 0.4, 'sawtooth', 0.1); },
-  monster() { this.click(200, 0.3, 0.9); this.tone(120, 50, 0.35, 'square', 0.15); },
+  hiraishin() { this.click(5000, 0.06, 0.4); this.tone(1800, 2600, 0.1, 'square', 0.05); this.tone(2600, 900, 0.15, 'sine', 0.1, 0.06); },
+  timestop() { this.tone(400, 100, 0.6, 'sine', 0.3); [0, 0.18, 0.36].forEach(d => this.tone(2200, 2200, 0.03, 'square', 0.12, d)); },
+  samehada() { this.tone(220, 110, 0.3, 'sawtooth', 0.12); this.tone(900, 300, 0.25, 'triangle', 0.08, 0.05); },
   rasengan() {
     for (let k = 0; k < 6; k++) this.tone(180 + k * 60, 560 + k * 90, 0.14, 'sawtooth', 0.07, k * 0.03);
     this.click(900, 0.3, 0.45);
   },
-  chidori() { for (let k = 0; k < 12; k++) this.tone(rand(2500, 4200), rand(1800, 3000), 0.03, 'square', 0.05, k * 0.022); },
   clone() { this.click(700, 0.25, 0.6); this.tone(500, 200, 0.2, 'sine', 0.15); },
   /** Any other jutsu: a whoosh and a rising tone. */
   jutsu() { this.click(500, 0.3, 0.5); [330, 495, 660].forEach((f, k) => this.tone(f, f * 1.5, 0.15, 'triangle', 0.12, k * 0.04)); },
@@ -4562,11 +4614,12 @@ const stepEvents = { net: false, table: null, floor: null, side: false };
 /** Ball physics + collisions + rule events + racket contacts for one fixed step. */
 function stepLiveBall(dt) {
   Object.assign(ballPrev, ball.p);
+  if (rally.stop) { if (simTime < rally.stop.until) return; resumeTime(); }   // Time Stop: the ball hangs
   const ev = stepEvents;
   ev.net = false; ev.table = null; ev.floor = null; ev.side = false;
   stepBall(ball, dt, ev);
   if (rally.snake) stepSnake();
-  const jtNet = liveJutsu();   // the jutsu crosses the net: a swerve, a blink, or it vanishes
+  const jtNet = liveJutsu();   // the jutsu crosses the net: it vanishes, or time stops
   if (jtNet && !jtNet.netDone && rally.serveStage === 0 && (ballPrev.z > 0) !== (ball.p.z > 0) && ball.p.y > NET_TOP) {
     jtNet.netDone = true; jutsuAtNet(jtNet, other(jtNet.by));
   }
@@ -4598,14 +4651,14 @@ function stepLiveBall(dt) {
   const botYWeight = Math.abs(ball.p.z) < HALF_L ? PLAYER_CFG.yWeight : 1;
   const near = turnBot('player');   // 2v2: only the partner whose turn it is can meet the ball
   if (near) {
-    if (canHit('player') && racketContact(near.racket, AI_COMMON.hitRadius, botYWeight, false) >= 0) return aiHit(near);
+    if (canHit('player') && racketContact(near.racket, botReach('player'), botYWeight, false) >= 0) return aiHit(near);
   } else if (canHit('player') || (DEBUG.on && rally.lastHitter === 'ai')) {   // debug also logs pre-bounce crossings
     const d = racketContact(player, yourReach(), PLAYER_CFG.yWeight);
     if (d >= 0 && canHit('player')) return playerHit(d);
   }
   if (canHit('ai')) {
     const far = turnBot('ai');
-    if (racketContact(far.racket, AI_COMMON.hitRadius, botYWeight) >= 0) return aiHit(far);
+    if (racketContact(far.racket, botReach('ai'), botYWeight) >= 0) return aiHit(far);
   }
   if (simTime - rally.lastHitTime > GAME.rallyTimeout) onFloor();   // safety net
 }
@@ -4727,7 +4780,7 @@ function frame(now) {
 
 // Debug/console hook (handy for tuning; not used by the game itself).
 window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiRacket, input, AI_LEVELS, predictIntercept, startMatch, playerServe, PLAYER_CFG,
-  chakra, flow, armJutsu, get armed() { return armed; }, setWatchSpeed: n => { watchSpeed = n; }, ally, ai2, allyRacket, ai2Racket, startDuo, startQuick, startCharge, releaseCharge, JUTSU, JUTSU_AI, CHAKRA, decoys,
+  chakra, flow, armJutsu, get armed() { return armed; }, setWatchSpeed: n => { watchSpeed = n; }, ally, ai2, allyRacket, ai2Racket, startDuo, startQuick, startCharge, releaseCharge, JUTSU, JUTSU_AI, JUTSU_POOL, CHAKRA, decoys,
   playerBody, aiBody, togglePause, updateHUD, endMatch, showTourHub, Sound, ai, nearAI, scout, watchTourMatch, newTournament, playTourMatch,
   get tour() { return tour; }, get simTime() { return simTime; } };
 

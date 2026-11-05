@@ -16,31 +16,42 @@
 
 - Each side fires at most one jutsu per point. A jutsu is chakra-guided, so it has no hand error.
 
-## The 15 jutsu
-Each one does one thing no other jutsu does, has its own counter, and its own look.
+## The 14 jutsu, by angle
+Each jutsu wins the point from one of six **angles**, and no two do the same thing. The picker shows each jutsu's angle.
 
-| Jutsu (from) | Slot | What it does | Counter | Look |
-|---|---|---|---|---|
-| Shadow Clone (Naruto) | 1 | Two decoy balls; only the real one casts a shadow | Follow the shadow | Orange decoys |
-| Copy Wheel (Naruto) | 1 | Cancels their incoming jutsu and fires it back at them | — | Red eye |
-| Zero-Shiki Drop (Prince of Tennis) | 1 | Drop shot that hops back toward the net after the bounce | Step in early | Green ring, ripple on the table |
-| God Hand (Inazuma Eleven) | 1 | Rest of the point: huge racket reach, no edge hits (CPU: few errors) | — | Golden hand behind the racket |
-| Meta Vision (Blue Lock) | 1 | Rest of the point: their balls come in slow motion (CPU: few errors) | — | — |
-| Rasenshuriken (Naruto) | 2 | Swerves as it crosses the net | Wait for it | Wind blades |
-| Lightning Blink (Naruto) | 2 | Teleports 40 cm sideways at the net; a spark marks the spot from the moment it's hit | Watch the spark | Violet bolts, crackling trail |
-| Misdirection (Kuroko's Basketball) | 2 | Ball and shadow vanish after the net and reappear at the bounce | Trust the arc | Pale haze, no trail |
-| Boomerang Snake (Prince of Tennis) | 2 | Bows out past the side line, round the net post, and curls back into the corner | Step wide | Teal ring |
-| Black Flash (Jujutsu Kaisen) | 2 | Hit dead center: a blazing corner drive and one seal back. Off center: it fizzles into a normal stroke | Get back | Red-black bolts, big shake |
-| Rasengan (Naruto) | 3 | Huge spiral smash at your racket | **Block it** (anything but a drive or smash flies long) | Blue spiral, 1.5× ball |
-| Amaterasu (Naruto) | 3 | Skids low and fast off the bounce | **Push it** (else it dies in the net) | Black-purple flames, scorch mark |
-| Infinite Void (Jujutsu Kaisen) | 3 | Domain for the rest of the point: the other side reacts late and moves slower | Focus on the ball | Starfield replaces the arena |
-| Awakening (Blue Lock) | 3 | Perfect corner smash + instant FLOW | Cover the corners | Blue puzzle shards |
-| Monster Shot (Blue Lock) | 3 | Kicks up high and deep off the bounce | Step back | Fire, blast ring on the table |
+| Angle | How it wins |
+|---|---|
+| ⚔️ Power | Overwhelms with force |
+| 🌀 Curve | Sends the ball on an impossible path |
+| 👁️ Illusion | Fools the eye |
+| 🛡️ Guard | Saves you on defense |
+| ⏳ Tempo | Bends time |
+| 🔥 Spirit | Chakra and momentum |
 
-CPU kits by style: All-rounder (Clone · Rasenshuriken · Rasengan), Blocker (Copy Wheel · Lightning Blink · Amaterasu), Defender (God Hand · Misdirection · Infinite Void), Spin Wizard (Meta Vision · Boomerang Snake · Awakening), Attacker (Zero-Shiki · Black Flash · Monster Shot). When a CPU fires, a call-out names the jutsu and its counter, and the CPU's racket glows.
+| Angle | Jutsu (from) | Cost | What it does | Counter | Look |
+|---|---|---|---|---|---|
+| Power | Rasengan (Naruto) | ●●● | Huge spiral smash at your racket | **Block it** (anything but a drive or smash flies long) | Blue spiral, 1.5× ball |
+| Power | Black Flash (Jujutsu Kaisen) | ●● | Hit dead center: a blazing corner drive and one seal back. Off center: it fizzles into a normal stroke | Get back | Red-black bolts, big shake |
+| Curve | Zero-Shiki Drop (Prince of Tennis) | ● | Deep backspin drop that hops back toward the net after the bounce | Step in early | Green ring, ripple on the table |
+| Curve | Boomerang Snake (Prince of Tennis) | ●● | Bows out past the side line, round the net post, and curls back into the corner | Step wide | Teal ring |
+| Illusion | Shadow Clone (Naruto) | ● | Two decoy balls; only the real one casts a shadow | Follow the shadow | Orange decoys |
+| Illusion | Misdirection (Kuroko's Basketball) | ●● | Ball and shadow vanish after the net and reappear at the bounce | Trust the arc | Pale haze, no trail |
+| Guard | Copy Wheel (Naruto) | ● | Cancels their incoming jutsu and fires it back at them | — | Red eye |
+| Guard | Flying Thunder God (Naruto) | ●● | Rest of the point: your racket warps to the ball (huge reach, no edge hits; a CPU reacts and moves faster and is never stretched) | Hit through it | Yellow seal under the racket, a flash on each stroke |
+| Guard | God Hand (Inazuma Eleven) | ●●● | Saves you once this point: the ball that would lose you the point (a winner, or your own ball out or in the net) is caught behind your end line and played back deep | Win it twice | Golden hand behind the racket; it flares on the catch |
+| Tempo | Meta Vision (Blue Lock) | ● | Rest of the point: their balls come in slow motion (a CPU: fewer errors) | — | — |
+| Tempo | Time Stop (JoJo) | ●● | Time stops as it crosses the net (the screen goes grey and the receiver freezes), then it darts off to the open corner | Wait for it | Clock-face aura, grey world |
+| Tempo | Infinite Void (Jujutsu Kaisen) | ●●● | Domain for the rest of the point: the other side reacts late and moves slower | Focus on the ball | Starfield replaces the arena |
+| Spirit | Samehada (Naruto) | ● | Eats 2 of their seals and keeps 1. It only fires when they have a seal | Spend your seals first | Their seal orbs shake |
+| Spirit | Awakening (Blue Lock) | ●●● | Instant FLOW that holds through one lost point | Break their streak | FLOW glow |
+
+CPU kits by style: All-rounder (Shadow Clone · Boomerang Snake · Rasengan), Blocker (Copy Wheel · Flying Thunder God · God Hand), Defender (Meta Vision · Time Stop · Infinite Void), Spin Wizard (Zero-Shiki · Misdirection · Awakening), Attacker (Samehada · Black Flash · Rasengan). When a CPU fires, a call-out names the jutsu and its counter, and the CPU's racket glows. A CPU saves its seals more than before, so the bigger jutsu show up more often.
+
+### Balance
+The numbers come from CPU-vs-CPU duels at Medium: each point, one side gets 1–3 seals and the other gets none. A point with no jutsu is won 50% of the time. With a jutsu, the win rate is 64–77% for ●, 71–79% for ●●, and 69–84% for ●●●. Awakening's FLOW and Samehada's drain pay off in later points, so these numbers undersell them.
 
 ## Your jutsu
-- You always play as yourself. The start menu shows **Your jutsu** as one row of 3 chips (●, ●●, ●●●). Tap a chip to see what it does and the other 4 jutsu of that cost, then tap one to swap it in.
+- You always play as yourself. The start menu shows **Your jutsu** as one row of 3 chips (●, ●●, ●●●). Each chip shows its angle. Tap a chip to see what it does and the other jutsu of that cost, then tap one to swap it in.
 - Your pick is saved and is used in every mode: 1v1, 2v2 and the tournament.
 
 ## FLOW, Ego rank
