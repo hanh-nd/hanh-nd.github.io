@@ -1403,7 +1403,6 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;   // exposure is set per venue
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x141920);
@@ -1872,7 +1871,7 @@ function newVenue(key, c) {
       screen: screenMat, banner0: std(0xffffff, { map: bannerTex[0], roughness: 0.9 }), banner1: std(0xffffff, { map: bannerTex[1], roughness: 0.9 }),
       ...c.mats,
     },
-    bg: c.bg, fog: c.fog, light: c.light, exposure: c.exposure, idle: c.idle, tick: null };
+    bg: c.bg, fog: c.fog, light: c.light, idle: c.idle, tick: null };
   V.root.add(V.court, V.stands); V.root.visible = false;
   scene.add(V.root);
   VENUES[key] = V;
@@ -1946,7 +1945,7 @@ function addOfficials(V) {
 
 /* ---------- The venues ---------- */
 const VENUE_CFG = {
-  gym: { bg: 0xc9ccd0, fog: [0xc9ccd0, 30, 80], light: { amb: 0.55, hemi: 0.75, sun: 2.0 }, exposure: 1.05, idle: 0,
+  gym: { bg: 0xc9ccd0, fog: [0xc9ccd0, 30, 80], light: { amb: 0.5, hemi: 0.65, sun: 2.3 }, idle: 0,
     mats: {
       bleacher: std(0x8e6238, { roughness: 0.75 }), bench: std(0xc08850, { roughness: 0.6 }), fascia: std(0x2d5b8c, { roughness: 0.8 }),
       wallUp: std(0xe4ddcc, { roughness: 0.95 }), wallLow: std(0x2d5b8c, { roughness: 0.9 }), ceiling: std(0xc9ccd0, { roughness: 1 }),
@@ -1956,22 +1955,22 @@ const VENUE_CFG = {
       net: new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.7 }),
       tableTop: std(COLORS.table, { roughness: 0.45 }),
     } },
-  arena: { bg: 0x07090e, fog: [0x07090e, 16, 48], light: { amb: 0.3, hemi: 0.45, sun: 2.4 }, exposure: 1, idle: 0.02,
-    floor: 0x14171d, mat: 0x6b2b2b, endZ: 7.3, sideX: 5.9, endRows: 10, sideRows: 6, upper: 8, roof: 17, fixY: 12,
+  arena: { bg: 0x141920, fog: [0x141920, 18, 50], light: { amb: 0.45, hemi: 0.6, sun: 2.3 }, idle: 0.02,
+    floor: 0x262a31, mat: 0x6b2b2b, endZ: 7.3, sideX: 5.9, endRows: 10, sideRows: 6, upper: 8, roof: 17, fixY: 12,
     screen: [6.4, 3.2], screenY: 8.8, flashes: 160, seat: s => (s.row < 2 ? 0x7c1f2c : 0x203c74),
-    mats: { step: std(0x1d222b, { roughness: 0.95 }), aisle: std(0x343a46, { roughness: 0.9 }), strip: std(0x1c3566, { roughness: 0.7 }) } },
-  stadium: { bg: 0x05060d, fog: [0x070814, 18, 62], light: { amb: 0.25, hemi: 0.4, sun: 2.6 }, exposure: 1, idle: 0.06,
-    floor: 0x10121c, mat: 0x4a1626, endZ: 7.6, sideX: 6.2, endRows: 10, sideRows: 7, upper: 10, roof: 21, fixY: 14,
+    mats: { step: std(0x2a303b, { roughness: 0.95 }), aisle: std(0x404754, { roughness: 0.9 }), strip: std(0x24427a, { roughness: 0.7 }) } },
+  stadium: { bg: 0x121426, fog: [0x121426, 20, 64], light: { amb: 0.45, hemi: 0.6, sun: 2.3 }, idle: 0.06,
+    floor: 0x23252f, mat: 0x5a1c2e, endZ: 7.6, sideX: 6.2, endRows: 10, sideRows: 7, upper: 10, roof: 21, fixY: 14,
     screen: [9, 4.5], screenY: 11, flashes: 260, seat: s => (s.row < 2 ? 0xb08a2a : 0x7d1a24),
-    mats: { step: std(0x1b1d27, { roughness: 0.95 }), aisle: std(0x3a3442, { roughness: 0.9 }), strip: std(0x6a1620, { roughness: 0.7 }) } },
+    mats: { step: std(0x2a2c38, { roughness: 0.95 }), aisle: std(0x433d4c, { roughness: 0.9 }), strip: std(0x7a1e2a, { roughness: 0.7 }) } },
 };
 /** Arena and stadium: a lower bowl of seated fans on all four sides, an upper tier of crowd cards
  *  behind an LED ribbon, a roof with a truss and floodlights, and big screens at both ends. */
 function buildBowl(key) {
   const c = VENUE_CFG[key], V = newVenue(key, c), seats = [];
   Object.assign(V.mats, {
-    fascia: std(0x0e1116, { roughness: 0.6 }), wall: std(0x0b0d11, { roughness: 1 }), cards: crowdCardMaterial(), led: boardMaterial(1),
-    roof: new THREE.MeshBasicMaterial({ color: 0x05060a }), fixture: new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3, 2.8) }),
+    fascia: std(0x1e232c, { roughness: 0.6 }), wall: std(0x181c24, { roughness: 1 }), cards: crowdCardMaterial(), led: boardMaterial(1),
+    roof: new THREE.MeshBasicMaterial({ color: 0x0d0f15 }), fixture: new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3, 2.8) }),
   });
   addCourt(V, { floorMat: std(c.floor, { roughness: 0.9 }), mat: c.mat });
   const reach = c.sideX + c.sideRows * 0.85, endW = 2 * reach;
@@ -2107,7 +2106,7 @@ function buildGym() {
   return V;
 }
 
-/** Switch venue (built the first time): its stands, fog, light levels and exposure. */
+/** Switch venue (built the first time): its stands, fog and light levels. */
 function setVenue(key) {
   if (venue && venue.key === key) return;
   venue = VENUES[key] || (key === 'gym' ? buildGym() : buildBowl(key));
@@ -2116,7 +2115,6 @@ function setVenue(key) {
   scene.background.setHex(venue.bg);
   scene.fog.color.setHex(venue.fog[0]); scene.fog.near = venue.fog[1]; scene.fog.far = venue.fog[2];
   ambLight.intensity = venue.light.amb; hemiLight.intensity = venue.light.hemi; sun.intensity = venue.light.sun;
-  renderer.toneMappingExposure = venue.exposure;
   fanU.uIdle.value = venue.idle;
   screenKey = '';
 }
