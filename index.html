@@ -134,7 +134,6 @@
   .card p.sub { margin: 0 0 18px; color: var(--muted); }
   .levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
   .row-label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: -4px 0 8px; font-weight: 700; }
-  .levels.speeds { grid-template-columns: repeat(3, 1fr); }
   .level-btn {
     background: rgba(255,255,255,.05); border: 2px solid transparent; border-radius: 12px;
     color: var(--text); padding: 10px 6px; cursor: pointer; font: inherit; text-align: center;
@@ -148,10 +147,10 @@
     font: inherit; font-weight: 800; font-size: 15px; color: #10131a; background: var(--gold); margin: 4px 6px 4px 0;
   }
   .btn.alt { background: rgba(255,255,255,.1); color: var(--text); }
-  /* Start menu actions: full width, stacked (Continue / Start Over in the tournament tab). */
-  #act-quick .btn, #act-duo .btn, #act-tour .btn { display: block; width: 100%; margin: 0 0 8px; padding: 14px 20px; font-size: 16px; }
-  /* The start button stays in reach while the menu scrolls (phones). */
-  #act-quick, #act-duo, #act-tour { position: sticky; bottom: 0; padding-top: 8px; background: rgba(18, 22, 32, 0.97); }
+  /* A screen's main button: full width, pinned to the bottom of the card so it stays in thumb reach while the screen scrolls. */
+  .foot { position: sticky; bottom: -26px; margin: 12px -30px -26px; padding: 10px 30px 18px; background: rgba(18, 22, 32, 0.97); border-top: 1px solid var(--border); }
+  .foot .btn { display: block; width: 100%; margin: 0; padding: 14px 20px; font-size: 16px; }
+  .foot .seg { margin-bottom: 10px; }
   .btn:disabled { opacity: .35; cursor: default; }
   .btn:hover:not(:disabled) { filter: brightness(1.1); }
   .controls { font-size: 14px; color: var(--muted); line-height: 1.65; }
@@ -160,10 +159,7 @@
     display: inline-block; padding: 0 6px; border-radius: 5px; background: rgba(255,255,255,.12);
     color: var(--text); font-family: inherit; font-size: 12px; border-bottom: 2px solid rgba(255,255,255,.2);
   }
-  .levels.styles { grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); }
-  .levels.styles .level-btn { padding: 10px 4px; }
   .level-btn .ic { display: block; font-size: 20px; line-height: 1.15; }
-  .levels.tiers { grid-template-columns: repeat(3, 1fr); }
   .kit { margin: 0 0 14px; }
   /* Your 3 jutsu: one row of buttons (like the level picker); tap one to swap it for another of its cost. */
   .kit-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
@@ -186,19 +182,90 @@
   .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .set-row > span { font-size: 15px; font-weight: 700; }
   .set-row .btn { margin: 0; min-width: 76px; padding: 9px 14px; }
+  .set-row .btn[aria-pressed="true"] { background: rgba(255,210,63,.16); color: var(--gold); box-shadow: inset 0 0 0 1.5px var(--gold); }
   .set-note { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
   .set-val { font-variant-numeric: tabular-nums; color: var(--gold); }
   .slider-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 2px; }
   input[type=range] { width: 100%; margin: 10px 0 0; accent-color: var(--gold); touch-action: manipulation; }
   details.rules summary { cursor: pointer; color: var(--text); font-weight: 700; }
 
-  /* Mode tabs on the start menu */
-  .tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,.05); margin: 10px 0 16px; }
-  .tab {
-    flex: 1; border: 0; border-radius: 9px; padding: 9px 8px; cursor: pointer; font: inherit; font-weight: 800;
-    font-size: 14px; color: var(--muted); background: transparent;
+  /* ---------- Home: header, the "Again" strip, the 4 mode tiles ---------- */
+  .home-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+  .home-head h1 { font-size: clamp(24px, 7.4vw, 42px); white-space: nowrap; }
+  .head-btns { display: flex; gap: 8px; }
+  .icon-btn {
+    width: 42px; height: 42px; display: grid; place-items: center; padding: 0; cursor: pointer; touch-action: manipulation;
+    border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,.06); color: var(--text);
+    font: inherit; font-size: 18px; font-weight: 900;
   }
-  .tab.sel { background: rgba(255,255,255,.12); color: var(--text); }
+  .icon-btn svg { width: 19px; height: 19px; }
+  .icon-btn:hover { background: rgba(255,255,255,.12); }
+  .again {
+    display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 12px; padding: 12px 14px; cursor: pointer;
+    border-radius: 12px; border: 1px solid rgba(255,210,63,.35); background: rgba(255,210,63,.08); color: var(--text); font: inherit; text-align: left;
+  }
+  .again:hover { background: rgba(255,210,63,.15); }
+  .again-k { flex: none; font-weight: 900; color: var(--gold); font-size: 14px; }
+  .again-t { min-width: 0; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .mode {
+    position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 3px;
+    min-height: 128px; padding: 14px 16px; cursor: pointer; text-align: left; font: inherit; color: var(--text); overflow: hidden; isolation: isolate;
+    border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,.04);
+    transition: border-color .18s, background .18s, transform .12s;
+  }
+  .mode-k {
+    position: absolute; z-index: -1; right: 2px; bottom: -6px; font-size: 88px; font-weight: 900; line-height: 1;
+    color: rgba(255,255,255,.055); pointer-events: none; transition: color .18s, transform .25s;
+  }
+  .mode b { font-size: 20px; font-weight: 900; letter-spacing: .01em; }
+  .mode small { font-size: 12px; line-height: 1.3; color: var(--muted); }
+  .mode:hover, .mode:focus-visible { border-color: rgba(255,210,63,.45); background: rgba(255,210,63,.05); outline: none; }
+  .mode:hover .mode-k, .mode:focus-visible .mode-k { color: rgba(255,210,63,.16); transform: translateY(-3px); }
+  .mode:active { transform: scale(.98); }
+
+  /* ---------- Sub-screens: back + title, segmented toggles ---------- */
+  .nav { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .nav h2 { margin: 2px 0 0; font-size: 24px; }
+  .back { flex: none; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,.06);
+    color: var(--text); font: inherit; font-size: 20px; font-weight: 900; cursor: pointer; touch-action: manipulation; }
+  .back:hover { background: rgba(255,255,255,.12); }
+  .seg { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,.05); }
+  .seg button { flex: 1; min-width: 0; border: 0; border-radius: 9px; padding: 8px 6px; cursor: pointer; font: inherit; font-weight: 800; font-size: 14px; color: var(--muted); background: transparent; }
+  .seg button small { display: block; font-size: 10px; font-weight: 700; opacity: .8; }
+  .seg button.sel { background: rgba(255,210,63,.16); color: var(--gold); box-shadow: inset 0 0 0 1.5px var(--gold); }
+
+  /* ---------- Rival select: the roster, grouped by style ---------- */
+  .rgroup { margin-bottom: 12px; }
+  .rgroup .row-label { margin: 0 0 6px; display: flex; justify-content: space-between; gap: 8px; }
+  .rgroup .row-label em { font-style: normal; text-transform: none; letter-spacing: 0; font-weight: 600; }
+  .rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+  .rtile {
+    position: relative; display: flex; align-items: center; gap: 5px; min-width: 0; padding: 9px 5px; cursor: pointer;
+    border-radius: 10px; border: 2px solid transparent; background: rgba(255,255,255,.05); color: var(--text); font: inherit; font-size: 12.5px; font-weight: 700; text-align: left; letter-spacing: -.01em;
+  }
+  .rtile .fl { flex: none; font-size: 15px; line-height: 1; }
+  .rtile .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rtile .star { position: absolute; top: 1px; right: 4px; font-size: 9px; color: var(--gold); }
+  .rtile:hover { background: rgba(255,255,255,.1); }
+  .rtile.sel { border-color: var(--tc, var(--gold)); background: color-mix(in srgb, var(--tc, var(--gold)) 18%, transparent); }
+  .rtile.rand { margin-bottom: 12px; width: 100%; justify-content: center; }
+  .roster-note { margin: -4px 0 12px; font-size: 12px; color: var(--muted); }
+
+  /* ---------- Ready: the VS banner ---------- */
+  .vs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; margin: 0 0 12px; animation: vsin .35s ease-out; }
+  .vs-side { min-width: 0; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--c) 18%, rgba(255,255,255,.03)); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); }
+  .vs-side.them { text-align: right; }
+  .vs-side small { display: block; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .vs-side b { display: block; font-size: 17px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vs-mark { font-size: 22px; font-weight: 900; font-style: italic; color: var(--gold); text-shadow: 0 0 14px rgba(255,210,63,.5); }
+  @keyframes vsin { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+  .rules { margin: 4px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+  .duo-team { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; }
+  .reroll { margin-left: auto; }
+  .tiers-list { display: grid; gap: 8px; margin-bottom: 12px; }
+  .tiers-list .level-btn { text-align: left; padding: 12px 14px; }
+  .chip.sig { background: rgba(255,210,63,.16); color: var(--gold); }
   .saved {
     margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45;
     background: rgba(255, 210, 63, .08); border: 1px solid rgba(255, 210, 63, .25);
@@ -259,6 +326,9 @@
     .bp { padding: 4px 5px; font-size: 11px; gap: 4px; }
     .opp-flag { font-size: 32px; }
     .card { padding: 20px 18px; }
+    .foot { bottom: -20px; margin: 12px -18px -20px; padding: 10px 18px 16px; }
+    .mode { min-height: 112px; }
+    .mode-k { font-size: 74px; }
   }
   table.stats { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 14px; }
   table.stats td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
@@ -402,44 +472,62 @@
 <div id="fx"><div id="speedlines"></div><div id="flash"></div><div id="callout"><span class="kanji"></span><b></b><small></small></div></div>
 
 
-<!-- ===== Start menu ===== -->
+<!-- ===== Home: pick a mode (one question per screen, every answer remembered) ===== -->
 <div id="menu-start" class="menu">
+  <div class="card home">
+    <div class="home-head">
+      <div>
+        <h1>PING <span class="r">PONG</span> <span class="b">3D</span></h1>
+        <div class="rank-badge" id="rank-badge"></div>
+      </div>
+      <div class="head-btns">
+        <button class="icon-btn" id="home-settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+        <button class="icon-btn" id="home-help" aria-label="How to play">?</button>
+      </div>
+    </div>
+    <button class="again hidden" id="btn-again-last"><span class="again-k">Play again</span><span class="again-t" id="again-txt"></span></button>
+    <div class="modes">
+      <button class="mode" data-mode="practice"><span class="mode-k" aria-hidden="true">修</span><b>Practice</b><small>Endless rally · try your jutsu</small></button>
+      <button class="mode" data-mode="quick"><span class="mode-k" aria-hidden="true">対</span><b>1v1</b><small>Pick a rival</small></button>
+      <button class="mode" data-mode="duo"><span class="mode-k" aria-hidden="true">組</span><b>2v2</b><small>You + ally vs 2 CPUs</small></button>
+      <button class="mode" data-mode="tour"><span class="mode-k" aria-hidden="true">覇</span><b>Tournament</b><small id="tour-tile">16 players · knockout</small></button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Rival select (1v1, Practice): the roster by style, and the level ===== -->
+<div id="menu-pick" class="menu hidden">
   <div class="card">
-    <h1>PING <span class="r">PONG</span> <span class="b">3D</span></h1>
-    <div class="rank-badge" id="rank-badge"></div>
-    <div class="tabs" role="tablist">
-      <button class="tab sel" data-mode="quick" role="tab">1v1</button>
-      <button class="tab" data-mode="duo" role="tab">2v2</button>
-      <button class="tab" data-mode="tour" role="tab">🏆 Tour</button>
+    <div class="nav"><button class="back" data-back aria-label="Back">←</button><div><div class="eyebrow" id="pick-mode"></div><h2>Choose your rival</h2></div></div>
+    <div id="roster"></div>
+    <div class="foot">
+      <div class="seg" id="pick-levels"></div>
+      <button class="btn" id="btn-pick-next">Next</button>
     </div>
-    <div class="row-label">Your jutsu</div>
-    <div class="kit" id="kit"></div>
-    <div id="pane-quick">
-      <p class="sub">Best of 3 · first to 11</p>
-      <div class="row-label">Level</div>
-      <div class="levels" id="levels"></div>
-      <div class="row-label">Opponent style</div>
-      <div class="levels styles" id="styles"></div>
-    </div>
-    <div id="pane-duo" class="hidden">
-      <p class="sub">You + ally vs 2 CPUs · take turns hitting</p>
-      <div class="row-label">Level</div>
-      <div class="levels" id="levels-duo"></div>
-    </div>
-    <div id="pane-tour" class="hidden">
-      <p class="sub">16 players · knockout</p>
-      <div class="row-label">Event</div>
-      <div class="levels tiers" id="tiers"></div>
-      <div id="tour-saved" class="saved hidden"></div>
-    </div>
-    <div class="row-label">Game speed</div>
-    <div class="levels speeds" id="speeds"></div>
-    <div id="act-quick"><button class="btn" id="btn-start">Start Match</button></div>
-    <div id="act-duo" class="hidden"><button class="btn" id="btn-start-duo">Start 2v2</button></div>
-    <div id="act-tour" class="hidden">
-      <button class="btn" id="btn-tour-continue">Continue</button>
-      <button class="btn" id="btn-tour-new">Enter Tournament</button>
-    </div>
+  </div>
+</div>
+
+<!-- ===== Ready (VS): you and your jutsu vs them; every mode but the tournament ends here ===== -->
+<div id="menu-ready" class="menu hidden">
+  <div class="card">
+    <div class="nav"><button class="back" data-back aria-label="Back">←</button><div><div class="eyebrow" id="ready-mode"></div><h2>Ready?</h2></div></div>
+    <div class="vs" id="ready-vs"></div>
+    <div id="ready-them"></div>
+    <div id="ready-kit"><div id="kit-box"><div class="row-label">Your jutsu · tap to swap</div><div class="kit" id="kit"></div></div></div>
+    <div id="ready-extra"></div>
+    <p class="rules" id="ready-rules"></p>
+    <div class="foot"><button class="btn" id="btn-go">Start</button></div>
+  </div>
+</div>
+
+<!-- ===== Tournament: choose an event ===== -->
+<div id="menu-event" class="menu hidden">
+  <div class="card">
+    <div class="nav"><button class="back" data-back aria-label="Back">←</button><div><div class="eyebrow">Tournament</div><h2>Choose an event</h2></div></div>
+    <p class="sub">16 players · knockout · final: best of 5</p>
+    <div class="tiers-list" id="tiers"></div>
+    <div id="tour-saved" class="saved hidden"></div>
+    <div class="foot"><button class="btn" id="btn-tour-new">Enter Tournament</button></div>
   </div>
 </div>
 
@@ -452,6 +540,7 @@
     </div>
     <div class="bracket" id="bracket"></div>
     <div id="tour-next"></div>
+    <div id="tour-kit"></div>
     <details class="rules">
       <summary>Rules</summary>
       <ul>
@@ -509,6 +598,9 @@
       <div class="set-row" style="margin-top:14px"><span>Touch sensitivity</span><span class="set-val" id="sens-val"></span></div>
       <input type="range" id="sens" min="0" max="100" step="1" aria-label="Touch sensitivity">
       <div class="slider-ends"><span>Slower</span><span>Faster</span></div>
+      <div class="set-row" style="margin-top:14px"><span>Game speed</span></div>
+      <div class="seg" id="speeds" style="margin-top:8px"></div>
+      <p class="set-note">Slow gives you more time to read the ball. Applies straight away.</p>
     </div>
     <button class="btn" id="btn-settings-close">Done</button>
   </div>
@@ -536,6 +628,7 @@
     <button class="btn hidden" id="btn-continue">Continue →</button>
     <button class="btn" id="btn-again">Play Again</button>
     <button class="btn" id="btn-next">Next Level</button>
+    <button class="btn alt hidden" id="btn-rival">Change Rival</button>
     <button class="btn alt" id="btn-menu">Main Menu</button>
   </div>
 </div>
@@ -2022,7 +2115,10 @@ window.addEventListener('pointercancel', e => { if (e.pointerId === touchId) { t
 window.addEventListener('keydown', e => {
   if ((e.code === 'Space' || e.code === 'KeyE') && isPlaying()) { e.preventDefault(); if (!e.repeat) armJutsu(); }
   if (/^Digit[1-3]$/.test(e.code) && isPlaying() && !e.repeat) armJutsu(+e.code.slice(5));
-  else if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
+  else if (e.code === 'Escape' && match.state === 'menu') {   // menus: close Settings / Help, else Back
+    if (openOverlay()) hideOverlay();
+    else if (screen !== 'menu-start' && !$(screen).classList.contains('hidden')) back();
+  } else if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
 });
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
@@ -2552,6 +2648,7 @@ function contactJutsu(c, pt) {
   const side = c.owner, seals = sealsOf(side);
   if (!seals || rally.fired[side] || c.s * pt.z < HALF_L - 0.1 || (c.intent && c.intent.sig)) return;
   if (match.doubles && side === 'player') return;   // your ally fills the team's chakra; you spend it
+  if (match.mode === 'practice' && !practice.cpuJutsu) return;   // Practice with CPU jutsu off
   if (Math.random() >= JUTSU_AI[c.level].use) return;
   const kit = kitOfBot(c), high = pt.y - TABLE_TOP > 0.3, r = Math.random();
   // It saves up: with one seal it mostly waits, with more it goes bigger.
@@ -3584,10 +3681,11 @@ function startMatch() {
     showMessage(round, match.watch ? `${home.flag} ${home.short} vs ${opp.flag} ${opp.short}` : `vs ${opp.flag} ${opp.name}`, 'neutral', 2.2, 3);
     crowdReact(null, 0.9);
   } else {
-    $('sb-head').textContent = `${d ? '2v2' : '1v1'} · Best of ${bo}`;
-    setAttendance(d ? 0.5 : 0.35);
-    setBoardText(d ? 'Doubles' : 'Open');
-    showMessage(d ? '2v2' : 'Game 1', d ? 'Take turns · serve diagonal' : `${AI_LEVELS[levelKey].label} · ${style}`, 'neutral', 1.8, 3);
+    const prac = match.mode === 'practice';
+    $('sb-head').textContent = prac ? 'Practice · no limit' : `${d ? '2v2' : '1v1'} · Best of ${bo}`;
+    setAttendance(d ? 0.5 : prac ? 0.15 : 0.35);
+    setBoardText(d ? 'Doubles' : prac ? 'Practice' : 'Open');
+    showMessage(prac ? 'Practice' : d ? '2v2' : 'Game 1', d ? 'Take turns · serve diagonal' : `vs ${opp.flag} ${opp.short} · ${AI_LEVELS[levelKey].label} · ${style}`, 'neutral', 1.8, 3);
     crowdReact(null, 0.5);
   }
 }
@@ -3609,6 +3707,7 @@ function currentServer() {
 }
 
 function setupServe(first = false) {
+  if (match.mode === 'practice' && practice.refill) { chakra.player = CHAKRA.max; syncChakra(); }
   match.server = currentServer();
   match.state = 'serve';
   match.rallyCount = 0;
@@ -3924,7 +4023,7 @@ function updateLiveHUD() {
 }
 
 function hideAllMenus() {
-  for (const id of ['menu-start', 'menu-pause', 'menu-end', 'menu-tour', 'menu-help', 'menu-settings']) $(id).classList.add('hidden');
+  for (const id of ['menu-start', 'menu-pick', 'menu-ready', 'menu-event', 'menu-pause', 'menu-end', 'menu-tour', 'menu-help', 'menu-settings']) $(id).classList.add('hidden');
 }
 
 /** localStorage, failing quietly (private windows, blocked storage). */
@@ -3972,9 +4071,35 @@ function beatSignature(c, id) {
   match.stats.sigBeaten++;
 }
 
-const quick = { level: 'easy', style: 'allround' };   // quick-match choices
-const duo = { level: 'easy' };                         // 2v2 choice
+/* ---------- Menus: Home (mode) → Rival → Ready (VS) → match; Tournament: Event → hub ----------
+   One question per screen, and every answer is remembered (pp3d.setup), so a returning player
+   taps Play again on Home (pp3d.last) or goes straight through with last time's choices. */
+/** Your setup per mode. opp: a roster name, or 'random' (rolled each time you reach Ready). */
+const quick = { level: 'easy', opp: 'random' };
+const practice = { level: 'easy', opp: 'random', refill: true, cpuJutsu: true };
+const duo = { level: 'easy', styles: null };   // styles: the two CPUs, rolled on the Ready screen
 let selTier = 'pro', uiMode = 'quick';
+let rival = null;   // the roster entry you face in 1v1 / Practice (shown on Ready)
+const rosterBy = name => ROSTER.find(e => e.name === name) || null;
+const sigOf = e => (SIGNATURE_OF[e.name] ? SIGNATURES[SIGNATURE_OF[e.name]] : null);
+const setupOf = mode => (mode === 'practice' ? practice : quick);
+const MODE_LABEL = { practice: 'Practice', quick: '1v1', duo: '2v2', tour: 'Tournament' };
+{
+  const s = store.get('pp3d.setup', null);
+  if (s && typeof s === 'object') {
+    for (const [o, k] of [[quick, 'quick'], [practice, 'practice'], [duo, 'duo']]) {
+      const v = s[k];
+      if (!v || typeof v !== 'object') continue;
+      if (LEVEL_ORDER.includes(v.level)) o.level = v.level;
+      if ('opp' in o && (v.opp === 'random' || rosterBy(v.opp))) o.opp = v.opp;
+      if (o === practice) { practice.refill = v.refill !== false; practice.cpuJutsu = v.cpuJutsu !== false; }
+    }
+    if (TIER_ORDER.includes(s.tier)) selTier = s.tier;
+  }
+  const sp = store.get('pp3d.speed', null);
+  if (GAME.speeds[sp]) match.speedKey = sp;
+}
+const saveSetup = () => store.set('pp3d.setup', { quick, practice, duo: { level: duo.level }, tier: selTier });
 
 /** A row of choice buttons (one selected). */
 function buildChoices(wrapId, keys, render, isSel, onPick) {
@@ -3991,6 +4116,17 @@ function buildChoices(wrapId, keys, render, isSel, onPick) {
     });
     wrap.appendChild(b);
   }
+}
+/** A segmented toggle (one selected); rebuilding it replaces its handler. */
+function buildSeg(wrapId, keys, render, sel, onPick) {
+  const wrap = $(wrapId);
+  wrap.innerHTML = keys.map(k => `<button data-key="${k}"${k === sel ? ' class="sel"' : ''}>${render(k)}</button>`).join('');
+  wrap.onclick = e => {
+    const b = e.target.closest('button[data-key]');
+    if (!b) return;
+    onPick(b.dataset.key);
+    wrap.querySelectorAll('button').forEach(x => x.classList.toggle('sel', x === b));
+  };
 }
 /** Your jutsu picker: your 3 jutsu as one row of chips; tap one to open its swaps (the other jutsu
  *  of its cost, with what each does), tap a swap to take it. */
@@ -4013,27 +4149,163 @@ $('kit').addEventListener('click', e => {
   showKit();
 });
 function buildMenus() {
-  buildChoices('levels', LEVEL_ORDER, k => `<b>${AI_LEVELS[k].label}</b><small>${LEVEL_BLURB[k]}</small>`, k => k === quick.level, k => { quick.level = k; });
-  buildChoices('levels-duo', LEVEL_ORDER, k => `<b>${AI_LEVELS[k].label}</b><small>${LEVEL_BLURB[k]}</small>`, k => k === duo.level, k => { duo.level = k; });
-  $('rank-badge').textContent = `EGO RANK #${rankNow()}`;
   const saved = store.get('pp3d.kit', null);
   if (Array.isArray(saved) && SLOTS.every((slot, i) => JUTSU_POOL[slot].includes(saved[i]))) yourKit = [...saved];
+  kitOpen = -1;
   showKit();
-  buildChoices('styles', STYLE_ORDER, k => `<b>${AI_STYLES[k].label}</b><small>${AI_STYLES[k].tag}</small>`, k => k === quick.style, k => { quick.style = k; });
-  buildChoices('speeds', Object.keys(GAME.speeds), k => `<b>${GAME.speeds[k].label}</b><small>${Math.round(GAME.speeds[k].scale * 100)}% speed</small>`,
-    k => k === match.speedKey, k => { match.speedKey = k; });
-  const titles = store.get('pp3d.titles', {});
-  buildChoices('tiers', TIER_ORDER, k => `<b>${TIERS[k].label}</b><small>${TIERS[k].blurb}${titles[k] ? ` · 🏆×${titles[k]}` : ''}</small>`,
-    k => k === selTier, k => { selTier = k; });
+  buildSeg('speeds', Object.keys(GAME.speeds), k => `${GAME.speeds[k].label}<small>${Math.round(GAME.speeds[k].scale * 100)}%</small>`,
+    match.speedKey, k => { match.speedKey = k; store.set('pp3d.speed', k); });
 }
 
-function setMode(mode) {
-  uiMode = mode;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('sel', t.dataset.mode === mode));
-  for (const [id, m] of [['pane-quick', 'quick'], ['act-quick', 'quick'], ['pane-duo', 'duo'], ['act-duo', 'duo'], ['pane-tour', 'tour'], ['act-tour', 'tour']]) $(id).classList.toggle('hidden', mode !== m);
-  if (mode === 'tour') refreshTourPane();
+/** The menu screens (one shows at a time) and Back: Ready → Rival → Home; Event → hub or Home. */
+const SCREENS = ['menu-start', 'menu-pick', 'menu-ready', 'menu-event'];
+let screen = 'menu-start';
+function showScreen(id) {
+  hideAllMenus();
+  screen = id;
+  $(id).classList.remove('hidden');
+  $(id).querySelector('.card').scrollTop = 0;
 }
-document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
+function back() {
+  if (screen === 'menu-ready' && uiMode !== 'duo') return showPick();
+  if (screen === 'menu-event' && tour && !tour.done) return showTourHub();
+  showHome();
+}
+document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', back));
+
+/** Play again on Home: the last 1v1 / 2v2 / Practice you started, in one tap (skips Ready). */
+function lastSetup() {
+  const l = store.get('pp3d.last', null);
+  if (!l || !['practice', 'quick', 'duo'].includes(l.mode) || !LEVEL_ORDER.includes(l.level)) return null;
+  const e = l.mode === 'duo' ? null : rosterBy(l.opp);
+  if (l.mode !== 'duo' && !e) return null;
+  return { ...l, e, text: [MODE_LABEL[l.mode], e ? `${e.flag} ${e.short}` : 'vs 2 CPUs', AI_LEVELS[l.level].label].join(' · ') };
+}
+const rememberLast = (mode, e, level) => store.set('pp3d.last', { mode, opp: e ? e.name : null, level });
+
+function showHome() {
+  duo.styles = null;
+  $('rank-badge').textContent = `EGO RANK #${rankNow()}`;
+  const last = lastSetup();
+  $('btn-again-last').classList.toggle('hidden', !last);
+  if (last) $('again-txt').textContent = last.text;
+  const live = tour && !tour.done;
+  let t = '16 players · knockout';
+  if (live && tour.lostIn != null) t = `You're out · watch the ${ROUND_NAMES[tour.round]}`;
+  else if (live) { const m = playerMatch(), e = tour.entrants[m.a === YOU ? m.b : m.a]; t = `Continue · ${ROUND_NAMES[tour.round]} vs ${e.flag} ${e.short}`; }
+  $('tour-tile').textContent = t;
+  showScreen('menu-start');
+}
+$('btn-again-last').addEventListener('click', () => {
+  const l = lastSetup();
+  if (!l) return;
+  uiMode = l.mode;
+  if (l.mode === 'duo') { duo.level = l.level; return startDuo(); }
+  setupOf(l.mode).level = l.level;
+  rival = l.e;
+  if (l.mode === 'practice') startPractice(); else startQuick();
+});
+document.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => {
+  uiMode = b.dataset.mode;
+  if (uiMode === 'tour') return tour && !tour.done ? showTourHub() : showEvent();
+  if (uiMode === 'duo') return showReady();
+  showPick();
+}));
+
+/** Rival: the roster by style (★ = a signature shot), Random, and the level. Tap a player to
+ *  pick them; tap them again (or Next) to go on. */
+function showPick() {
+  const s = setupOf(uiMode);
+  $('pick-mode').textContent = MODE_LABEL[uiMode];
+  const tile = (key, inner, cls = '', color = '') => `<button class="rtile${cls}${s.opp === key ? ' sel' : ''}" data-opp="${key}"${color ? ` style="--tc:${color}"` : ''}>${inner}</button>`;
+  $('roster').innerHTML = tile('random', '<span class="nm">Random rival</span>', ' rand')
+    + STYLE_ORDER.map(st => `<div class="rgroup"><div class="row-label"><span>${AI_STYLES[st].label}</span><em>${AI_STYLES[st].tag}</em></div><div class="rgrid">`
+      + ROSTER.filter(e => e.style === st).map(e => tile(e.name,
+        `<span class="fl">${e.flag}</span><span class="nm">${e.short}</span>${sigOf(e) ? '<span class="star" title="Signature shot">★</span>' : ''}`, '', hex(e.color))).join('')
+      + '</div></div>').join('')
+    + '<p class="roster-note">★ has a signature shot</p>';
+  buildSeg('pick-levels', LEVEL_ORDER, k => `${AI_LEVELS[k].label}<small>${LEVEL_BLURB[k]}</small>`, s.level, k => { s.level = k; saveSetup(); });
+  syncPickNext();
+  showScreen('menu-pick');
+}
+function syncPickNext() {
+  const e = rosterBy(setupOf(uiMode).opp);
+  $('btn-pick-next').textContent = e ? `Next · ${e.flag} ${e.short}` : 'Next · Random';
+}
+$('roster').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-opp]'), s = setupOf(uiMode);
+  if (!b) return;
+  if (s.opp === b.dataset.opp) return showReady();
+  s.opp = b.dataset.opp;
+  saveSetup();
+  $('roster').querySelectorAll('.rtile').forEach(x => x.classList.toggle('sel', x === b));
+  syncPickNext();
+});
+$('btn-pick-next').addEventListener('click', () => showReady());
+
+/** A player's card: flag, name, style, signature (and its counter), top jutsu, level, and
+ *  (the tournament's) attribute bars. */
+function oppCard(e, eyebrow, bars = true) {
+  const st = AI_STYLES[e.style], sg = sigOf(e);
+  return `<div class="opp" style="--opp:${hex(e.color)}"><div class="opp-flag">${e.flag}</div><div style="min-width:0">
+    <div class="eyebrow">${eyebrow}</div>
+    <div class="opp-name">${e.name} <i>“${e.nick}”</i></div>
+    <span class="chip style">${st.label}</span>${sg ? `<span class="chip sig">★ ${sg.name}</span>` : ''}<span class="chip">${JUTSU[STYLE_KIT[e.style][2]].name}</span><span class="chip">${AI_LEVELS[e.level].label}</span>
+    <p><b>Tip:</b> ${st.tip}</p>${sg ? `<p><b>★ ${sg.name}:</b> ${sg.counter.toLowerCase()}.</p>` : ''}
+    ${bars ? `<div class="attrs">${attrBars(e)}</div>` : ''}</div></div>`;
+}
+
+/** Ready (VS): you vs them, your jutsu (tap to swap), the mode's few options, Start. */
+function showReady(roll = true) {
+  const mode = uiMode, d = mode === 'duo', s = d ? duo : setupOf(mode);
+  if (roll && !d) rival = (s.opp !== 'random' && rosterBy(s.opp)) || ROSTER[Math.floor(Math.random() * ROSTER.length)];
+  if (d && !duo.styles) duo.styles = [...STYLE_ORDER].sort(() => Math.random() - 0.5).slice(0, 2);
+  $('ready-mode').textContent = MODE_LABEL[mode];
+  const side = (cls, c, small, big) => `<div class="vs-side ${cls}" style="--c:${c}"><small>${small}</small><b>${big}</b></div>`;
+  $('ready-vs').innerHTML = side('you', hex(COLORS.player), `Ego #${rankNow()}`, d ? 'You + Ally' : 'YOU')
+    + '<div class="vs-mark">VS</div>'
+    + (d ? side('them', hex(COLORS.ai), AI_LEVELS[duo.level].label, 'CPU ×2')
+      : side('them', hex(rival.color), AI_LEVELS[s.level].label, `${rival.flag} ${rival.short}`));
+  if (d) {
+    $('ready-them').innerHTML = `<div class="row-label">Opponents</div><div class="duo-team">${duo.styles.map(st =>
+      `<span class="chip style">CPU · ${AI_STYLES[st].label}</span>`).join('')}<button class="btn alt reroll" id="btn-reroll">Re-roll</button></div>
+      <div class="row-label">Level</div><div class="seg" id="duo-levels" style="margin-bottom:14px"></div>`;
+    buildSeg('duo-levels', LEVEL_ORDER, k => `${AI_LEVELS[k].label}<small>${LEVEL_BLURB[k]}</small>`, duo.level, k => { duo.level = k; saveSetup(); showReady(false); });
+    $('btn-reroll').addEventListener('click', () => { duo.styles = null; showReady(false); });
+  } else {
+    $('ready-them').innerHTML = oppCard({ ...rival, level: s.level }, s.opp === 'random' ? 'Random rival' : mode === 'practice' ? 'Practice partner' : 'Your rival', false);
+  }
+  $('ready-extra').innerHTML = mode !== 'practice' ? '' : `<div class="set-sec" style="margin:14px 0 4px">
+    <div class="set-row"><span>Seals refill every point</span><button class="btn alt" data-pr="refill" aria-pressed="${practice.refill}">${practice.refill ? 'On' : 'Off'}</button></div>
+    <div class="set-row" style="margin-top:8px"><span>CPU uses jutsu</span><button class="btn alt" data-pr="cpuJutsu" aria-pressed="${practice.cpuJutsu}">${practice.cpuJutsu ? 'On' : 'Off'}</button></div></div>`;
+  $('ready-rules').textContent = mode === 'practice' ? 'No score limit · no rank change · leave from the pause menu'
+    : d ? 'Best of 3 · first to 11 · partners take turns, serve diagonal' : 'Best of 3 · first to 11, win by 2';
+  $('btn-go').textContent = mode === 'practice' ? 'Start Practice' : 'Start Match';
+  kitOpen = -1;
+  showKit();
+  $('ready-kit').appendChild($('kit-box'));
+  showScreen('menu-ready');
+}
+$('ready-extra').addEventListener('click', e => {
+  const b = e.target.closest('[data-pr]');
+  if (!b) return;
+  practice[b.dataset.pr] = !practice[b.dataset.pr];
+  saveSetup();
+  b.textContent = practice[b.dataset.pr] ? 'On' : 'Off';
+  b.setAttribute('aria-pressed', String(practice[b.dataset.pr]));
+});
+$('btn-go').addEventListener('click', () => (uiMode === 'practice' ? startPractice() : uiMode === 'duo' ? startDuo() : startQuick()));
+
+/** Tournament: choose an event (a run in progress skips this: its tile opens the hub). */
+function showEvent() {
+  const titles = store.get('pp3d.titles', {}), live = tour && !tour.done;
+  buildChoices('tiers', TIER_ORDER, k => `<b>${TIERS[k].label}</b><small>${TIERS[k].blurb} · ${TIERS[k].fans.toLocaleString()} fans${titles[k] ? ` · ${titles[k]} title${titles[k] > 1 ? 's' : ''}` : ''}</small>`,
+    k => k === selTier, k => { selTier = k; saveSetup(); });
+  $('tour-saved').classList.toggle('hidden', !live);
+  if (live) $('tour-saved').innerHTML = `Entering a new one ends your <b>${TIERS[tour.tier].label}</b> run.`;
+  $('btn-tour-new').textContent = live ? 'Start a New Tournament' : 'Enter Tournament';
+  showScreen('menu-event');
+}
 
 /** Back to the attract mode (ball bouncing, camera orbiting) behind a menu. */
 function enterMenuState() {
@@ -4052,20 +4324,36 @@ function enterMenuState() {
 function showStartMenu() {
   enterMenuState();
   buildMenus();
-  setMode(uiMode);
   setAttendance(0.35);
   setBoardText('Open');
-  $('menu-start').classList.remove('hidden');
+  showHome();
 }
 
+/** 1v1 vs a roster player (rival) at your level. */
 function startQuick() {
   Sound.init();
+  if (!rival) rival = rosterBy(quick.opp) || ROSTER[0];
   match.mode = 'quick';
   match.watch = null;
   match.doubles = false;
   setHome(null);
   match.gamesToWin = 2;
-  setOpponent({ name: 'CPU', short: 'CPU', color: COLORS.ai, level: quick.level, style: quick.style });
+  setOpponent({ ...rival, level: quick.level });
+  rememberLast('quick', rival, quick.level);
+  startMatch();
+}
+/** Practice: a 1v1 that never ends (games roll on; no rank, no grade). Your seals can refill
+ *  every point (practice.refill) and the CPU's jutsu can be turned off (practice.cpuJutsu). */
+function startPractice() {
+  Sound.init();
+  if (!rival) rival = rosterBy(practice.opp) || ROSTER[0];
+  match.mode = 'practice';
+  match.watch = null;
+  match.doubles = false;
+  setHome(null);
+  match.gamesToWin = Infinity;
+  setOpponent({ ...rival, level: practice.level });
+  rememberLast('practice', rival, practice.level);
   startMatch();
 }
 
@@ -4077,25 +4365,30 @@ function startDuo() {
   match.doubles = true;
   setHome(null);
   match.gamesToWin = 2;
-  const [s1, s2] = [...STYLE_ORDER].sort(() => Math.random() - 0.5);
+  const [s1, s2] = duo.styles || [...STYLE_ORDER].sort(() => Math.random() - 0.5);
   setOpponent({ name: 'CPU', short: 'CPU', color: COLORS.ai, level: duo.level, style: s1 });
   Object.assign(ai2, { level: duo.level, style: s2, name: '' });
   Object.assign(ally, { level: duo.level, style: 'allround', name: '' });
   ai2Racket.setColor(COLORS.ai2);
+  rememberLast('duo', null, duo.level);
   startMatch();
 }
 
-/** HUD overlays — How to play (?) and Settings (⚙): the game waits while one is open. */
+/** HUD overlays — How to play (?) and Settings (⚙): the game waits while one is open. They also
+ *  open from Home (nothing to pause there). */
 const OVERLAYS = ['menu-help', 'menu-settings'];
 const openOverlay = () => OVERLAYS.find(id => !$(id).classList.contains('hidden'));
 let overlayPaused = false;
 function showOverlay(id) {
-  if (!isPlaying() || !$('menu-pause').classList.contains('hidden') || openOverlay()) return;
-  if (id === 'menu-help') $('help-kit').innerHTML = SLOTS.map(slot => `<div><kbd>${SLOT_LABEL[slot]} ${'●'.repeat(SLOT_COST[slot])}</kbd><span class="j">${JUTSU[kitJutsu('player', slot)].name}</span></div>`).join('')
+  const inMenu = match.state === 'menu';
+  if (openOverlay() || (!inMenu && (!isPlaying() || !$('menu-pause').classList.contains('hidden')))) return;
+  if (id === 'menu-help') $('help-kit').innerHTML = SLOTS.map((slot, i) => `<div><kbd>${SLOT_LABEL[slot]} ${'●'.repeat(SLOT_COST[slot])}</kbd><span class="j">${JUTSU[inMenu ? yourKit[i] : kitJutsu('player', slot)].name}</span></div>`).join('')
     + `<div><kbd>${isDesktop ? 'Keys 1–3' : 'Tap the list'}</kbd><span>Pick a smaller one</span></div>`;
-  overlayPaused = !match.paused;
-  match.paused = true;
-  input.charging = false;
+  if (!inMenu) {
+    overlayPaused = !match.paused;
+    match.paused = true;
+    input.charging = false;
+  }
   $(id).classList.remove('hidden');
 }
 function hideOverlay() {
@@ -4118,9 +4411,9 @@ function togglePause() {
   if (openOverlay()) return hideOverlay();
   match.paused = !match.paused;
   input.charging = false;
-  const who = match.mode === 'tour' ? `${opp.flag} ${opp.short}` : match.doubles ? 'CPU ×2' : 'CPU';
+  const who = match.doubles ? 'CPU ×2' : `${opp.flag} ${opp.short}`.trim();
   $('pause-info').textContent = `${match.watch ? `${home.short} vs ` : 'vs '}${who} · Game ${match.games[0] + match.games[1] + 1} · ${match.points[0]}–${match.points[1]}`;
-  $('btn-quit').textContent = match.mode === 'tour' ? 'Leave Match' : 'Main Menu';
+  $('btn-quit').textContent = match.mode === 'tour' ? 'Leave Match' : match.mode === 'practice' ? 'End Practice' : 'Main Menu';
   $('menu-pause').classList.toggle('hidden', !match.paused);
   syncPauseButton();
 }
@@ -4163,8 +4456,8 @@ function showEndMenu(winner) {
     }
     $('end-sub').textContent = `vs ${opp.flag} ${opp.short} · ${detail}`;
   } else {
-    $('end-title').textContent = won ? '🏆 You win!' : `${match.doubles ? 'CPUs win' : 'CPU wins'}`;
-    $('end-sub').textContent = `${games} · ${detail}`;
+    $('end-title').textContent = won ? '🏆 You win!' : match.doubles ? 'CPUs win' : `${opp.flag} ${opp.short} wins`;
+    $('end-sub').textContent = `${match.doubles ? '' : `vs ${opp.flag} ${opp.short} · `}${games} · ${detail}`;
     if (won && match.levelKey === 'hard') confetti();
   }
   // Ego grade and rank (your matches only).
@@ -4188,6 +4481,7 @@ function showEndMenu(winner) {
   $('btn-again').classList.toggle('hidden', tourMode);
   const next = $('btn-next');
   next.classList.toggle('hidden', tourMode);
+  $('btn-rival').classList.toggle('hidden', match.mode !== 'quick');
   next.disabled = lvl >= LEVEL_ORDER.length - 1;
   next.textContent = next.disabled ? 'Max Level' : `Next: ${AI_LEVELS[LEVEL_ORDER[lvl + 1]].label}`;
   $('topbar').classList.add('hidden');
@@ -4295,23 +4589,6 @@ function tourRecordWatched(winner) {
   saveTour();
 }
 
-function refreshTourPane() {
-  const box = $('tour-saved'), cont = $('btn-tour-continue'), fresh = $('btn-tour-new');
-  const live = tour && !tour.done;
-  box.classList.toggle('hidden', !live);
-  cont.classList.toggle('hidden', !live);
-  fresh.textContent = live ? 'Start Over' : 'Enter Tournament';
-  fresh.classList.toggle('alt', !!live);
-  if (live && tour.lostIn != null) {
-    box.innerHTML = `<b>${TIERS[tour.tier].label}</b> · you're out`;
-    cont.textContent = `Watch the ${ROUND_NAMES[tour.round]}`;
-  } else if (live) {
-    const m = playerMatch(), e = tour.entrants[m.a === YOU ? m.b : m.a];
-    box.innerHTML = `<b>${TIERS[tour.tier].label}</b> · ${ROUND_NAMES[tour.round]} vs ${e.flag} ${e.short}`;
-    cont.textContent = `Continue: ${ROUND_NAMES[tour.round]}`;
-  }
-}
-
 function attrBars(e) {
   const st = AI_STYLES[e.style], lv = AI_LEVELS[e.level];
   const spin = lv.spin * (st.top * (1 - st.chop) + st.chopSpin * st.chop + st.side * 0.25) / 1.8;
@@ -4368,23 +4645,23 @@ function showTourHub() {
     next = `<div class="result">Out in the ${ROUND_NAMES[tour.lostIn]} · ▶ watch or skip</div>`;
     actions = '<button class="btn" id="btn-tour-sim">Skip to the End</button>';
   } else {
-    const m = playerMatch(), e = tour.entrants[m.a === YOU ? m.b : m.a], st = AI_STYLES[e.style];
-    next = `<div class="opp" style="--opp:${hex(e.color)}"><div class="opp-flag">${e.flag}</div><div style="min-width:0">
-      <div class="eyebrow">${ROUND_NAMES[tour.round]} · Seed ${e.seed} · Best of ${ROUND_BEST_OF[tour.round]}</div>
-      <div class="opp-name">${e.name} <i>“${e.nick}”</i></div>
-      <span class="chip style">${st.label}</span><span class="chip">${JUTSU[STYLE_KIT[e.style][2]].name}</span><span class="chip">${AI_LEVELS[e.level].label}</span>
-      <p><b>Tip:</b> ${st.tip}</p>
-      <div class="attrs">${attrBars(e)}</div></div></div>`;
+    const m = playerMatch(), e = tour.entrants[m.a === YOU ? m.b : m.a];
+    next = oppCard(e, `${ROUND_NAMES[tour.round]} · Seed ${e.seed} · Best of ${ROUND_BEST_OF[tour.round]}`);
     actions = `<button class="btn" id="btn-tour-play">Play ${ROUND_NAMES[tour.round]}</button>`;
   }
   $('tour-next').innerHTML = next;
-  $('tour-actions').innerHTML = actions + '<button class="btn alt" id="btn-tour-menu">Main Menu</button>';
+  const playing = !tour.done && !out;
+  if (playing) { kitOpen = -1; showKit(); $('tour-kit').appendChild($('kit-box')); }
+  else if ($('tour-kit').contains($('kit-box'))) $('ready-kit').appendChild($('kit-box'));
+  $('tour-actions').innerHTML = actions + (tour.done ? '' : '<button class="btn alt" id="btn-tour-change">New Event</button>')
+    + '<button class="btn alt" id="btn-tour-menu">Main Menu</button>';
   const play = $('btn-tour-play'), again = $('btn-tour-again'), sim = $('btn-tour-sim');
   if (play) play.addEventListener('click', playTourMatch);
   if (sim) sim.addEventListener('click', () => { while (!tour.done) advanceRound(); saveTour(); showTourHub(); });
   $('bracket').querySelectorAll('.watch').forEach(b => b.addEventListener('click', () => watchTourMatch(+b.dataset.r, +b.dataset.i)));
   if (again) again.addEventListener('click', () => { newTournament(tour.tier); showTourHub(); });
-  $('btn-tour-menu').addEventListener('click', () => { uiMode = 'tour'; showStartMenu(); });
+  $('btn-tour-menu').addEventListener('click', showStartMenu);
+  if (!tour.done) $('btn-tour-change').addEventListener('click', () => { uiMode = 'tour'; showEvent(); });
   setAttendance(tier.crowd[tour.round]);
   setBoardText(tier.label);
   $('menu-tour').classList.remove('hidden');
@@ -4422,13 +4699,12 @@ buildMenus();
 for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) document.addEventListener(ev, () => Sound.init(), true);
 // Back on the tab: try to resume straight away (works on most browsers; on iOS the next tap does it).
 document.addEventListener('visibilitychange', () => { if (!document.hidden) Sound.init(); });
-$('btn-start').addEventListener('click', startQuick);
-$('btn-start-duo').addEventListener('click', startDuo);
 // Tapping your scorebug row (name or chakra bar) arms too.
 for (const el of document.querySelectorAll('.sb-row.you > span')) el.addEventListener('pointerdown', e => { e.stopPropagation(); armJutsu(); });
 $('jutsu-menu').addEventListener('pointerdown', e => { const t = e.target.closest('[data-tier]'); if (t) { e.stopPropagation(); armJutsu(+t.dataset.tier); } });
 $('btn-tour-new').addEventListener('click', () => { Sound.init(); newTournament(selTier); showTourHub(); });
-$('btn-tour-continue').addEventListener('click', () => { Sound.init(); showTourHub(); });
+$('home-settings').addEventListener('click', () => { syncSettings(); showOverlay('menu-settings'); });
+$('home-help').addEventListener('click', () => showOverlay('menu-help'));
 $('btn-resume').addEventListener('click', togglePause);
 $('btn-pause').addEventListener('click', e => { e.stopPropagation(); togglePause(); });
 $('btn-help').addEventListener('click', e => { e.stopPropagation(); showOverlay('menu-help'); });
@@ -4452,6 +4728,7 @@ $('btn-next').addEventListener('click', () => {
 });
 $('btn-continue').addEventListener('click', showTourHub);
 $('btn-menu').addEventListener('click', showStartMenu);
+$('btn-rival').addEventListener('click', () => { showStartMenu(); uiMode = 'quick'; showPick(); });
 
 /* =====================================================================
    AUDIO — synthesized with Web Audio (no files)

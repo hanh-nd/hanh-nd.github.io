@@ -51,8 +51,16 @@ CPU kits by style: All-rounder (Shadow Clone · Boomerang Snake · Rasengan), Bl
 The numbers come from CPU-vs-CPU duels at Medium: each point, one side gets 1–3 seals and the other gets none. A point with no jutsu is won 50% of the time. With a jutsu, the win rate is 64–77% for ●, 71–79% for ●●, and 69–84% for ●●●. Awakening's FLOW and Samehada's drain pay off in later points, so these numbers undersell them.
 
 ## Your jutsu
-- You always play as yourself. The start menu shows **Your jutsu** as one row of 3 chips (●, ●●, ●●●). Each chip shows its angle. Tap a chip to see what it does and the other jutsu of that cost, then tap one to swap it in.
-- Your pick is saved and is used in every mode: 1v1, 2v2 and the tournament.
+- You always play as yourself. **Your jutsu** is one row of 3 chips (●, ●●, ●●●), shown on the **Ready** screen before every Practice, 1v1 and 2v2 match, and in the tournament hub under your next opponent. Each chip shows its angle. Tap a chip to see what it does and the other jutsu of that cost, then tap one to swap it in.
+- Your pick is saved and is used in every mode: Practice, 1v1, 2v2 and the tournament.
+
+## Menus
+- **Home** asks one thing: the mode (**Practice**, **1v1**, **2v2**, **Tournament**). ⚙ Settings and ? How to play are in its corner. **Play again** replays your last Practice, 1v1 or 2v2 setup in one tap.
+- **1v1 and Practice:** choose a rival from the roster, grouped by style (★ = a signature shot), or Random, and a level. Tap the picked player again, or Next, to go to **Ready**: you vs them, their style, top jutsu and signature counter, and your jutsu. Then Start.
+- **2v2:** straight to Ready: the two CPU styles (Re-roll) and the level.
+- **Tournament:** choose an event, then the hub. With a run in progress, the tile says who's next and opens the hub; **New Event** in the hub starts over.
+- **Practice:** a 1v1 that never ends (games roll on, no rank change, no grade). Two switches on Ready: **Seals refill every point** (on) and **CPU uses jutsu**. Leave from the pause menu.
+- **Game speed** is in Settings and applies straight away. Every choice (rival, level, event, speed, practice switches) is remembered.
 
 ## FLOW, Ego rank
 - **FLOW:** 3 points in a row. Until you lose a point: hand error ×0.6 (steadier aim) and chakra gain ×1.6. It does not slow time (that is Meta Vision). A CPU in FLOW makes 40% fewer mistakes.
