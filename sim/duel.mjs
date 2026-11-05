@@ -6,6 +6,9 @@
 // opts: level · points · style (both sides; default random per match) · only: [jutsu ids] (the
 // firer's kit is built from these where it can) · foeSeals: true (the other side gets 0–3 seals
 // too, so Samehada and Copy Wheel have something to work on) · tune (as in run.mjs)
+// iq: { ai, player } — smart vs plain instead: ordinary matches (chakra earned, jutsu fired as the
+// CPUs choose), each end's iq overridden (null: its level's). Reports each end's point and game share
+// and jutsu per point. Run it with the iqs swapped too, so the ends' own bias cancels out.
 import { launch, gameUrl } from './browser.mjs';
 
 const runs = process.argv.slice(2).map(a => JSON.parse(a));
@@ -34,6 +37,7 @@ function duel(opts) {
   const pool = slot => { const all = P.JUTSU_POOL[slot], only = opts.only ? all.filter(id => opts.only.includes(id)) : []; return only.length ? only : all; };
   const randKit = () => ['block', 'drive', 'smash'].map(k => pick(pool(k)));
   const R = { by: {}, none: [0, 0], points: 0, fizzle: 0 };
+  if (opts.iq) return iqDuel();
 
   function newMatch() {
     P.newTournament('pro');
@@ -68,6 +72,35 @@ function duel(opts) {
       firer = null;
     }
     if (match.state === 'matchOver') { newMatch(); prev = ''; }
+  }
+  function iqDuel() {
+    const Q = { pts: [0, 0], games: [0, 0], fired: [0, 0], clutchFired: [0, 0], points: 0, by: [{}, {}] };
+    const setIq = () => { P.nearAI.iq = opts.iq.player ?? undefined; P.ai.iq = opts.iq.ai ?? undefined; };
+    newMatch(); match.gamesToWin = 2; setIq();
+    let steps = 0, prev = '', firedNow = [false, false], clutch = false, before = [0, 0];
+    while (Q.points < N && steps < 240 * 60 * 60 * 3) {
+      steps++;
+      if (match.state === 'serve' && prev !== 'serve') { firedNow = [false, false]; clutch = Math.max(...match.points) >= 10; before = [...match.stats.pointsWon]; }
+      prev = match.state;
+      T.fixedUpdate(dt);
+      if (rally.live) ['player', 'ai'].forEach((s, i) => {
+        for (const jt of [rally.pendingJutsu, rally.jutsu]) if (jt && jt.by === s && !firedNow[i]) firedNow[i] = jt.id;
+        if (rally.fired[s] && !firedNow[i]) firedNow[i] = 'other';
+      });
+      if (match.state === 'pointOver' && prev !== 'pointOver') {
+        Q.points++;
+        const w = match.stats.pointsWon[0] > before[0] ? 0 : 1;
+        for (const i of [0, 1]) if (firedNow[i]) { Q.fired[i]++; if (clutch) Q.clutchFired[i]++; const e = Q.by[i][firedNow[i]] ||= [0, 0]; e[0]++; if (w === i) e[1]++; }
+      }
+      if (match.state === 'matchOver') {
+        Q.pts[0] += match.stats.pointsWon[0]; Q.pts[1] += match.stats.pointsWon[1];
+        Q.games[0] += match.games[0]; Q.games[1] += match.games[1];
+        newMatch(); match.gamesToWin = 2; setIq(); prev = '';
+      }
+    }
+    const tot = Q.pts[0] + Q.pts[1] || 1, g = Q.games[0] + Q.games[1] || 1;
+    return { simMin: +(steps / 240 / 60).toFixed(1), points: Q.points, playerPts: +(Q.pts[0] / tot).toFixed(3), playerGames: +(Q.games[0] / g).toFixed(3), games: Q.games,
+      jutsuPerPt: Q.fired.map(f => +(f / Q.points).toFixed(3)), clutchFired: Q.clutchFired, by: Q.by };
   }
   const by = {};
   for (const k in R.by) by[k] = { n: R.by[k][0], rate: +(R.by[k][1] / R.by[k][0]).toFixed(2) };

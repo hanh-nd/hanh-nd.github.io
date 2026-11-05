@@ -780,11 +780,12 @@ const PLAYER_CFG = {
  *  pattern: chance of playing one of its style's patterns in a point (STYLE_PATTERNS) ·
  *  adapt: at most this share of its shots goes at the zone where you keep missing (ADAPT) ·
  *  counter: at full anti-smash, chance it meets a smash it could read with a counter-block ·
- *  antiSmash: how far it adapts to a smash-happy opponent (ADAPT.smash, 0 = never) */
+ *  antiSmash: how far it adapts to a smash-happy opponent (ADAPT.smash, 0 = never) ·
+ *  iq: how much it plays the situation rather than a coin flip (SMART) */
 const AI_LEVELS = {
-  easy:   { label: 'Easy',   speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.35, smashError: 1.9,  pattern: 0.55, adapt: 0.35, counter: 0,    antiSmash: 0 },
-  medium: { label: 'Medium', speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.6,  smashError: 1.45, pattern: 0.7,  adapt: 0.5,  counter: 0.35, antiSmash: 0.5 },
-  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.85, smashError: 1.15, pattern: 0.8,  adapt: 0.6,  counter: 0.65, antiSmash: 1 },
+  easy:   { label: 'Easy',   speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.35, smashError: 1.9,  pattern: 0.55, adapt: 0.35, counter: 0,    antiSmash: 0, iq: 0.25 },
+  medium: { label: 'Medium', speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.6,  smashError: 1.45, pattern: 0.7,  adapt: 0.5,  counter: 0.35, antiSmash: 0.5, iq: 0.55 },
+  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.85, smashError: 1.15, pattern: 0.8,  adapt: 0.6,  counter: 0.65, antiSmash: 1, iq: 0.85 },
 };
 const LEVEL_ORDER = ['easy', 'medium', 'hard'];
 const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruthless' };
@@ -1059,6 +1060,13 @@ const SMASH_D = {
   block: { pace: 0.55, min: 7.5, max: 10.5, top: [15, 35] },
   lowArc: 0.12, chop: 0.3, short: 0.12,
 };
+/** Playing the situation (each × the CPU's iq, AI_LEVELS; c.iq overrides it for the sim).
+ *  open: chance a drive with no side planned goes to the open side — away from the racket of whoever
+ *  plays the next ball (in 2v2 that sends them round their partner), or back behind them when they
+ *  run faster than wrongFoot m/s · drop: drop-shot share added when they stand more than deep m
+ *  behind their end line, and taken off when they're up at the table (over span m) ·
+ *  jutsu: chance its jutsu choice reads the game (smartJutsu) instead of just counting seals. */
+const SMART = { open: 0.7, wrongFoot: 1.2, drop: 0.18, deep: 0.55, span: 0.35, jutsu: 1 };
 
 /** Tournament field: world, Olympic and World Cup champions, men and women (styles are loose
  *  caricatures of their game). short = scorebug name. Rackets avoid the player's red. */
@@ -3158,6 +3166,7 @@ const activeBots = () => match.doubles ? [ai, ai2, ally] : match.watch ? [ai, ne
 /** The CPU that plays `who`'s next ball, or null when it's you. */
 const botFor = who => turnBot(who);
 const levelCfg = c => AI_LEVELS[c.level];
+const iqOf = c => c.iq ?? levelCfg(c).iq;
 const styleCfg = c => AI_STYLES[c.style];
 /** Z of a point at `depth` on c's half, kept within the CPU's reach. */
 const reachZ = (c, depth) => c.s * clamp(depth, -AI_COMMON.maxZ, -AI_COMMON.minZ);
@@ -3209,13 +3218,12 @@ function contactJutsu(c, pt) {
   if (match.mode === 'practice' && !practice.cpuJutsu) return;   // Practice with CPU jutsu off
   // A Samehada on it, or a Shadow Possession: if it notices, it spends now (SPEND FIRST / break it).
   const urgent = (rally.shark === other(side) || rally.bind === side) && Math.random() < JUTSU_AI[c.level].see;
-  if (!urgent && Math.random() >= JUTSU_AI[c.level].use) return;
   const kit = kitOfBot(c), high = pt.y - TABLE_TOP > 0.3, r = Math.random();
-  // It saves up: with one seal it mostly waits, with more it goes bigger.
-  const slot = urgent ? ['smash', 'drive', 'block'].find(k => canFire(side, k) && !idleJutsu(side, kit[SLOTS.indexOf(k)]))
-    : seals >= 3 ? (high || r < 0.5 ? 'smash' : r < 0.8 ? 'drive' : 'block')
-    : seals === 2 ? (r < 0.4 ? 'drive' : r < 0.5 ? 'block' : null)
-    : r < 0.25 ? 'block' : null;
+  let slot;
+  if (urgent) slot = ['smash', 'drive', 'block'].find(k => canFire(side, k) && !idleJutsu(side, kit[SLOTS.indexOf(k)]));
+  else if (Math.random() < SMART.jutsu * iqOf(c)) slot = smartJutsu(c, kit, high, seals);   // it reads the game
+  else if (Math.random() >= JUTSU_AI[c.level].use) return;
+  else slot = plainSlot(seals, high);
   if (!slot || !canFire(side, slot)) return;
   const id = kit[SLOTS.indexOf(slot)], j = JUTSU[id];
   if (idleJutsu(side, id)) return;   // e.g. a Copy Wheel waits for a jutsu to copy
@@ -3223,6 +3231,45 @@ function contactJutsu(c, pt) {
   c.intent = { ...(c.intent || {}), jutsu: id, key: true, sig: null, lean: 0 };
   callout(j.kanji, j.name, !match.watch && side === 'ai' ? j.counter : '', j.color);   // aimed at your side: the counter
   Sound.seal();
+}
+
+/** A CPU's jutsu, the plain way: it saves up — with one seal it mostly waits, with more it goes bigger. */
+function plainSlot(seals, high) {
+  const r = Math.random();
+  return seals >= 3 ? (high || r < 0.5 ? 'smash' : r < 0.8 ? 'drive' : 'block')
+    : seals === 2 ? (r < 0.4 ? 'drive' : r < 0.5 ? 'block' : null)
+    : r < 0.25 ? 'block' : null;
+}
+/** A CPU's jutsu when it reads the game (SMART.jutsu × iq): the slot it fires now, or null.
+ *  On a game point either way it fires (its use chance, raised by SMART_J.clutch) and goes big;
+ *  otherwise it spends like the plain CPU (hoarding for the big ones lost it points in the sim:
+ *  the cheap jutsu win as many points per seal). Either way it fires what fits the moment, and
+ *  swaps a jutsu that would do nothing now for one that would: Samehada only when they hold seals
+ *  to eat, God Hand when the point matters, no power shot into a mirror it read (a Rasengan off a
+ *  ball that sits up), Yata Mirror against someone who smashes a lot. */
+const SMART_J = { clutch: 0.7, big: 1.5 };
+function smartJutsu(c, kit, high, seals) {
+  const side = c.owner, foe = other(side), use = JUTSU_AI[c.level].use;
+  const clutch = Math.max(...match.points) >= GAME.pointsToWin - 1;
+  if (Math.random() >= (clutch ? use + (1 - use) * SMART_J.clutch : use)) return null;
+  const fit = k => {
+    const id = kit[SLOTS.indexOf(k)], j = JUTSU[id];
+    if (!canFire(side, k) || idleJutsu(side, id)) return 0;
+    if (j.self === 'drain') return 0.5 + 0.4 * sealsOf(foe);
+    if (j.self === 'hand') return clutch ? 1.6 : 0.7;
+    if (j.self === 'mirror') return adapting(c) ? clamp(0.6 + 0.3 * c.adapt.smashUse, 0.6, 2) : 1;
+    if (j.speed && j.speed[0] >= MIRROR.min) return c.plan.mirror === 'read' ? 0 : high ? 1.5 : 0.8;
+    return 1;
+  };
+  const opts = SLOTS.map(k => ({ k, w: fit(k) * (clutch ? SLOT_COST[k] ** SMART_J.big : 1) })).filter(o => o.w > 0);
+  if (!clutch) {   // the plain choice, unless another fits clearly better
+    const k = plainSlot(seals, high);
+    if (!k) return null;
+    const best = opts.reduce((a, o) => (o.w > a.w ? o : a), { k: null, w: 0 });
+    return fit(k) >= 0.9 * best.w ? k : best.k;
+  }
+  let r = Math.random() * opts.reduce((a, o) => a + o.w, 0);
+  return (opts.find(o => (r -= o.w) < 0) || {}).k || null;
 }
 
 /** This point's pattern, if it plays one (serving: patterns that start on its serve are likelier). */
@@ -3497,7 +3544,7 @@ function aiHit(c) {
   if (sig === 'pimple-reversal' || it.spin === 'float') shownTop = -rand(0.55, 1) * (90 + 110 * cfg.spin) * st.chopSpin;
   else if (sig) shownTop = top;
   // A short drop shot, just over the net (only if the opponent can reach it before its second bounce).
-  if (!mistake && !sig && (it.depth === 'short' || (!it.depth && Math.random() < st.short + SMASH_D.short * anti))) {
+  if (!mistake && !sig && (it.depth === 'short' || (!it.depth && Math.random() < st.short + SMASH_D.short * anti + dropBias(c)))) {
     const drop = solveShot(ball.p, { x: tx * 0.7, z: toward * rand(0.5, 0.7) }, vh * 0.6, top * 0.5, side);
     if (opponentCanReach(c, drop)) {
       aiPlay(c, drop, it.spin === 'float' ? shownTop * 0.5 : top * 0.5, 0.3);
@@ -3567,10 +3614,21 @@ function aiJutsu(c, it) {
 /** Which side c aims at: its plan's choice (the opponent's backhand is on c.s's side), else a coin flip. */
 function aiSide(c, it) {
   const oppRacket = turnRacket(other(c.owner));   // whoever plays the next ball over there
+  if (!it.side && Math.random() < SMART.open * iqOf(c)) {   // no plan: it plays the situation (SMART)
+    const run = turnBody(other(c.owner)).vx;
+    if (Math.abs(run) > SMART.wrongFoot) return -Math.sign(run);           // wrong-foot: back where they came from
+    if (Math.abs(oppRacket.pos.x) > 0.1) return -Math.sign(oppRacket.pos.x);   // the open side
+  }
   return it.side === 'bh' ? c.s : it.side === 'fh' ? -c.s
     : it.side === 'switch' && c.lastSide ? -c.lastSide
     : it.side === 'open' && Math.abs(oppRacket.pos.x) > 0.1 ? -Math.sign(oppRacket.pos.x)
     : Math.random() < 0.5 ? -1 : 1;
+}
+/** Extra drop-shot share (SMART.drop × iq): more when the one who plays the next ball stands deep,
+ *  less when they're up at the table. */
+function dropBias(c) {
+  const back = Math.abs(turnBody(other(c.owner)).z) - HALF_L;
+  return SMART.drop * iqOf(c) * clamp((back - SMART.deep) / SMART.span, -1, 1);
 }
 /** Aim straight at the opponent's body (hard to get out of the way of). */
 function aiBodyX(c) {
@@ -5785,7 +5843,7 @@ window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiR
   get tour() { return tour; }, get simTime() { return simTime; },
   // Headless balance runs (a script steps the game and drives input.target like a finger).
   test: { fixedUpdate, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
-    JUTSU, JUTSU_AI, STYLE_KIT, SAMEHADA, sealsOf, get kit() { return yourKit; }, setKit: k => { yourKit = [...k]; } } };
+    JUTSU, JUTSU_AI, STYLE_KIT, SAMEHADA, SMART, SMART_J, sealsOf, get kit() { return yourKit; }, setKit: k => { yourKit = [...k]; } } };
 
 showStartMenu();
 requestAnimationFrame(frame);

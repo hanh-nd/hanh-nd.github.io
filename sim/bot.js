@@ -65,11 +65,15 @@ window.runSim = function (opts) {
     const now = P.simTime;
     if (match.state === 'serve' && T.youServe()) {
       bot.plan = null;
-      if (!bot.serveAt) { bot.serveAt = now + rand(0.4, 0.8); input.target.x = rand(-0.4, 0.4); input.target.z = 1.6; }
+      if (!bot.serveAt) { bot.serveAt = now + rand(0.4, 0.8); input.target.x = match.doubles ? rand(0.2, 0.5) : rand(-0.4, 0.4); input.target.z = 1.6; }
       if (now >= bot.serveAt) { bot.serveAt = 0; T.beginToss('player', rand(0.2, 0.7)); }
       return;
     }
-    if (!rally.live || rally.lastHitter !== 'ai') { bot.plan = null; return moveTargetToward(ball.p.x * 0.25, 1.85, 2.2); }
+    if (match.doubles && rally.live && !T.yourTurn()) {   // 2v2, your ally's ball: clear out beside and behind it
+      bot.plan = null;
+      return moveTargetToward(-(Math.sign(P.allyRacket.pos.x) || 1) * 0.7, 2.2, H.recover ?? 2.2);
+    }
+    if (!rally.live || rally.lastHitter !== 'ai') { bot.plan = null; return moveTargetToward(ball.p.x * 0.25, 1.85, H.recover ?? 2.2); }
     let p = bot.plan;
     if (!p || p.hitTime !== rally.lastHitTime) {
       p = bot.plan = { hitTime: rally.lastHitTime, readyAt: now + Math.max(0.08, reaction + randn() * 0.04), ip: null, tContact: 0, stroke: null, nextRead: 0,
@@ -120,10 +124,16 @@ window.runSim = function (opts) {
   for (let m = 0; m < opts.matches; m++) {
     const pool = opts.owners ? T.ROSTER.filter(r => opts.owners.includes(r.name)) : opts.pool ? T.ROSTER.filter(r => opts.pool.includes(r.style)) : T.ROSTER;
     const e = opts.opp ? T.ROSTER.find(r => r.name === opts.opp) : pool[m % pool.length];   // every opponent in turn: runs compare like for like
-    match.mode = 'quick'; match.watch = null; match.doubles = false;
+    match.mode = opts.doubles ? 'duo' : 'quick'; match.watch = null; match.doubles = !!opts.doubles;
     T.setHome(null);
     match.gamesToWin = opts.gamesToWin || 2;
-    T.setOpponent({ ...e, level: opts.level || 'hard' });
+    if (opts.doubles) {   // 2v2: you + an all-rounder ally vs two CPUs (styles in turn); iq overrides: allyIq, cpuIq
+      const S = Object.keys(T.AI_STYLES), lv = opts.level || 'hard';
+      T.setOpponent({ name: 'CPU', short: 'CPU', color: 0x2f80ed, level: lv, style: S[m % S.length] });
+      Object.assign(P.ai2, { level: lv, style: S[(m + 1 + Math.floor(m / S.length)) % S.length], name: '' });
+      Object.assign(P.ally, { level: opts.allyLevel || lv, style: 'allround', name: '' });
+      P.ally.iq = opts.allyIq ?? undefined; P.ai.iq = P.ai2.iq = opts.cpuIq ?? undefined;
+    } else T.setOpponent({ ...e, level: opts.level || 'hard' });
     if (J && J.kit) T.setKit(J.kit);
     P.startMatch();
     match.paused = true;   // the page's own frame loop stays out of it
@@ -154,6 +164,7 @@ window.runSim = function (opts) {
         const youWon = pts[0] !== lastPts[0];
         const why = youWon ? (rally.lastHitter === 'player' ? 'won:cpuMissed' : 'won:cpuErr') : (rally.lastHitter === 'ai' ? 'lost:noReturn' : 'lost:myErr:' + (bot.lastStroke || '?'));
         agg.why[why] = (agg.why[why] || 0) + 1;
+        if (match.doubles) { const k = 'duo:' + why.split(':').slice(0, 2).join(':') + (why.startsWith('lost:noReturn') ? (T.yourTurn() ? ':you' : ':ally') : rally.lastHitter === 'player' ? (rally.turn.player === 1 ? ':byYou' : ':byAlly') : ''); agg.why[k] = (agg.why[k] || 0) + 1; }
         if (why === 'lost:noReturn' && bot.lastPlan) { const lp = bot.lastPlan; const k = 'nr:' + (lp.ip ? lp.stroke + (lp.minD < 0.3 ? '-whiff' : '-far') : 'noIP'); agg.why[k] = (agg.why[k] || 0) + 1; }
         if (smash === 'pending') youWon ? agg.smashWin++ : agg.smashErr++;
         if (sigId) { const s = agg.sig[sigId] ||= { n: 0, cpuWon: 0 }; s.n++; if (!youWon) s.cpuWon++; }   // cpuWon: the signature won the point outright
