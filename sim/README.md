@@ -64,3 +64,37 @@ Each level has an `iq` (`AI_LEVELS`: Easy 0.25, Medium 0.55, Hard 0.85) that sca
 | Situational jutsu (`smartJutsu`, `SMART_J`) | Even, 0.49–0.50 vs a plain CPU. Saving up only stopped costing points once the jutsu costs were rebalanced. |
 
 Two tries made no difference and were dropped: hoarding seals (0.470 of points before the jutsu rebalance), and a safe shot under pressure (fewer CPU errors, but a weaker ball).
+
+## Ways to play (Nov 2026)
+
+`sim/styles.sh LEVEL MATCHES [STYLES]` plays one-style bots (skilled finger). It prints each bot's point share, CPU smashes per point, how often your ball sits up, rally length, and the spin errors it forced (`spinErr`).
+
+The styles:
+- `smasher`: smashes anything above 0.2 m.
+- `mixed`: drives, pushes, blocks and touches, and smashes only above 0.3 m.
+- `block`: holds still at 1.5 m.
+- `chop`: pulls back from 2.2 m and takes the ball as it drops.
+- `spin`: mixes chop, topspin drive and sidespin brush at random.
+- `drive`: drives everything.
+
+The non-smash bots smash only a real sitter (above 0.5 m). `SIM_URL=…/sim/_baseline.html` runs the same bots on an older build. Two microbenches: `node sim/bench/stroke.mjs` shows where your stroke goes from set contacts and how high it bounces on the far side (`STROKE=block|drive|push`), and `node sim/bench/spinprobe.mjs POLICY` shows the spin that reaches the CPU.
+
+What changed:
+- **Block** (`BLOCK`): a still racket at the table sends back 60% of the incoming pace, 75% when taken on the rise, flat and low. Before, every block left at ~5 m/s, so a block from mid-table floated into the smash zone.
+- **Chop** (`CHOP`): a pull-back from 1.8 m or deeper turns the incoming topspin into backspin, low and deep. A heavy loop makes it float a little, and its hand error is ×1.3.
+- **The CPU against your spin** (`SPIN_D`): it reads your spin by level (Easy 0.3, Medium 0.5, Hard 0.7). When it misreads, it plays the spin of the last ball, so varying your spin beats it. More topspin than it expected flies long, more backspin finds the net, more sidespin goes wide. Its topspin stroke against backspin is a slower, higher lift. Each style has a `spinErr` factor (Blocker 0.15, Defender and Wizard 0.7) that scales these errors. A "Spin!" callout and an end-of-match stat show it working. Its smash carries the misread spin into its hand error, as yours does.
+
+Point share by style, 30 matches each:
+
+| Style | Medium before → after | Hard before → after |
+|---|---|---|
+| smasher | 0.446 → 0.425 | 0.345 → 0.336 |
+| drive | 0.442 → 0.418 | 0.337 → 0.335 |
+| mixed | 0.476 → 0.474 | 0.370 → 0.387 |
+| spin | 0.464 → 0.492 | 0.374 → 0.385 |
+| block | 0.567 → 0.567 | 0.494 → 0.463 |
+| chop | 0.331 → 0.511 | 0.258 → 0.344 |
+
+The before chop is a bot with a home at 1.85 m; it gets 0.25–0.33. A chopper who stays deep invites drop shots and smashes; chop from 1.85 m and it scores higher (Hard ~0.52), but the CPU's drop shots punish it once it stands back.
+
+CPU against CPU, each style vs the All-rounder on Hard (`duel.mjs` with `styles`, both ends): Wizard 0.37 → ~0.50, Attacker 0.64 → ~0.58, Defender ~0.47, Blocker ~0.44 → ~0.45.

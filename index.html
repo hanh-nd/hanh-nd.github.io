@@ -409,6 +409,8 @@
   .howto kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--muted); }
   .howto span { font-weight: 800; }
   .howto span.j { color: #6fe3ff; }
+  .howto.ways { grid-template-columns: 1fr; }
+  .howto.ways span { font-weight: 600; font-size: 13px; text-align: right; }
   .rank-badge { display: inline-block; margin: 2px 0 6px; font-size: 12px; font-weight: 900; letter-spacing: .14em; padding: 4px 10px; border-radius: 6px; background: #10131a; border: 1px solid var(--gold); color: var(--gold); }
   .grade { font-size: 64px; font-weight: 900; font-style: italic; line-height: 1; float: right; margin: -6px 0 0 10px; text-shadow: 0 0 22px currentColor; }
   .grade.S { color: #ffd23f; } .grade.A { color: #57e389; } .grade.B { color: #6fe3ff; } .grade.C { color: #c0c8d6; } .grade.D { color: #ff6b6b; }
@@ -567,6 +569,13 @@
       <div><kbd>Flick ↔</kbd><span>Sidespin</span></div>
       <div><kbd>Hold · release</kbd><span>Serve</span></div>
       <div><kbd>Wheel</kbd><span>Tilt face</span></div>
+    </div>
+    <div class="row-label">Ways to win · not just the smash</div>
+    <div class="howto ways">
+      <div><kbd>Block at the table</kbd><span>Their pace comes back — faster if you take it early</span></div>
+      <div><kbd>Pull ↓ from deep</kbd><span>Chop: heavy backspin that stays low</span></div>
+      <div><kbd>Mix your spin</kbd><span>Loop, chop, sidespin — it misreads</span></div>
+      <div><kbd>Flick ↑ fast</kbd><span>Smash what sits up</span></div>
     </div>
     <div class="row-label">Jutsu · double-tap: arm / cancel</div>
     <div class="howto" id="help-kit"></div>
@@ -732,6 +741,22 @@ function brushOf(sideVx) {
   return { push: 0.4 * SPIN.grip * vb, spin: 0.6 * SPIN.grip * vb / PHYS.radius };
 }
 
+/** Block and chop: the strokes that live off the other side's ball instead of your own swing.
+ *  BLOCK — a still racket (no forward swipe to speak of) at the table (contact within `table` m
+ *  behind the end line): the ball comes off it with a share `keep` of its own pace — more (`rise`)
+ *  when you take it early, still rising off the bounce — flat and low (arc at most `arc` m over the
+ *  table), deeper the faster it goes (`depth` m per m/s). Off a smash it is a counter-block. A
+ *  still racket further back has no pace to borrow: it floats, and sits up.
+ *  CHOP — a pull-back from deep (contact at least `z` m from the net): a defensive stroke against
+ *  topspin, not a push. It turns the incoming topspin into backspin (`reverse` of it, on top of
+ *  `base`, more for a harder pull, at most `max` rad/s), low (`arc`) and deep (`depth`) at `speed`
+ *  m/s — a slow ball that stays down after its bounce. Heavy backspin drags a loop or a smash into
+ *  the net unless it is lifted (see SPIN_D, AIM.spinBias). */
+const BLOCK = { keep: 0.6, rise: 0.15, table: 0.45, max: 11, arc: 0.34, depth: 0.17 };
+const CHOP = { z: 1.8, base: 70, reverse: 0.35, pull: 40, max: 200, speed: [6, 7.4], arc: 0.36, depth: [1.0, 1.18],
+  float: 0.14, floatFrom: 50, floatSpan: 100,   // a heavy loop lifts the chop: arc + float × (topspin − floatFrom) / floatSpan
+  err: 1.3 };                                    // hand error × (a stroke from deep against a loop is the hard one)
+
 const PLAYER_CFG = {
   hitRadius: 0.17,        // generous contact sphere around the racket center
   yWeight: 0.55,          // vertical distance counts less (racket height is auto-assisted)
@@ -797,18 +822,19 @@ const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruthless' }
  *  wide: how close to the side lines it aims · short: share of short, slow drop shots ·
  *  flick: share of short balls (met over the table) it flicks with topspin instead of pushing ·
  *  serveBack: share of backspin serves · reaction: reaction time ·
- *  take: when it meets the ball — 'top' of the bounce, on the 'rise', or as it 'drop's. */
+ *  take: when it meets the ball — 'top' of the bounce, on the 'rise', or as it 'drop's ·
+ *  spinErr: × the errors your spin forces (SPIN_D) — a blocker's quick hands soak it up. */
 const AI_STYLES = {
   allround: { label: 'All-rounder', tag: 'Balanced', blurb: 'No obvious weakness: steady drives with the odd chop.', tip: 'Be patient. Move it around.',
-    chop: 0.2, chopSpin: 1, top: 1, side: 1, power: 1, smash: 1, mistake: 1, depth: 0, wide: 1, short: 0.06, flick: 0.3, serveBack: 0.5, reaction: 1, take: 'top' },
+    chop: 0.2, chopSpin: 1, top: 1, side: 1, power: 1, smash: 1, mistake: 1, depth: 0, wide: 1, short: 0.06, flick: 0.3, serveBack: 0.5, reaction: 1, take: 'top', spinErr: 1 },
   attacker: { label: 'Attacker', tag: 'Loops & smashes', blurb: 'Heavy topspin loops and a smash for anything that sits up — but takes risks.', tip: 'Keep it low. Block the loops.',
-    chop: 0.04, chopSpin: 1, top: 1.35, side: 0.8, power: 1.15, smash: 1.6, mistake: 1.4, depth: 0.2, wide: 1.05, short: 0.03, flick: 0.6, serveBack: 0.3, reaction: 1, take: 'top' },
+    chop: 0.04, chopSpin: 1, top: 1.35, side: 0.8, power: 1.15, smash: 1.6, mistake: 1.4, depth: 0.2, wide: 1.05, short: 0.03, flick: 0.6, serveBack: 0.3, reaction: 1, take: 'top', spinErr: 1 },
   defender: { label: 'Defender', tag: 'Chops from deep', blurb: 'Stands far back and chops almost everything with heavy backspin.', tip: 'Push the chops. Smash high balls.',
-    chop: 0.75, chopSpin: 1.25, top: 0.8, side: 0.5, power: 0.82, smash: 0.4, mistake: 0.7, depth: 0.55, wide: 0.95, short: 0.04, flick: 0.08, serveBack: 0.85, reaction: 1, take: 'drop' },
+    chop: 0.75, chopSpin: 1.25, top: 0.8, side: 0.5, power: 0.82, smash: 0.4, mistake: 0.7, depth: 0.55, wide: 0.95, short: 0.04, flick: 0.08, serveBack: 0.85, reaction: 1, take: 'drop', spinErr: 0.7 },
   blocker: { label: 'Blocker', tag: 'Quick & flat', blurb: 'Hugs the table and redirects your pace with flat, quick blocks to the corners.', tip: 'Cover the corners.',
-    chop: 0.05, chopSpin: 1, top: 0.4, side: 0.3, power: 1.05, smash: 0.7, mistake: 0.85, depth: -0.15, wide: 1.1, short: 0.12, flick: 0.3, serveBack: 0.4, reaction: 0.8, take: 'rise' },
+    chop: 0.05, chopSpin: 1, top: 0.4, side: 0.3, power: 1.05, smash: 0.7, mistake: 0.85, depth: -0.15, wide: 1.1, short: 0.12, flick: 0.3, serveBack: 0.4, reaction: 0.8, take: 'rise', spinErr: 0.15 },
   wizard: { label: 'Spin Wizard', tag: 'Sidespin & tricks', blurb: 'Wicked sidespin, sneaky short balls and spin that changes every shot.', tip: 'Read the racket face.',
-    chop: 0.35, chopSpin: 1.3, top: 1.15, side: 2.3, power: 0.9, smash: 0.8, mistake: 1.1, depth: 0.1, wide: 1, short: 0.22, flick: 0.35, serveBack: 0.5, reaction: 1, take: 'top' },
+    chop: 0.35, chopSpin: 1.3, top: 1.15, side: 2.3, power: 0.9, smash: 0.8, mistake: 1.1, depth: 0.1, wide: 1, short: 0.22, flick: 0.35, serveBack: 0.5, reaction: 1, take: 'top', spinErr: 0.7 },
 };
 const STYLE_ORDER = ['allround', 'attacker', 'defender', 'blocker', 'wizard'];
 
@@ -1067,6 +1093,21 @@ const SMASH_D = {
   react: 0.45,
   block: { pace: 0.55, min: 7.5, max: 10.5, top: [15, 35] },
   lowArc: 0.12, chop: 0.3, short: 0.12,
+};
+/** A CPU against your spin. It reads the spin off your racket (`read`, by level); when it doesn't,
+ *  it plays the ball as if it carried the spin of the last one — so varying your spin is what beats
+ *  it: a loop after chops, a float after a heavy chop, a sidespin brush out of nowhere. The misread
+ *  part (rad/s, per axis: `top` along the flight, `side` about the vertical) beyond `tol`, full at
+ *  tol + span, is an error chance up to `err`: more topspin than it played flies long, more backspin
+ *  dies in the net, sidespin goes wide. Heavy spin is hard even read: past `heavy`, up to
+ *  `heavyErr`. Its topspin stroke against backspin is a lift (pace × 1 − slow, arc ceiling + arc);
+ *  its own chop takes both topspin and backspin. Its smash carries the unread spin into its hand
+ *  error (AIM.spinBias), as yours does. */
+const SPIN_D = {
+  read: { easy: 0.3, medium: 0.5, hard: 0.7 },
+  top: { tol: 50, span: 120, heavy: 110 }, side: { tol: 15, span: 40, heavy: 35 },   // what is left at its contact (a table bounce takes a third)
+  err: 0.4, heavyErr: 0.1, heavySpan: 140,
+  slow: 0.1, arc: 0.1,
 };
 /** Playing the situation (each × the CPU's iq, AI_LEVELS; c.iq overrides it for the sim).
  *  open: chance a drive with no side planned goes to the open side — away from the racket of whoever
@@ -2903,6 +2944,8 @@ function playerHit(contactDist) {
   const push = !spin && sf <= -PLAYER_CFG.pushMin, fwd = Math.max(0, sf);
   // Short touch: a slow ball met over the table with a still racket drops just over the net.
   let touch = !spin && !push && fwd < PLAYER_CFG.touchMaxFwd && ball.p.z < PLAYER_CFG.touchZ && contact.speedIn < PLAYER_CFG.touchMaxSpeed;
+  // A pull-back from deep is a chop; a still racket at the table a block (see BLOCK, CHOP).
+  const chop = push && ball.p.z >= CHOP.z;
   const longPush = push ? clamp((-sf - PLAYER_CFG.pushMin) * PLAYER_CFG.longPush, 0, PLAYER_CFG.longPushMax) : 0;
   const power = push ? PLAYER_CFG.pushPower + longPush : spin ? SPIN.power : clamp(0.38 + fwd * 0.085, 0.2, PLAYER_CFG.maxPower);
   const tilt = input.tilt;
@@ -2915,9 +2958,9 @@ function playerHit(contactDist) {
   // A jutsu coming at you may need the right answer (a Sharingan cancels it): see answerMiss.
   sigMiss = answerMiss(J, { still: !push && !spin && fwd < PLAYER_CFG.answerFwd, push }) || sigMiss;
   if (sigMiss === 'long' || (J && J.speed)) touch = false;
-  if (DEBUG.on) DEBUG.log.push({ stroke: spin ? 'sidespin' : push ? 'push' : touch ? 'touch' : fwd >= PLAYER_CFG.driveFwd ? 'drive' : 'block', sf: +sf.toFixed(2), sig, sigMiss, h: +(ball.p.y - TABLE_TOP).toFixed(2), z: +ball.p.z.toFixed(2) });
+  if (DEBUG.on) DEBUG.log.push({ stroke: spin ? 'sidespin' : chop ? 'chop' : push ? 'push' : touch ? 'touch' : drive ? 'drive' : 'block', sf: +sf.toFixed(2), sig, sigMiss, h: +(ball.p.y - TABLE_TOP).toFixed(2), z: +ball.p.z.toFixed(2) });
 
-  const misread = contact.topIn - (push || touch ? -PLAYER_CFG.spinRead : PLAYER_CFG.spinRead);
+  const misread = chop ? Math.max(0, contact.topIn - CHOP.max) : contact.topIn - (push || touch ? -PLAYER_CFG.spinRead : PLAYER_CFG.spinRead);
   let depthShift = clamp(misread / 150 * 0.4, -0.45, 0.45) - tilt * 0.12;
   if (sigMiss === 'long') depthShift += 0.55;
   if (sig === 'dragon-loop' && !sigMiss) depthShift = Math.min(depthShift, 0.05);   // driven through: it holds
@@ -2928,7 +2971,20 @@ function playerHit(contactDist) {
   let tx = softAim(ball.p.x * 0.2 + offX * 2.4 + (spin ? 0 : sl * 0.12));   // a brush pushes for real, below
   let top = push ? -clamp(0.6 - sf * 0.2, 0.6, 1) * 130 : clamp(tilt + fwd * 0.25, -1, 1.2) * 130;
   const side = spin ? 0 : clamp(sl * 7, -50, 50);   // a brush adds its spin after the solve
-  let vh = 3.2 + power * 5;
+  let vh = 3.2 + power * 5, arc = Infinity;
+  const block = !push && !spin && !touch && !drive && ball.p.z <= HALF_L + BLOCK.table;
+  if (block) {   // its pace, sent back: early (still rising) keeps more of it
+    const keep = BLOCK.keep + (ball.v.y > 0 ? BLOCK.rise : 0);
+    vh = clamp(Math.hypot(ball.v.x, ball.v.z) * keep, vh, BLOCK.max);
+    tz = -clamp(0.3 + (vh - 3.2) * BLOCK.depth + depthShift, 0.35, 1.2);
+    arc = Math.max(BLOCK.arc, contact.h + 0.05);
+  }
+  if (chop) {    // its topspin, turned into backspin: low, deep and slow
+    vh = rand(...CHOP.speed);
+    tz = -(rand(...CHOP.depth) + depthShift);
+    top = -clamp(CHOP.base + CHOP.reverse * Math.max(0, contact.topIn) + CHOP.pull * (-sf - PLAYER_CFG.pushMin), CHOP.base, CHOP.max);
+    arc = Math.max(CHOP.arc + CHOP.float * clamp((contact.topIn - CHOP.floatFrom) / CHOP.floatSpan, 0, 1.5), contact.h + 0.05);
+  }
   if (touch) {
     const t = PLAYER_CFG.touch;
     tz = -clamp(t.depth + depthShift * 0.3, 0.25, 0.6);   // the incoming spin still nudges it
@@ -2952,6 +3008,12 @@ function playerHit(contactDist) {
     vh *= 0.88;
     shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
   }
+  // A block or a chop stays low: one that would float over its arc is played a little firmer.
+  for (let i = 0; i < 5 && arc < Infinity && shot.land && shot.land.table && !shot.land.net && arcOf(shot) > arc; i++) {
+    const next = solveShot(ball.p, { x: tx, z: tz }, vh * 1.08, top, side);
+    if (!next.land || !next.land.table || next.land.net || next.land.z >= 0) break;
+    vh *= 1.08; shot = next;
+  }
   // A brush: the face sends the ball where it points; the flick's friction then pushes it sideways
   // and spins it — not aimed, so a brush toward a corner can carry it wide.
   const brush = spin ? brushOf(swing.sideVx) : null;
@@ -2960,7 +3022,7 @@ function playerHit(contactDist) {
   // FLOW steadies the hand.
   const js = jid && jutsuShot(jid, 'player', 0, contact);
   if (js && js.shot) shot = js.shot;
-  const err = jid ? NO_ERROR : strokeError(AIM.stroke * yourSteady(), contact.speedIn, contact.h, contact.off);
+  const err = jid ? NO_ERROR : strokeError(AIM.stroke * yourSteady() * (chop ? CHOP.err : 1), contact.speedIn, contact.h, contact.off);
   shot = handPlay(ball.p, shot, err, brush ? 0 : AIM.rescues);
   if (sigMiss === 'net') intoNet(shot);   // the spin drags it down into the net
   if (sigMiss === 'long') {  // the spin kicks it off the end: it carries until it misses the table
@@ -3112,6 +3174,7 @@ function checkSmashUpgrade() {
 function playerSpinUpgrade(u) {
   const brush = brushOf(swing.sideVx);
   ball.v.x += brush.push; ball.w.y += brush.spin;
+  rally.shotW = { ...ball.w };   // the brush is part of the stroke's spin
   spinShotAt = u.hitTime;
   const c = turnBot('ai');
   if (c) aiOnOpponentHit(c);   // same stroke, new trajectory: the CPU has to re-read it
@@ -3297,7 +3360,7 @@ function pickPattern(c, serving) {
 
 /** Set up c's point: pick a pattern and its serve (or a signature serve). Called in setupServe. */
 function aiStartPoint(c) {
-  Object.assign(c, { intent: null, serveIntent: null, lastSide: 0, sigThisPoint: false });
+  Object.assign(c, { intent: null, serveIntent: null, lastSide: 0, sigThisPoint: false, spinSeen: null });
   const serving = serverBot() === c;
   c.pattern = pickPattern(c, serving);
   if (!serving) return;
@@ -3548,6 +3611,12 @@ function aiHit(c) {
   if (it.spin === 'float') top = -rand(5, 15);   // ...but carries almost no spin
   if (chop) { vh *= 0.8; tz = Math.max(tz, 0.95); }   // chops are slow and deep
   let side = rand(-1, 1) * cfg.spin * 40 * st.side, maxArc = AI_COMMON.maxArc - SMASH_D.lowArc * anti;   // ...and lower
+  // Your spin (SPIN_D): a topspin stroke against backspin has to lift it — slower, higher — and a
+  // spin it misread (or just too heavy) can still beat it. Its own chop copes with either.
+  const sr = spinRead(c), backIn = Math.max(0, -sr.top);
+  const lift = chop ? 0 : clamp((backIn - SPIN_D.top.tol) / SPIN_D.top.span, 0, 1);
+  if (lift) { vh *= 1 - SPIN_D.slow * lift; maxArc += SPIN_D.arc * lift; }
+  const spun = mistake || it.sig ? null : spinMiss(sr, chop, st.spinErr);
   // Signatures: the stroke itself (see SIGNATURES; their effect on your return: sigReturn).
   const sig = mistake ? null : it.sig;
   if (sig === 'phantom-chop') { top = -rand(0.92, 1) * (300 + 60 * cfg.spin); vh = rand(6.2, 6.8); maxArc = 0.3; }   // low, deep, dead
@@ -3566,14 +3635,39 @@ function aiHit(c) {
     }
   }
 
-  const kind = mistake ? (Math.random() < 0.4 ? 'long' : Math.random() < 0.5 ? 'wide' : 'net') : null;
+  if (spun && c.owner === 'ai') match.stats.spinWins++;
+  if (spun && !match.watch && c.owner === 'ai') showMessage('Spin!', spun === 'net' ? 'it dragged your backspin into the net' : spun === 'long' ? 'your topspin kicked it long' : 'your sidespin pulled it wide', 'good', 0.9);
+  const kind = spun ? spun : mistake ? (Math.random() < 0.4 ? 'long' : Math.random() < 0.5 ? 'wide' : 'net') : null;
   if (kind === 'long') tz = HALF_L + rand(0.08, 0.38);
   if (kind === 'wide') tx = sideSign * (HALF_W + rand(0.08, 0.28));
   const target = { x: tx, z: toward * tz };   // (a mistake is played as it comes: long, wide or netted)
-  const shot = mistake ? solveShot(ball.p, target, vh, top, side) : aimAI(c, target, vh, top, side, maxArc, !!sig);
+  const shot = kind ? solveShot(ball.p, target, vh, top, side) : aimAI(c, target, vh, top, side, maxArc, !!sig);
   if (kind === 'net') intoNet(shot);
   aiPlay(c, shot, shownTop, sig ? 1 : 0.4 + power * 0.5);
   noteAIShot(c, { ...it, sig }, tx, top, false);   // a missed signature isn't one
+}
+
+/** The spin on the ball c is about to play, and what c makes of it (SPIN_D): actual topspin (+) /
+ *  backspin (−) and sidespin, and the part it misread — none if it reads your racket, else the gap
+ *  to the spin of the last ball it played. Remembers this ball's spin for the next one. */
+function spinRead(c) {
+  const w = unreadSpin(), top = topspinOf(w, ball.v), side = w.y * Math.sign(ball.v.z || 1);   // the stroke's spin, what is left of it
+  const seen = c.spinSeen || { top: 0, side: 0 }, reads = Math.random() < SPIN_D.read[c.level];
+  c.spinSeen = { top, side };
+  if (DEBUG.on) DEBUG.log.push({ spin: 1, top: Math.round(top), side: Math.round(side), reads });
+  return { top, side, offTop: reads ? 0 : top - seen.top, offSide: reads ? 0 : side - seen.side };
+}
+/** Does the spin beat c's stroke (chop: it takes topspin and backspin alike; k: its style's
+ *  spinErr)? 'long' / 'net' / 'wide', or null. */
+function spinMiss(sr, chop, k = 1) {
+  const T = SPIN_D.top, S = SPIN_D.side, f = (v, a) => clamp((Math.abs(v) - a.tol) / a.span, 0, 1);
+  const hv = (v, h) => clamp((Math.abs(v) - h) / SPIN_D.heavySpan, 0, 1);
+  const pTop = chop ? 0 : (SPIN_D.err * f(sr.offTop, T) + SPIN_D.heavyErr * hv(sr.top, T.heavy)) * k;
+  const pSide = (SPIN_D.err * f(sr.offSide, S) + SPIN_D.heavyErr * hv(sr.side, S.heavy)) * k;
+  const r = Math.random();
+  if (r < pTop) return (chop ? 0 : sr.offTop || sr.top) > 0 ? 'long' : 'net';
+  if (r < pTop + pSide) return 'wide';
+  return null;
 }
 
 /** Counter-block of a smash: no swing, the racket just meets it and sends its pace back — flat,
@@ -3756,7 +3850,8 @@ function aiSmash(c, speedIn, errK = 1) {
     vh *= 0.85;
     shot = solveShot(ball.p, { x: tx, z: tz }, vh, SMASH.topspin, 0);
   }
-  const err = strokeError(AIM.smash * cfg.smashError * errK, speedIn, ball.p.y - TABLE_TOP, 0, 0, AIM.smashLow);
+  const sr = spinRead(c), spinLift = sr.offTop + sr.top * 0.3;   // spin it misread (and some of any heavy spin) lifts / drags it
+  const err = strokeError(AIM.smash * cfg.smashError * errK, speedIn, ball.p.y - TABLE_TOP, 0, spinLift, AIM.smashLow);
   shot = handPlay(ball.p, shot, err);
   applyShot(shot);
   c.racket.tilt = 0.6;
@@ -4370,7 +4465,7 @@ const isPlaying = () => ['serve', 'toss', 'rally', 'pointOver'].includes(match.s
 
 function newStats() {
   return { pointsWon: [0, 0], longestRally: 0, winners: 0, errors: 0, serveFaults: [0, 0], aces: 0, fastest: 0, serves: 0, smashes: 0, cpuSmashes: 0,
-    touches: 0, patterns: {}, sigSeen: 0, sigBeaten: 0, jutsu: 0, counters: 0, flows: 0 };
+    touches: 0, spinWins: 0, patterns: {}, sigSeen: 0, sigBeaten: 0, jutsu: 0, counters: 0, flows: 0 };
 }
 
 /** Set who you play: a quick-match CPU (level + style) or a tournament entrant. */
@@ -5259,6 +5354,7 @@ function showEndMenu(winner) {
     ['Points', `${s.pointsWon[0]} – ${s.pointsWon[1]}`],
     ['Winners / errors', `${s.winners} / ${s.errors}`],
     ['Jutsu · counters', `${s.jutsu} · ${s.counters}`],
+    ['Smashes · spin errors forced', `${s.smashes} · ${s.spinWins}`],
     ['Longest rally', s.longestRally],
     ['Fastest', `${Math.round(s.fastest)} km/h`],
   ];
@@ -5854,8 +5950,8 @@ window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiR
   playerBody, aiBody, togglePause, updateHUD, endMatch, showTourHub, Sound, ai, nearAI, scout, watchTourMatch, newTournament, playTourMatch,
   get tour() { return tour; }, get simTime() { return simTime; },
   // Headless balance runs (a script steps the game and drives input.target like a finger).
-  test: { fixedUpdate, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
-    JUTSU, JUTSU_AI, STYLE_KIT, SAMEHADA, SMART, SMART_J, VOID, sealsOf, get kit() { return yourKit; }, setKit: k => { yourKit = [...k]; } } };
+  test: { fixedUpdate, simulate, playerHit, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
+    JUTSU, JUTSU_AI, STYLE_KIT, SAMEHADA, SMART, SMART_J, VOID, BLOCK, CHOP, SPIN_D, sealsOf, get kit() { return yourKit; }, setKit: k => { yourKit = [...k]; } } };
 
 showStartMenu();
 requestAnimationFrame(frame);

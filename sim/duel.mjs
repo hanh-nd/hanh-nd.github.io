@@ -6,6 +6,7 @@
 // opts: level · points · style (both sides; default random per match) · only: [jutsu ids] (the
 // firer's kit is built from these where it can) · foeSeals: true (the other side gets 0–3 seals
 // too, so Samehada and Copy Wheel have something to work on) · tune (as in run.mjs)
+// styles: [near, far] — the two ends' styles (else both the same) ·
 // iq: { ai, player } — smart vs plain instead: ordinary matches (chakra earned, jutsu fired as the
 // CPUs choose), each end's iq overridden (null: its level's). Reports each end's point and game share
 // and jutsu per point. Run it with the iqs swapped too, so the ends' own bias cancels out.
@@ -44,6 +45,7 @@ function duel(opts) {
     for (const e of P.tour.entrants) if (!e.you) e.level = level;
     const st = opts.style || pick(['allround', 'blocker', 'defender', 'wizard', 'attacker']), m = P.tour.rounds[0][0];
     P.tour.entrants[m.a].style = P.tour.entrants[m.b].style = st;
+    if (opts.styles) { P.tour.entrants[m.a].style = opts.styles[0]; P.tour.entrants[m.b].style = opts.styles[1]; }   // [near, far]
     P.watchTourMatch(0, 0);
     match.paused = true;
     match.gamesToWin = 1;

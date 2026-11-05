@@ -51,6 +51,19 @@ window.runSim = function (opts) {
     }
     const h = ip.y - TABLE_TOP, short = ip.z < 1.2, speed = Math.hypot(ball.v.x, ball.v.y, ball.v.z), spin = topIn(ball);
     const mirror = opts.aware && rally.mirror && rally.mirror.ai === 'up';   // it knows not to smash into a Yata Mirror
+    // One-style bots (kill: smash only a ball above this height, default 0.5 m — a real sitter):
+    // 'block' holds the racket still · 'chop' pulls back (push / chop) · 'drive' swipes forward.
+    // 'spin' mixes it up: a chop (pull back, from deep), a topspin drive or a sidespin brush, at random.
+    if (pol === 'spin') {
+      if (h >= (opts.kill ?? 0.5) && !short && !mirror) return 'smash';
+      if (short) return speed < 7 && Math.random() < 0.4 ? 'touch' : 'push';
+      const r = Math.random(); return r < 0.4 ? 'push' : r < 0.75 ? 'drive' : 'side';
+    }
+    if (pol === 'block' || pol === 'chop' || pol === 'drive') {
+      if (h >= (opts.kill ?? 0.5) && !short && !mirror) return 'smash';
+      if (short) return speed < 7 && Math.random() < 0.4 ? 'touch' : 'push';
+      return pol === 'block' ? 'block' : pol === 'chop' ? 'push' : (spin < -80 ? 'push' : 'drive');
+    }
     if (h >= smashMinH && !short && !mirror) return 'smash';
     if (short) return speed < 7 && Math.random() < (pol === 'mixed' ? 0.5 : 0.3) ? 'touch' : 'push';
     if (pol === 'mixed') {
@@ -58,6 +71,17 @@ window.runSim = function (opts) {
       return Math.random() < 0.8 ? 'drive' : 'block';
     }
     return spin < -60 ? 'push' : 'drive';
+  }
+  // Late, as it drops (a chopper): below dropH or at the deepest the finger goes (H.takeDepth).
+  function dropIntercept(bounced) {
+    const maxD = H.takeDepth ?? 2.4, low = H.dropH ?? 0.18;
+    return T.simulate(ball, 3, (b, ev, t) => {
+      if (ev.floor) return null;
+      const pt = { x: b.p.x, y: b.p.y, z: b.p.z, t };
+      if (ev.table) { if (!bounced) { if (ev.table.z > 0) bounced = true; return undefined; } return pt; }
+      if (!bounced || b.p.z < PLAYER_CFG.minZ) return undefined;
+      return (b.v.y <= 0 && b.p.y - TABLE_TOP < low) || b.p.z >= maxD ? pt : undefined;
+    });
   }
   const aimSide = () => { const ax = P.aiRacket.pos.x; return Math.random() < 0.75 ? (ax > 0 ? -1 : 1) : (Math.random() < 0.5 ? -1 : 1); };
 
@@ -73,7 +97,7 @@ window.runSim = function (opts) {
       bot.plan = null;
       return moveTargetToward(-(Math.sign(P.allyRacket.pos.x) || 1) * 0.7, 2.2, H.recover ?? 2.2);
     }
-    if (!rally.live || rally.lastHitter !== 'ai') { bot.plan = null; return moveTargetToward(ball.p.x * 0.25, 1.85, H.recover ?? 2.2); }
+    if (!rally.live || rally.lastHitter !== 'ai') { bot.plan = null; return moveTargetToward(ball.p.x * 0.25, H.home ?? 1.85, H.recover ?? 2.2); }
     let p = bot.plan;
     if (!p || p.hitTime !== rally.lastHitTime) {
       p = bot.plan = { hitTime: rally.lastHitTime, readyAt: now + Math.max(0.08, reaction + randn() * 0.04), ip: null, tContact: 0, stroke: null, nextRead: 0,
@@ -89,7 +113,7 @@ window.runSim = function (opts) {
     if (!p.started && now >= p.nextRead) {   // keep reading the ball until the stroke starts
       p.nextRead = now + 0.08;
       const bounced = rally.bounceCount === 1 && rally.serveStage === 0;
-      const ip = P.predictIntercept(ball, 1, H.takeDepth ?? 2.5, PLAYER_CFG.minZ, bounced);
+      const ip = H.take === 'drop' ? dropIntercept(bounced) : P.predictIntercept(ball, 1, H.takeDepth ?? 2.5, PLAYER_CFG.minZ, bounced);
       if (ip) { p.ip = ip; p.tContact = now + ip.t + p.et;
         if (!p.stroke) { p.stroke = choose(ip);
           const h = ip.y - TABLE_TOP, b = h < 0.2 ? '<.2' : h < 0.3 ? '.2-.3' : h < 0.45 ? '.3-.45' : h < 0.7 ? '.45-.7' : '>.7';
@@ -105,6 +129,7 @@ window.runSim = function (opts) {
         ...(opts.aware && rally.botShot && rally.botShot.lean ? { [p.stroke]: { v: rand(2.2, 3.2), sl: -rally.botShot.lean * rand(1.4, 2), lead: 0.08, dur: 0.14 } } : {}),
         push: { v: -rand(0.8, 1.6), sl: p.side * rand(0.2, 0.6), lead: 0.06, dur: 0.12 },
         block: { v: 0, sl: 0, lead: 0, dur: 0 },
+        side: { v: 0, sl: p.side * rand(5.5, 7), lead: -0.01, dur: 0.09 },   // a sideways flick through the ball, just after contact (playerSpinUpgrade)
         touch: { v: 0, sl: 0, lead: 0, dur: 0 },
       }[p.stroke];
       agg.strokes[p.stroke] = (agg.strokes[p.stroke] || 0) + 1;
@@ -113,7 +138,7 @@ window.runSim = function (opts) {
     const sw = p.sw;
     const x0 = ip.x - p.side * 0.04 + p.ex - sw.sl * sw.lead;
     const z0 = ip.z + p.ez + sw.v * sw.lead;
-    if (!p.started && sw.v !== 0 && now >= p.tContact - sw.lead) p.started = true;
+    if (!p.started && (sw.v || sw.sl) && now >= p.tContact - sw.lead) p.started = true;
     if (p.started) {
       if (now <= p.tContact - sw.lead + sw.dur) { input.target.x += sw.sl * dt; input.target.z -= sw.v * dt; }
       return;
@@ -153,6 +178,9 @@ window.runSim = function (opts) {
       if (st.smashes !== lastSm) { lastSm = st.smashes; smash = 'pending'; agg.smashes++; hadSmash = true; bot.smashedThisRally = true;
         if (opts.debug && (agg.samples ||= []).length < 30) { const v = ball.v; agg.samples.push({ h: +(ball.p.y - TABLE_TOP).toFixed(2), z: +ball.p.z.toFixed(2), x: +ball.p.x.toFixed(2), vh: +Math.hypot(v.x, v.z).toFixed(1), vx: +v.x.toFixed(1), aiX: +P.aiRacket.pos.x.toFixed(2), aiZ: +P.aiRacket.pos.z.toFixed(2), lvl: P.ai.level }); } }
       if (st.cpuSmashes !== lastCpuSm) { lastCpuSm = st.cpuSmashes; agg.cpuSmash++; }
+      if (rally.lastHitter !== lastHitter && rally.lastHitter === 'ai' && lastHitter === 'player') {
+        const h = ball.p.y - TABLE_TOP; agg.cpuMeet ||= { n: 0, up: 0, sum: 0 }; agg.cpuMeet.n++; agg.cpuMeet.sum += h; if (h > 0.38) agg.cpuMeet.up++;
+      }
       if (rally.lastHitter !== lastHitter) {
         if (rally.lastHitter === 'ai' && smash === 'pending') { smash = null; agg.smashRet++; }
         if (rally.lastHitter === 'ai' && sigId) { const s = agg.sig[sigId] ||= { n: 0, cpuWon: 0 }; s.n++; sigId = null; }   // the CPU plays again: you survived it
@@ -184,6 +212,7 @@ window.runSim = function (opts) {
     const won = match.games[0] > match.games[1];
     if (won) agg.won++;
     if (trail) { agg.behind++; if (won) agg.comebacks++; }
+    agg.spinWins = (agg.spinWins || 0) + (match.stats.spinWins || 0);
     agg.pts[0] += match.stats.pointsWon[0]; agg.pts[1] += match.stats.pointsWon[1];
     agg.games.push(match.gameScores.join(' '));
     (agg.anti ||= []).push(+(P.ai.adapt.anti || 0).toFixed(2));
