@@ -922,29 +922,29 @@ const SLOT_LABEL = { block: 'JUTSU 1', drive: 'JUTSU 2', smash: 'JUTSU 3' };
  *  trail ('zigzag' crackles, 'none'), mark (what its bounce leaves: ripple). */
 const JUTSU = {
   // ⚔️ Power
-  rasengan:   { angle: 'power', name: 'Rasengan', kanji: '螺旋丸', color: 0x4fc3ff, counter: 'BLOCK IT', speed: [15.5, 17], top: 110, aim: 'body', answer: 'block', fx: { aura: 'swirl', spin: 22, size: 0.22, big: true } },
+  rasengan:   { angle: 'power', name: 'Rasengan', kanji: '螺旋丸', color: 0x4fc3ff, counter: 'BLOCK IT', speed: [15.5, 17], top: 110, aim: 'body', answer: 'block', answerK: 0.55, fx: { aura: 'swirl', spin: 22, size: 0.22, big: true } },
   blackflash: { angle: 'power', name: 'Black Flash', kanji: '黒閃', color: 0xff1744, counter: 'GET BACK', speed: [12.5, 13.5], top: 100, aim: 'corner', flash: 0.4, fx: { aura: 'spark', spin: 3, trail: 'zigzag', size: 0.15 } },
   // 🌀 Curve
-  zeroshiki:  { angle: 'curve', name: 'Zero-Shiki Drop', kanji: '零式', color: 0x9cff6e, counter: 'STEP IN', speed: [7, 7.8], top: -260, depth: [1.0, 1.12], rollback: true, fx: { aura: 'ring', spin: -12, mark: 'ripple' } },
-  snake:      { angle: 'curve', name: 'Boomerang Snake', kanji: '蛇', color: 0x2ee6a8, counter: 'STEP WIDE', speed: [9.5, 10.5], top: 40, depth: [0.85, 1.1], snake: 0.42, fx: { aura: 'ring', spin: 6 } },
+  zeroshiki:  { angle: 'curve', name: 'Zero-Shiki Drop', kanji: '零式', color: 0x9cff6e, counter: 'STEP IN', speed: [7, 7.8], top: -260, depth: [1.0, 1.12], rollback: true, readK: 1.3, fx: { aura: 'ring', spin: -12, mark: 'ripple' } },
+  snake:      { angle: 'curve', name: 'Boomerang Snake', kanji: '蛇', color: 0x2ee6a8, counter: 'STEP WIDE', speed: [9.5, 10.5], top: 40, depth: [0.85, 1.1], snake: 0.5, readK: 0.5, fx: { aura: 'ring', spin: 6 } },
   // 👁️ Illusion
   clone:      { angle: 'illusion', name: 'Shadow Clone', kanji: '影分身', color: 0xffa630, counter: 'FOLLOW THE SHADOW', decoys: true, fx: { aura: 'none' } },
-  misdirect:  { angle: 'illusion', name: 'Misdirection', kanji: '視線誘導', color: 0xd6f2ff, counter: 'TRUST THE ARC', speed: [10.5, 11.5], top: 60, aim: 'corner', vanish: true, fx: { aura: 'smoke', spin: 1, trail: 'none', mark: 'ripple' } },
+  misdirect:  { angle: 'illusion', name: 'Misdirection', kanji: '視線誘導', color: 0xd6f2ff, counter: 'TRUST THE ARC', speed: [10.5, 11.5], top: 60, aim: 'corner', vanish: true, readK: 0.5, fx: { aura: 'smoke', spin: 1, trail: 'none', mark: 'ripple' } },
   // 🛡️ Guard
   sharingan:  { angle: 'guard', name: 'Copy Wheel', kanji: '写輪眼', color: 0xff2b3a, counter: '', self: 'copy', fx: { aura: 'eye', spin: 9 } },
   hiraishin:  { angle: 'guard', name: 'Flying Thunder God', kanji: '飛雷神', color: 0xffe066, counter: 'HIT THROUGH IT', self: 'warp', fx: { aura: 'none' } },
   godhand:    { angle: 'guard', name: 'God Hand', kanji: '神の手', color: 0xffb020, counter: 'WIN IT TWICE', self: 'hand', fx: { aura: 'none' } },
   // ⏳ Tempo
   metavision: { angle: 'tempo', name: 'Meta Vision', kanji: '空間認識', color: 0x5ad1ff, counter: '', self: 'slow', fx: { aura: 'none' } },
-  timestop:   { angle: 'tempo', name: 'Time Stop', kanji: '時止め', color: 0xe8e8ff, counter: 'WAIT FOR IT', speed: [10, 11], top: 50, depth: [0.9, 1.05], stop: true, fx: { aura: 'clock', spin: 2, size: 0.16 } },
+  timestop:   { angle: 'tempo', name: 'Time Stop', kanji: '時止め', color: 0xe8e8ff, counter: 'WAIT FOR IT', speed: [10, 11], top: 50, depth: [0.9, 1.05], stop: true, readK: 0.5, fx: { aura: 'clock', spin: 2, size: 0.16 } },
   void:       { angle: 'tempo', name: 'Infinite Void', kanji: '無量空処', color: 0x7b6bff, counter: 'FOCUS ON THE BALL', self: 'void', fx: { aura: 'none' } },
   // 🔥 Spirit
   samehada:   { angle: 'spirit', name: 'Samehada', kanji: '鮫肌', color: 0x3a7bd5, counter: 'SPEND FIRST', self: 'drain', fx: { aura: 'none' } },
   // 🛡️ Guard, again: the one answer to brute force
-  mirror:     { angle: 'guard', name: 'Yata Mirror', kanji: '八咫鏡', color: 0xb8f3ff, counter: "DON'T SMASH IT", self: 'mirror', fx: { aura: 'none' } },
+  mirror:     { angle: 'guard', name: 'Yata Mirror', kanji: '八咫鏡', color: 0xb8f3ff, counter: "DON'T SMASH IT", self: 'mirror', readK: 0.5, fx: { aura: 'none' } },
   // 🕸️ Control: you play their stroke
   possession: { angle: 'control', name: 'Shadow Possession', kanji: '影真似', color: 0xb06bff, counter: 'JUTSU BREAKS IT', self: 'bind', fx: { aura: 'none' } },
-  awaken:     { angle: 'spirit', name: 'Awakening', kanji: '覚醒', color: 0x2f6bff, counter: 'BREAK THEIR STREAK', self: 'flow', fx: { aura: 'none' } },
+  awaken:     { angle: 'spirit', name: 'Awakening', kanji: '覚醒', color: 0x2f6bff, counter: 'BREAK THEIR STREAK', self: 'flow', speed: [12.5, 13.5], top: 90, aim: 'corner', fx: { aura: 'spark', spin: 4, size: 0.14 } },
 };
 JUTSU.clone.reveal = 0;   // the clones vanish this long after the real ball's bounce (s)
 /** The six angles a jutsu comes from: how it wins you the point. */
@@ -958,25 +958,29 @@ const JUTSU_ANGLE = {
   control:  { label: 'Control', blurb: 'plays their stroke for them' },
 };
 /** Flying Thunder God: contact reach × and footwork × (rest of the point). God Hand: the save it
- *  plays back (m/s, topspin). Time Stop: how long time stands still (s). Samehada: seals it eats,
- *  and how many of them it keeps. Infinite Void: the other side's extra reaction time (s) after each
- *  of the caster's strokes, and its footwork ×. */
-const HIRAISHIN = { reach: 1.8, speed: 2 };
-const GODHAND = { speed: [8.5, 9.5], top: 60 };
-const STOP = { time: 0.4 };
+ *  plays back (m/s, topspin, corner x: away from them). Time Stop: how long time stands still (s).
+ *  Samehada: seals it eats, and how many of them it keeps. Infinite Void (rest of the point): a bot
+ *  inside it reacts delay s later to each ball, moves at speed× and has err extra error chance;
+ *  you inside it move at you× (heavy feet; the screen also goes dark). */
+const HIRAISHIN = { reach: 2.2, speed: 2.4 };
+const GODHAND = { speed: [11, 12], top: 80, wide: [0.45, 0.6] };
+const STOP = { time: 0.6, dart: { speed: [10.5, 11.5], wide: [0.42, 0.56] } };   // dart: the ball when time flows again (m/s, corner x)
 const SAMEHADA = { take: 2, keep: 1 };   // ...only if the Samehada side wins the point (spend first!)
 /** Yata Mirror. Its own stroke is bait (speed m/s, topspin, depth m): a slow ball that sits up deep.
  *  The next ball they hit at you primes it if it leaves their racket at min m/s or more (flat: a
- *  smash, a Rasengan, a Black Flash, a hard signature); anything softer shatters it. Primed, your
- *  racket catches the ball from reach× as far and fires it back boost× faster (up to max) to the
+ *  smash, a Rasengan, a Black Flash, a hard signature); anything softer leaves it up, waiting, for
+ *  the rest of the point. Primed, your
+ *  racket catches the ball from reach× as far — or, if it can't get there, the mirror catches it
+ *  itself as it rises catchH m off its bounce — and fires it back boost× faster (up to max) to the
  *  open corner. A CPU that doesn't read the mirror (JUTSU_AI.see) smashes the bait (fall). */
-const MIRROR = { min: 11.5, boost: 1.12, max: 19, reach: 1.6, fall: 0.85, bait: { speed: [4.4, 5], top: 10, depth: [1.0, 1.15] } };
+const MIRROR = { min: 11.5, boost: 1.12, max: 19, reach: 1.6, catchH: 0.2, fall: 0.85, bait: { speed: [4.4, 5], top: 10, depth: [1.0, 1.15] } };
 /** Shadow Possession: the other side's next stroke is yours — the ball floats to your racket and
  *  sits up (speed, topspin, depth) — unless they fire a jutsu with it. combo: the chance a CPU
  *  smashes the ball its Possession set up, by level (with aim× its smash's hand error). hold: a
  *  possessed CPU is still in the shadow — it reacts this much later (s) to the combo ball. */
-const POSSESSION = { speed: [4.6, 5.2], top: 20, depth: [0.95, 1.12], combo: { easy: 0.55, medium: 0.8, hard: 0.95 }, aim: 0.5, hold: 0.14 };
-const VOID = { delay: 0.16, speed: 0.78 };
+const POSSESSION = { speed: [4.0, 4.5], top: 20, depth: [0.95, 1.12], combo: { easy: 0.55, medium: 0.8, hard: 0.95 }, aim: 0.5, hold: 0.25 };
+const MISDIRECT = { freeze: 3 };   // Misdirection: a bot that lost the ball freezes this × longer (JUTSU_AI.reread)
+const VOID = { delay: 0.35, speed: 0.55, err: 0.22, you: 0.45 };
 /** Jutsu kits — jutsu 1 / 2 / 3. Each CPU style has one (Black Flash and Flying Thunder God are
  *  yours only); you pick yours (JUTSU_POOL). */
 const STYLE_KIT = {
@@ -997,19 +1001,19 @@ const JUTSU_TIP = {
   clone: 'Two decoy balls — only the real one has a shadow',
   sharingan: 'Cancels their jutsu and fires it back at them',
   zeroshiki: 'Drop shot that rolls back toward the net',
-  metavision: 'Rest of the point: their balls come in slow motion',
+  metavision: 'Rest of the point: their balls in slow motion, steadier hands, more reach',
   samehada: 'Win this point and eat 2 of their seals (you keep 1)',
-  possession: 'Their next ball floats up to you: smash it',
-  mirror: 'Your ball floats up as bait. Smash it and it comes back faster',
+  possession: 'Their next ball floats up to you: smash it. A jutsu breaks it, but is wasted',
+  mirror: 'Your ball floats up as bait. All point, a smash at you comes back faster',
   snake: 'Curls out around the net post and back in',
   misdirect: 'Vanishes after the net, reappears at the bounce',
   blackflash: 'Hit dead center: a blazing drive + a seal back',
   hiraishin: 'Rest of the point: your racket warps to the ball',
   timestop: 'Freezes over the net, then darts to the open corner',
   rasengan: 'Huge spiral smash — they must block it',
-  godhand: 'Saves you once: the ball that would lose you the point is caught and sent back',
-  void: 'Domain: they react late for the rest of the point',
-  awaken: 'Instant FLOW that holds through one lost point',
+  godhand: 'Saves you once: the ball that would lose you the point is caught and fired back',
+  void: 'Domain for the rest of the point: they react late, slow and lost',
+  awaken: 'Blazing corner drive + deep FLOW (steadier, more reach) through one lost point',
 };
 /** Bots against a jutsu, by level: chance to answer it with the right stroke (else it flies long),
  *  to pick the real ball among the clones, and to read a vanish, curl, time stop or roll-back in
@@ -1023,7 +1027,11 @@ const JUTSU_AI = {
 };
 /** FLOW: this many points in a row and a side plays in flow until it loses one — steadier hands
  *  (you: smaller aim error; a bot: fewer mistakes) and faster chakra. */
-const FLOW = { streak: 3, aim: 0.6, mistake: 0.6 };
+const FLOW = { streak: 3, aim: 0.6, mistake: 0.6, deep: { aim: 0.4, mistake: 0.35, reach: 1.3 } };   // deep: an Awakening's FLOW (reach: contact reach ×)
+/** Meta Vision: the rest of the point your hand error (a bot's error chance) is × META_STEADY. */
+const META_STEADY = 0.6, META_REACH = 1.25;   // ...and its contact reach × this
+/** Your hand error ×: FLOW (deeper from an Awakening) and Meta Vision. */
+const yourSteady = () => (flow.player ? (flow.deep.player ? FLOW.deep.aim : FLOW.aim) : 1) * (rally.zone === 'player' ? META_STEADY : 1);
 /** Ego rank: you start at #300 and climb with every win (more vs a higher level), and slip a
  *  little on a loss. duo / tour: multipliers for a 2v2 or a tournament win. */
 const RANK = { start: 300, win: { easy: 6, medium: 14, hard: 26 }, loss: 4, duo: 1.2, tour: 1.5 };
@@ -2721,7 +2729,8 @@ function updatePlayer(dt) {
   const tz = serving ? clamp(input.target.z, PLAYER_CFG.serveMinZ, PLAYER_CFG.serveMaxZ) : input.target.z;
   const body = playerBody;
   const arm = REACH.armX;
-  moveBody(body, tx, Math.max(tz, HALF_L + REACH.bodyBehind), PLAYER_CFG.bodySpeed, PLAYER_CFG.bodyAccel, dt);
+  const heavy = rally.live && rally.void && rally.void !== 'player' ? VOID.you : 1;   // inside their Infinite Void: heavy feet
+  moveBody(body, tx, Math.max(tz, HALF_L + REACH.bodyBehind), PLAYER_CFG.bodySpeed * heavy, PLAYER_CFG.bodyAccel * heavy, dt);
   if (!(serving && match.state === 'toss')) {   // during the toss the racket waits under the ball
     r.pos.x += (clamp(tx, body.x - arm, body.x + arm) - r.pos.x) * k;
     r.pos.z += (clamp(tz, body.z - REACH.armZ, body.z + REACH.armZ) - r.pos.z) * k;
@@ -2951,7 +2960,7 @@ function playerHit(contactDist) {
   // FLOW steadies the hand.
   const js = jid && jutsuShot(jid, 'player', 0, contact);
   if (js && js.shot) shot = js.shot;
-  const err = jid ? NO_ERROR : strokeError(AIM.stroke * (flow.player ? FLOW.aim : 1), contact.speedIn, contact.h, contact.off);
+  const err = jid ? NO_ERROR : strokeError(AIM.stroke * yourSteady(), contact.speedIn, contact.h, contact.off);
   shot = handPlay(ball.p, shot, err, brush ? 0 : AIM.rescues);
   if (sigMiss === 'net') intoNet(shot);   // the spin drags it down into the net
   if (sigMiss === 'long') {  // the spin kicks it off the end: it carries until it misses the table
@@ -3041,7 +3050,7 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   }
   const js = jid && jutsuShot(jid, 'player', 0, contact);
   if (js && js.shot) shot = js.shot;
-  const err = jid ? NO_ERROR : strokeError(AIM.smash * (flow.player ? FLOW.aim : 1), contact.speedIn, contact.h, contact.off, contact.topIn - input.tilt * 80, AIM.smashLow);
+  const err = jid ? NO_ERROR : strokeError(AIM.smash * yourSteady(), contact.speedIn, contact.h, contact.off, contact.topIn - input.tilt * 80, AIM.smashLow);
   shot = handPlay(ball.p, shot, err, AIM.rescues);
   // Smashing into a jutsu that wants a block or a push: it flies long / dies in the net.
   const miss0 = answerMiss(J, { still: false, push: false });
@@ -3066,8 +3075,7 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   rally.smashH = contact.h;
   if (upgrade) {
     rally.smashed = !jid;
-    const ms = rally.mirrorSoft;   // the soft stroke shattered their mirror; the smash it became primes it
-    if (ms && ms.t === rally.lastHitTime && ms.side !== 'player') { rally.mirror[ms.side] = 'up'; rally.mirrorSoft = null; mirrorCheck(ms.side); }
+    if (rally.mirror.ai === 'up') mirrorCheck('ai');   // the soft stroke became a smash: their mirror may prime
     const c = turnBot('ai'); if (c) aiOnOpponentHit(c);
   }   // same stroke, new trajectory: the CPU has to re-read it
   else registerHit('player', 1.2, !jid);
@@ -3167,6 +3175,8 @@ const activeBots = () => match.doubles ? [ai, ai2, ally] : match.watch ? [ai, ne
 const botFor = who => turnBot(who);
 const levelCfg = c => AI_LEVELS[c.level];
 const iqOf = c => c.iq ?? levelCfg(c).iq;
+/** Does bot c read jutsu `id` (JUTSU_AI.see × the jutsu's readK: how readable it is, default 1)? */
+const seesJutsu = (c, id) => Math.random() < JUTSU_AI[c.level].see * (JUTSU[id].readK ?? 1);
 const styleCfg = c => AI_STYLES[c.style];
 /** Z of a point at `depth` on c's half, kept within the CPU's reach. */
 const reachZ = (c, depth) => c.s * clamp(depth, -AI_COMMON.maxZ, -AI_COMMON.minZ);
@@ -3184,11 +3194,11 @@ function aiOnOpponentHit(c) {
     take: null, sigChecked: false,
     decoy: null };        // Shadow Clone: the decoy it chased (null: it reads the real ball)
   const jt = rally.pendingJutsu || rally.jutsu;
-  if (jt && JUTSU[jt.id].decoys && jt.by !== c.owner && Math.random() >= JUTSU_AI[c.level].see) {
+  if (jt && JUTSU[jt.id].decoys && jt.by !== c.owner && !seesJutsu(c, jt.id)) {
     c.plan.decoy = decoys[Math.floor(Math.random() * decoys.length)];
   }
   // Boomerang Snake: unless it reads the curl, it follows the ball out wide.
-  if (jt && JUTSU[jt.id].snake && jt.by !== c.owner && Math.random() >= JUTSU_AI[c.level].see) {
+  if (jt && JUTSU[jt.id].snake && jt.by !== c.owner && !seesJutsu(c, jt.id)) {
     c.plan.err = { x: Math.sign(ball.p.x || 1) * 0.22, y: 0, z: 0 };
   }
   // A smash it saw coming (it knows you love the smash, and the ball wasn't that high): it reacts sooner.
@@ -3202,7 +3212,7 @@ function aiOnOpponentHit(c) {
   if (rally.mirror[c.owner] === 'primed') c.plan.readyAt = simTime + (c.plan.readyAt - simTime) * 0.4;   // its mirror waits for it
   if (rally.held === c.owner) { c.plan.readyAt += POSSESSION.hold; rally.held = null; }   // still in the shadow
   // Their Yata Mirror is up: it reads it (no hard ball at it) or it goes for the bait.
-  if (rally.mirror[other(c.owner)] === 'up') c.plan.mirror = Math.random() < JUTSU_AI[c.level].see ? 'read' : 'bait';
+  if (rally.mirror[other(c.owner)] === 'up') c.plan.mirror = seesJutsu(c, 'mirror') ? 'read' : 'bait';
   if (!c.intent) c.intent = decideIntent(c);
 }
 
@@ -3220,7 +3230,9 @@ function contactJutsu(c, pt) {
   const urgent = (rally.shark === other(side) || rally.bind === side) && Math.random() < JUTSU_AI[c.level].see;
   const kit = kitOfBot(c), high = pt.y - TABLE_TOP > 0.3, r = Math.random();
   let slot;
-  if (urgent) slot = ['smash', 'drive', 'block'].find(k => canFire(side, k) && !idleJutsu(side, kit[SLOTS.indexOf(k)]));
+  // Sharked: its biggest jutsu (spend first). Bound: its cheapest — a jutsu only breaks the shadow (but a mirror).
+  const order = rally.bind === side ? [...SLOTS].sort((a, b) => (kit[SLOTS.indexOf(b)] === 'mirror') - (kit[SLOTS.indexOf(a)] === 'mirror')) : ['smash', 'drive', 'block'];
+  if (urgent) slot = order.find(k => canFire(side, k) && !idleJutsu(side, kit[SLOTS.indexOf(k)]));
   else if (Math.random() < SMART.jutsu * iqOf(c)) slot = smartJutsu(c, kit, high, seals);   // it reads the game
   else if (Math.random() >= JUTSU_AI[c.level].use) return;
   else slot = plainSlot(seals, high);
@@ -3247,7 +3259,7 @@ function plainSlot(seals, high) {
  *  swaps a jutsu that would do nothing now for one that would: Samehada only when they hold seals
  *  to eat, God Hand when the point matters, no power shot into a mirror it read (a Rasengan off a
  *  ball that sits up), Yata Mirror against someone who smashes a lot. */
-const SMART_J = { clutch: 0.7, big: 1.5 };
+const SMART_J = { clutch: 0.7, big: 1.5, save: 0.4 };
 function smartJutsu(c, kit, high, seals) {
   const side = c.owner, foe = other(side), use = JUTSU_AI[c.level].use;
   const clutch = Math.max(...match.points) >= GAME.pointsToWin - 1;
@@ -3263,6 +3275,7 @@ function smartJutsu(c, kit, high, seals) {
   };
   const opts = SLOTS.map(k => ({ k, w: fit(k) * (clutch ? SLOT_COST[k] ** SMART_J.big : 1) })).filter(o => o.w > 0);
   if (!clutch) {   // the plain choice, unless another fits clearly better
+    if (seals < 3 && !chakraFull(side) && Math.random() >= SMART_J.save) return null;   // saving up for its biggest
     const k = plainSlot(seals, high);
     if (!k) return null;
     const best = opts.reduce((a, o) => (o.w > a.w ? o : a), { k: null, w: 0 });
@@ -3486,10 +3499,11 @@ function aiHit(c) {
   // it); any jutsu rattles it a little.
   const jIn = incomingJutsu(c.owner), ja = JUTSU_AI[c.level];
   const copy = c.intent && c.intent.jutsu && JUTSU[c.intent.jutsu].self === 'copy';
-  if (jIn && JUTSU[jIn].answer && !copy) return aiAnswerJutsu(c, JUTSU[jIn].answer);
-  const calm = flow[c.owner] ? FLOW.mistake : 1;
-  const steady = rally.zone === c.owner ? 0.6 : 1;   // Meta Vision: fewer errors this point
-  const mistake = Math.random() < (cfg.mistakeRate * st.mistake * (1 + pressure * 1.5) * calm + (jIn && !copy ? ja.rattle : 0)) * steady;
+  if (jIn && JUTSU[jIn].answer && !copy) return aiAnswerJutsu(c, JUTSU[jIn].answer, JUTSU[jIn].answerK ?? 1);
+  const calm = flow[c.owner] ? (flow.deep[c.owner] ? FLOW.deep.mistake : FLOW.mistake) : 1;
+  const steady = rally.zone === c.owner ? META_STEADY : 1;   // Meta Vision: fewer errors this point
+  const voidErr = rally.void && rally.void !== c.owner ? VOID.err : 0;   // inside their Infinite Void: lost
+  const mistake = Math.random() < (cfg.mistakeRate * st.mistake * (1 + pressure * 1.5) * calm + (jIn && !copy ? ja.rattle : 0) + voidErr) * steady;
   // Its plan for this stroke (pattern step, signature, jutsu, adaptive bias — see decideIntent).
   let it = c.intent || {};
   // A ball met over the table (a short ball) leaves no room to swing: a push, a flick or a drop.
@@ -3579,8 +3593,8 @@ function aiCounterBlock(c, speedIn, it) {
 
 /** A jutsu coming at c that wants `need` ('block' / 'push'): it answers right (JUTSU_AI.block) — a
  *  soft block that sits up, or a low push — or it flies long / dies in the net. */
-function aiAnswerJutsu(c, need) {
-  const toward = -c.s, ok = Math.random() < JUTSU_AI[c.level].block, tx = rand(-0.45, 0.45);
+function aiAnswerJutsu(c, need, k = 1) {
+  const toward = -c.s, ok = Math.random() < JUTSU_AI[c.level].block * k, tx = rand(-0.45, 0.45);
   let shot;
   if (ok) {
     const push = need === 'push', tgt = { x: tx, z: toward * rand(0.85, 1.1) };
@@ -3846,9 +3860,9 @@ const chakraFull = side => chakra[side] >= CHAKRA.max;
 /** Your kit (start menu), restored from storage with the menus (buildMenus). */
 let yourKit = [...STYLE_KIT.allround];
 /** Your contact reach: Flying Thunder God makes it huge for the rest of the point. */
-const yourReach = () => PLAYER_CFG.hitRadius * (rally.warp.player ? HIRAISHIN.reach : 1) * (rally.mirror.player === 'primed' ? MIRROR.reach : 1);
+const yourReach = () => PLAYER_CFG.hitRadius * (rally.warp.player ? HIRAISHIN.reach : 1) * (rally.mirror.player === 'primed' ? MIRROR.reach : 1) * (flow.deep.player ? FLOW.deep.reach : 1) * (rally.zone === 'player' ? META_REACH : 1);
 /** A bot's contact reach (Flying Thunder God: bigger). */
-const botReach = side => AI_COMMON.hitRadius * (rally.warp[side] ? HIRAISHIN.reach : 1) * (rally.mirror[side] === 'primed' ? MIRROR.reach : 1);
+const botReach = side => AI_COMMON.hitRadius * (rally.warp[side] ? HIRAISHIN.reach : 1) * (rally.mirror[side] === 'primed' ? MIRROR.reach : 1) * (flow.deep[side] ? FLOW.deep.reach : 1) * (rally.zone === side ? META_REACH : 1);
 const kitOfBot = c => c.kit || STYLE_KIT[c.style] || STYLE_KIT.allround;   // (c.kit: a test's override)
 /** The kit of whoever plays `side`'s strokes: yours, or that side's bot's style kit. */
 const kitOf = side => (isYou(side) ? yourKit : kitOfBot(memberBot(side, rally.turn[side]) || ai));
@@ -3907,7 +3921,8 @@ function fireJutsu(side, id, dir = 0, fizzle = false) {
   const slot = SLOTS[kitOf(side).indexOf(id)];
   chakra[side] = Math.max(0, chakra[side] - SLOT_COST[slot || 'block'] * CHAKRA.seal);
   rally.fired[side] = true;
-  if (rally.bind === side) breakBind(side);   // chakra breaks a Shadow Possession
+  const broke = rally.bind === side;
+  if (broke) breakBind(side);   // chakra breaks a Shadow Possession — and that's all it does (but a mirror)
   let j = JUTSU[id], name = j.name;
   if (j.self === 'copy') {
     const copy = incomingJutsu(side);
@@ -3915,14 +3930,14 @@ function fireJutsu(side, id, dir = 0, fizzle = false) {
   }
   if (isYou(side)) { armed = 0; match.stats.jutsu++; buzz([20, 30, 40]); }
   if (fizzle) {
-    if (isYou(side)) callout('✕', j.name, 'HIT DEAD CENTER', 0x8a93a6);
+    if (isYou(side) && !broke) callout('✕', j.name, 'HIT DEAD CENTER', 0x8a93a6);
     rally.pendingJutsu = null;
     return syncChakra();
   }
   if (isYou(side)) callout(j.kanji, name, '', j.color);
   else if (name !== j.name) callout(j.kanji, name, match.watch ? '' : j.counter, j.color);
   if (j.flash) { chakra[side] = Math.min(CHAKRA.max, chakra[side] + CHAKRA.seal); cameraShake = SMASH.shake * 2.2; }   // Black Flash: a seal back
-  if (j.self === 'slow') { if (isYou(side)) rally.slow = true; else rally.zone = side; }   // a CPU's Meta Vision: few errors
+  if (j.self === 'slow') { if (isYou(side)) rally.slow = true; rally.zone = side; }   // Meta Vision: steady hands (yours: their balls in slow motion too)
   if (j.self === 'warp') rally.warp[side] = true;
   if (j.self === 'hand') rally.hand[side] = true;
   if (j.self === 'void') rally.void = side;
@@ -3958,7 +3973,7 @@ function floatShot(by, tgt, cfg) {
   return shot;
 }
 /** Yata Mirror: `side`'s mirror is up and the other side just struck. Hard enough: it is primed
- *  (it will reflect). Softer: it shatters — they read it. */
+ *  (it will reflect). Softer: it stays up, waiting, for the rest of the point. */
 function mirrorCheck(side) {
   const j = JUTSU.mirror, r = turnRacket(side);
   if (Math.hypot(ball.v.x, ball.v.z) >= MIRROR.min) {
@@ -3967,13 +3982,6 @@ function mirrorCheck(side) {
     Sound.mirror();
     return;
   }
-  rally.mirror[side] = 0;
-  rally.mirrorSoft = { side, t: rally.lastHitTime };   // (a smash upgrade of this very stroke still counts)
-  fxBurst(r.pos.x, r.pos.y + 0.05, r.pos.z, 0x8a93a6, 0.3);
-  Sound.poof();
-  if (match.watch) return;
-  if (isYou(side)) showMessage('Mirror shattered', 'They read it', 'bad', 0.9, 2);
-  else showMessage('Mirror shattered', 'You read it', 'good', 0.9, 2);
 }
 /** A primed Yata Mirror meets the ball: it goes back faster, flat, to the corner away from the
  *  striker — chakra-guided, it lands. A COUNTER (chakra back). */
@@ -4026,7 +4034,7 @@ function godHandSave(side) {
   rally.hand[side] = false;
   const s = side === 'player' ? 1 : -1, j = JUTSU.godhand;
   const p = { x: clamp(ball.p.x, -HALF_W + 0.15, HALF_W - 0.15), y: TABLE_TOP + 0.32, z: s * (HALF_L + 0.25) };
-  const tgt = { x: -(Math.sign(turnRacket(other(side)).pos.x) || 1) * rand(0.3, 0.55), z: -s * rand(0.95, 1.15) };   // away from them
+  const tgt = { x: -(Math.sign(turnRacket(other(side)).pos.x) || 1) * rand(...GODHAND.wide), z: -s * rand(0.95, 1.15) };   // away from them
   let vh = rand(...GODHAND.speed), shot = solveShot(p, tgt, vh, GODHAND.top, 0);
   for (let i = 0; i < 12 && !(shot.land && shot.land.table && !shot.land.net); i++) shot = solveShot(p, tgt, vh *= 0.92, GODHAND.top, 0);
   setBall(p, shot.v, shot.w);
@@ -4048,8 +4056,8 @@ function resumeTime() {
   rally.stop = null;
   if (!j) return;
   const toward = side === 'player' ? 1 : -1, recv = turnRacket(side);
-  const tgt = { x: -(Math.sign(recv.pos.x) || 1) * rand(0.3, 0.45), z: toward * rand(...j.depth) };
-  let vh = rand(...j.speed), shot = solveShot(ball.p, tgt, vh, j.top, 0);
+  const tgt = { x: -(Math.sign(recv.pos.x) || 1) * rand(...STOP.dart.wide), z: toward * rand(...j.depth) };
+  let vh = rand(...STOP.dart.speed), shot = solveShot(ball.p, tgt, vh, j.top, 0);
   const lands = sh => sh.land && sh.land.table && !sh.land.net && Math.sign(sh.land.z) === toward;
   for (let i = 0; i < 12 && !lands(shot); i++) shot = solveShot(ball.p, tgt, vh *= 0.92, j.top, 0);
   if (!lands(shot)) return;   // no room: it goes on as it was
@@ -4078,6 +4086,7 @@ function startJutsu(jt) {
  *  Black Flash off-center (contact.off ≥ flash; a CPU: JUTSU_AI.flash) fizzles: { fizzle: true }. */
 let nextSnake = null;   // the curl of the Boomerang Snake just played (startJutsu puts it on the ball)
 function jutsuShot(id, by, dir = 0, contact = null) {
+  if (rally.bind === by && JUTSU[id].self !== 'mirror') return { shot: null, fizzle: true };   // its chakra only breaks the shadow
   if (JUTSU[id].self === 'copy') id = incomingJutsu(by) || id;
   const j = JUTSU[id], toward = by === 'player' ? -1 : 1, recv = turnRacket(other(by));
   if (j.flash) {
@@ -4142,7 +4151,7 @@ function revealClones() {
 function rereadJutsu(side, freezeK = 1) {
   const c = turnBot(side);
   if (!c || !c.plan) return;
-  const ja = JUTSU_AI[c.level], freeze = Math.random() < ja.see ? 0 : ja.reread * freezeK;
+  const jt = liveJutsu(), ja = JUTSU_AI[c.level], freeze = (jt ? seesJutsu(c, jt.id) : Math.random() < ja.see) ? 0 : ja.reread * freezeK;
   c.plan.computed = false; c.plan.err = null;
   c.plan.readyAt = simTime + levelCfg(c).reactionMs * styleCfg(c).reaction / 1000 * freeze;
 }
@@ -4150,7 +4159,7 @@ function rereadJutsu(side, freezeK = 1) {
 function jutsuAtNet(jt, side) {
   const j = JUTSU[jt.id];
   if (j.stop) stopTime(side);
-  if (j.vanish) { rally.hidden = true; fxBurst(ball.p.x, ball.p.y, ball.p.z, j.color, 0.18); Sound.poof(); rereadJutsu(side, 2.2); }
+  if (j.vanish) { rally.hidden = true; fxBurst(ball.p.x, ball.p.y, ball.p.z, j.color, 0.18); Sound.poof(); rereadJutsu(side, MISDIRECT.freeze); }
 }
 /** Boomerang Snake, every step until its bounce: the ball bows out past the side line and curls
  *  back in — an offset on top of its real flight (so it lands where it was aimed). */
@@ -4339,7 +4348,6 @@ const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, ne
   hidden: false,      // Misdirection: the ball is invisible
   snake: null,        // Boomerang Snake: { t0, T, out, off } the curl it flies on
   mirror: { player: 0, ai: 0 },   // Yata Mirror, per side: 'up' (waiting for their ball), 'primed' (it reflects)
-  mirrorSoft: null,   // { side, t }: the soft stroke that shattered a mirror (a smash upgrade of it re-primes)
   bind: null,         // the side a Shadow Possession binds (its next stroke floats to the caster)
   held: null,         // a CPU side that just played a possessed stroke (slow to the next ball)
   combo: null,        // the side whose Possession set up the ball now coming at it
@@ -4463,7 +4471,7 @@ function setupServe(first = false) {
   match.rallyCount = 0;
   Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0, botShot: null, answering: null,
     turn: { [match.server]: match.serverIdx, [other(match.server)]: match.receiverIdx }, jutsu: null, pendingJutsu: null, jutsuAnswer: null, cloneRevealAt: Infinity, fired: { player: false, ai: false }, slow: false, zone: null, warp: { player: false, ai: false }, hand: { player: false, ai: false }, void: null, hidden: false, snake: null, stop: null,
-    mirror: { player: 0, ai: 0 }, mirrorSoft: null, bind: null, held: null, combo: null, shark: null,
+    mirror: { player: 0, ai: 0 }, bind: null, held: null, combo: null, shark: null,
     smashed: false, smashH: 0, yourSmashes: 0 });   // the last stroke was a smash · your smashes this point (ADAPT.smash)
   clearDecoys();
   match.toss = null;
@@ -5707,6 +5715,10 @@ function stepLiveBall(dt) {
   // Over the table the blade can't dip low (racketMinY): like yours, the CPU's contact is lenient
   // vertically there, so it can reach in for a short ball.
   const botYWeight = Math.abs(ball.p.z) < HALF_L ? PLAYER_CFG.yWeight : 1;
+  // A primed Yata Mirror catches the ball itself as it rises off the bounce — no racket needed.
+  for (const side of ['player', 'ai']) {
+    if (rally.mirror[side] === 'primed' && canHit(side) && (ball.v.y < 0 || ball.p.y - TABLE_TOP > MIRROR.catchH || Math.abs(ball.p.z) > HALF_L)) return mirrorReflect(side, turnBot(side));
+  }
   const near = turnBot('player');   // 2v2: only the partner whose turn it is can meet the ball
   if (near) {
     if (canHit('player') && racketContact(near.racket, botReach('player'), botYWeight, false) >= 0) return aiHit(near);
@@ -5843,7 +5855,7 @@ window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiR
   get tour() { return tour; }, get simTime() { return simTime; },
   // Headless balance runs (a script steps the game and drives input.target like a finger).
   test: { fixedUpdate, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
-    JUTSU, JUTSU_AI, STYLE_KIT, SAMEHADA, SMART, SMART_J, sealsOf, get kit() { return yourKit; }, setKit: k => { yourKit = [...k]; } } };
+    JUTSU, JUTSU_AI, STYLE_KIT, SAMEHADA, SMART, SMART_J, VOID, sealsOf, get kit() { return yourKit; }, setKit: k => { yourKit = [...k]; } } };
 
 showStartMenu();
 requestAnimationFrame(frame);

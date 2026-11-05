@@ -15,6 +15,7 @@ sim/sig.sh hard 48                            # signature strength vs signature 
 node sim/smoke.mjs                            # watch mode, 2v2 and quick match run to the end without page errors
 sim/jutsu.sh medium 24 samehada,possession,rasengan:1 clone,mirror,rasengan:2   # you + a jutsu vs the CPU
 sim/duel.sh medium 400 6                      # CPU vs CPU jutsu duel: win rate of the points each jutsu was fired in (FOE=true: both sides have seals)
+sim/iq.sh medium 600 4                        # smart vs plain CPU (iq 1 vs 0, ends swapped): the smart side's point and game share (BY=1: per jutsu)
 node sim/run.mjs '{"policy":"mixed","matches":17,"level":"hard","tune":{"SMASH_D":{"react":0.3}}}'
 ```
 
@@ -27,6 +28,8 @@ node sim/run.mjs '{"policy":"mixed","matches":17,"level":"hard","tune":{"SMASH_D
 - **`mixed` policy:** drives, pushes, blocks and touches, and smashes only balls above 0.3 m.
 - **`aware`:** plays each signature's counter.
 - **`switcher`:** smashes until it loses a game, then mixes.
+- **`human.recover`:** how fast the finger drifts back to the middle between shots (m/s, default 2.2). A slow one (0.6) is closer to a real thumb and shows what the CPU's open-side aim does.
+- **`doubles`:** 2v2, you + an all-rounder ally vs two CPUs (styles in turn). `allyIq` / `cpuIq` override their iq. In `why`, `duo:*` keys say whose ball each point was lost on.
 - **`jutsu`:** `{ kit: [j1, j2, j3], tier: 1|2|3|'max' }` arms that jutsu whenever the seals pay for it. The result's `jutsu` field counts the jutsu each side fired, the points they were fired in, and the points won (`cpuPts` / `youPts`). `jutsu.sh` prints the CPU's jutsu per point, which shows whether yours shuts it out.
 
 ## Jutsu duel
@@ -49,3 +52,15 @@ What `anti` does (`SMASH_D`):
 Only smashes off balls lower than 0.45 m can be read. A smash off a ball that really sat up is as strong as without it.
 
 Everything else is unchanged: the racket height cap, the Hard numbers and the signatures. A first version also changed those; it was reverted.
+
+## Smarter CPU (Nov 2026)
+
+Each level has an `iq` (`AI_LEVELS`: Easy 0.25, Medium 0.55, Hard 0.85) that scales the `SMART` behaviours.
+
+| Behaviour | Effect in the sim |
+|---|---|
+| Open-side aim: away from whoever plays next, or behind a runner | Vs a slow-recovering bot: 2–3.5 more points per 100 for the CPU. 2v2: the CPU pair takes about 4 more per 100. Vs a bot that recovers fast: nothing. |
+| Drop shots vs a deep player | Nothing measurable |
+| Situational jutsu (`smartJutsu`, `SMART_J`) | Even, 0.49–0.50 vs a plain CPU. Saving up only stopped costing points once the jutsu costs were rebalanced. |
+
+Two tries made no difference and were dropped: hoarding seals (0.470 of points before the jutsu rebalance), and a safe shot under pressure (fewer CPU errors, but a weaker ball).
