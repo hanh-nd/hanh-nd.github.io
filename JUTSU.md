@@ -65,11 +65,10 @@ The numbers come from CPU-vs-CPU duels at Medium: each point, one side gets 1–
 ## Venues
 - Each kind of match has its own venue, all built in code (no image files). The menus show the venue of what you are choosing (pick an event to preview its venue).
   - **School gym** (Club Open, Practice): wooden floor with court lines, bleachers, hoops, tube lights, the club's sign, a wall scoreboard.
-  - **Arena** (1v1, 2v2, Pro Tour): seats on all four sides, an upper tier behind an LED ribbon, floodlights with light beams, big screens with the live score.
-  - **Stadium** (World Championship): a bigger arena with colour beams sweeping from the roof and the nations' flags.
+  - **Arena** (1v1, 2v2, Pro Tour): seats on all four sides, an upper tier behind an LED ribbon, floodlights, big screens with the live score.
+  - **Stadium** (World Championship): a bigger arena, packed, with the nations' flags hanging from the roof.
 - **Fans** sit on seats, stand and jump to cheer, raise their arms or clap, and follow the ball with their heads. Your fans wear your colour and the rival's fans wear theirs; some wave flags, and the banners on the stands name the players. Phone flashes go off after big points. Attendance grows round by round in a tournament.
 - Around the court: a coach for each player (they cheer their player's points) and towel boxes.
-- **Glow** (Settings): a glow on lights, screens and jutsu. Turn it off if a slow phone stutters.
 
 ## FLOW, Ego rank
 - **FLOW:** 3 points in a row. Until you lose a point: hand error ×0.6 (steadier aim) and chakra gain ×1.6. It does not slow time (that is Meta Vision). A CPU in FLOW makes 40% fewer mistakes.

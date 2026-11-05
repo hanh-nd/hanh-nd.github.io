@@ -602,11 +602,7 @@
       <div class="seg" id="speeds" style="margin-top:8px"></div>
       <p class="set-note">Slow gives you more time to read the ball. Applies straight away.</p>
     </div>
-    <div class="set-sec">
-      <div class="row-label">Graphics</div>
-      <div class="set-row"><span>Glow <small style="color:var(--muted);font-weight:600">· lights and jutsu</small></span><button class="btn alt" id="btn-glow" aria-pressed="true">On</button></div>
-      <p class="set-note">Off runs smoother on slow phones.</p>
-    </div>
+
     <button class="btn" id="btn-settings-close">Done</button>
   </div>
 </div>
@@ -646,10 +642,6 @@
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 /* =====================================================================
    CONFIG
@@ -1469,15 +1461,6 @@ sun.shadow.bias = -0.0005;
 sun.shadow.normalBias = 0.02;
 scene.add(sun);
 
-// Glow: bloom on bright things (lights, screens, jutsu), at half resolution. Settings can turn it off.
-const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
-const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.4, 1.0);
-{ const setSize = bloomPass.setSize.bind(bloomPass); bloomPass.setSize = (w, h) => setSize(Math.ceil(w / 2), Math.ceil(h / 2)); }
-composer.addPass(new RenderPass(scene, camera));
-composer.addPass(bloomPass);
-composer.addPass(new OutputPass());
-let glowOn = true;
-
 function onResize() {
   const w = window.innerWidth, h = window.innerHeight, aspect = w / h;
   // Widen the field of view on portrait screens so the table still fits; desktop zooms out a bit.
@@ -1485,7 +1468,6 @@ function onResize() {
   const fov = aspect < 1.2 ? Math.max(base, Math.min(85, 52 * 1.2 / aspect)) : base;
   for (const cam of [camera, viewCam]) { cam.aspect = aspect; cam.fov = fov; cam.updateProjectionMatrix(); }
   renderer.setSize(w, h);
-  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
 }
 window.addEventListener('resize', onResize);
 onResize();
@@ -1699,7 +1681,7 @@ const FAN_PART = {
     fP += vec3(.2, .45, 0.) + fRotZ(vec3(0., -.46, 0.), 2.55 * fRaise); }` + FAN_SWAY,
 };
 function fanMaterial(part, opts = {}) {
-  const m = new THREE.MeshStandardMaterial({ roughness: 0.85, ...opts });
+  const m = new THREE.MeshLambertMaterial(opts);
   m.onBeforeCompile = sh => {
     for (const k of ['uTime', 'uWave', 'uAtt', 'uCheer', 'uBall', 'uBallLag']) sh.uniforms[k] = fanU[k];
     sh.vertexShader = sh.vertexShader
@@ -1711,9 +1693,9 @@ function fanMaterial(part, opts = {}) {
   return m;
 }
 const FAN_GEO = {
-  torso: new THREE.CapsuleGeometry(0.15, 0.24, 3, 8).scale(1, 1, 0.72).translate(0, 0.25, 0),
-  head: mergeAll([new THREE.SphereGeometry(0.1, 10, 7).translate(0, 0.64, 0), new THREE.CylinderGeometry(0.045, 0.05, 0.1, 8).translate(0, 0.53, 0)]),
-  hair: new THREE.SphereGeometry(0.108, 10, 4, 0, Math.PI * 2, 0, Math.PI * 0.55).rotateX(-0.3).translate(0, 0.65, -0.01),
+  torso: new THREE.CapsuleGeometry(0.15, 0.24, 2, 6).scale(1, 1, 0.72).translate(0, 0.25, 0),
+  head: new THREE.SphereGeometry(0.1, 8, 5).scale(1, 1.12, 1).translate(0, 0.63, 0),
+  hair: new THREE.SphereGeometry(0.108, 8, 3, 0, Math.PI * 2, 0, Math.PI * 0.55).rotateX(-0.3).translate(0, 0.65, -0.01),
   brim: geoBox(0.17, 0.014, 0.12, 0, 0.69, 0.1),
   upper: mergeAll([-1, 1].map(s => geoBox(0.075, 0.25, 0.08, s * 0.19, 0.335, 0))),
   fore: mergeAll([-1, 1].map(s => geoBox(0.062, 0.25, 0.066, s * 0.19, 0.1, 0))),
@@ -1722,11 +1704,11 @@ const FAN_GEO = {
   chair: mergeAll([geoBox(0.44, 0.06, 0.4, 0, 0.42, 0.02), geoBox(0.44, 0.42, 0.05, 0, 0.66, -0.2)]),
 };
 const FAN_MAT = {
-  torso: fanMaterial('torso'), upper: fanMaterial('upper'), fore: fanMaterial('fore'), legs: fanMaterial('legs', { roughness: 0.95 }),
-  head: fanMaterial('head', { roughness: 0.6 }), hair: fanMaterial('head', { roughness: 0.95 }), brim: fanMaterial('head'),
-  flag: fanMaterial('flag', { vertexColors: true, side: THREE.DoubleSide, roughness: 0.9 }),
+  torso: fanMaterial('torso'), upper: fanMaterial('upper'), fore: fanMaterial('fore'), legs: fanMaterial('legs'),
+  head: fanMaterial('head'), hair: fanMaterial('head'), brim: fanMaterial('head'),
+  flag: fanMaterial('flag', { vertexColors: true, side: THREE.DoubleSide }),
 };
-const chairMat = new THREE.MeshStandardMaterial({ roughness: 0.5 });
+const chairMat = new THREE.MeshLambertMaterial();
 const TEAM_IDX = { player: 0, ai: 1, n: 2 };
 
 /** Fans in these seats ({ x, y, z, yaw, fill } where y is the floor under their feet). A seat may
@@ -1824,19 +1806,7 @@ function crowdCardMaterial() {
   return cardMat;
 }
 
-/* ---------- Light beams, screens, banners ---------- */
-/** A soft cone of light hanging down from its origin (additive, fades at the edges and the bottom). */
-function makeBeam(color, opacity, rTop, rBot, h) {
-  const mat = new THREE.ShaderMaterial({
-    uniforms: { uColor: { value: new THREE.Color(color) }, uOpacity: { value: opacity } },
-    vertexShader: /* glsl */`varying float vY; varying vec3 vN, vV;
-      void main() { vY = uv.y; vec4 mv = modelViewMatrix * vec4(position, 1.); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
-    fragmentShader: /* glsl */`uniform vec3 uColor; uniform float uOpacity; varying float vY; varying vec3 vN, vV;
-      void main() { float e = abs(dot(normalize(vN), normalize(vV))); gl_FragColor = vec4(uColor, uOpacity * e * e * (.15 + .85 * vY * vY)); }`,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-  });
-  return new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, 24, 1, true).translate(0, -h / 2, 0), mat);
-}
+/* ---------- Screens, banners ---------- */
 // The big screens (score) and the fans' banners are canvases shared by
 // every venue; drawScreens / drawBanners repaint them.
 const screenTex = canvasTex(512, 256);
@@ -1987,11 +1957,11 @@ const VENUE_CFG = {
       tableTop: std(COLORS.table, { roughness: 0.45 }),
     } },
   arena: { bg: 0x07090e, fog: [0x07090e, 16, 48], light: { amb: 0.3, hemi: 0.45, sun: 2.4 }, exposure: 1, idle: 0.02,
-    floor: 0x14171d, mat: 0x6b2b2b, endZ: 7.3, sideX: 5.9, endRows: 10, sideRows: 8, upper: 8, roof: 17, fixY: 12, beam: 0.05,
+    floor: 0x14171d, mat: 0x6b2b2b, endZ: 7.3, sideX: 5.9, endRows: 10, sideRows: 6, upper: 8, roof: 17, fixY: 12,
     screen: [6.4, 3.2], screenY: 8.8, flashes: 160, seat: s => (s.row < 2 ? 0x7c1f2c : 0x203c74),
     mats: { step: std(0x1d222b, { roughness: 0.95 }), aisle: std(0x343a46, { roughness: 0.9 }), strip: std(0x1c3566, { roughness: 0.7 }) } },
   stadium: { bg: 0x05060d, fog: [0x070814, 18, 62], light: { amb: 0.25, hemi: 0.4, sun: 2.6 }, exposure: 1, idle: 0.06,
-    floor: 0x10121c, mat: 0x4a1626, endZ: 7.6, sideX: 6.2, endRows: 12, sideRows: 10, upper: 10, roof: 21, fixY: 14, beam: 0.045,
+    floor: 0x10121c, mat: 0x4a1626, endZ: 7.6, sideX: 6.2, endRows: 10, sideRows: 7, upper: 10, roof: 21, fixY: 14,
     screen: [9, 4.5], screenY: 11, flashes: 260, seat: s => (s.row < 2 ? 0xb08a2a : 0x7d1a24),
     mats: { step: std(0x1b1d27, { roughness: 0.95 }), aisle: std(0x3a3442, { roughness: 0.9 }), strip: std(0x6a1620, { roughness: 0.7 }) } },
 };
@@ -2007,7 +1977,8 @@ function buildBowl(key) {
   const reach = c.sideX + c.sideRows * 0.85, endW = 2 * reach;
   const banners = [{ at: -0.3, k: 0 }, { at: 0.3, k: 1 }, { at: -0.66, k: 1 }, { at: 0.66, k: 0 }];
   for (const s of [-1, 1]) {
-    addStand(V, seats, { z: s * c.endZ, yaw: s < 0 ? 0 : Math.PI, width: endW, rows: c.endRows, banners });
+    // Behind you (only seen from the menus): painted crowd cards, which cost far less than fans.
+    addStand(V, seats, { z: s * c.endZ, yaw: s < 0 ? 0 : Math.PI, width: endW, rows: c.endRows, banners, cards: s > 0 });
     addStand(V, seats, { x: s * c.sideX, yaw: -s * Math.PI / 2, width: 2 * c.endZ - 0.9, rows: c.sideRows, banners: banners.slice(0, 2) });
   }
   // Upper tier, on all four sides, above a concourse with an LED ribbon.
@@ -2017,7 +1988,7 @@ function buildBowl(key) {
     addStand(V, null, { z: s * fz, yaw: s < 0 ? 0 : Math.PI, width: 2 * (fx + uw), rows: c.upper, base: ubE, cards: true, led: 0.7, wall });
     addStand(V, null, { x: s * fx, yaw: -s * Math.PI / 2, width: 2 * fz - 0.9, rows: c.upper, base: ubS, cards: true, led: 0.7, wall });
   }
-  // Roof: a dark ceiling, a truss grid, and floodlights over the court with soft beams.
+  // Roof: a dark ceiling, a truss grid, and floodlights over the court.
   const span = 2 * (fz + uw) + 4, roofY = c.roof;
   putPart(V, 'roof', new THREE.PlaneGeometry(span, span).rotateX(Math.PI / 2).translate(0, roofY, 0));
   for (let k = -12; k <= 12; k += 4) {
@@ -2027,7 +1998,6 @@ function buildBowl(key) {
   for (const x of [-2.4, 2.4]) for (const z of [-4.4, -1.6, 1.2]) {
     putPart(V, 'fixture', geoBox(0.9, 0.22, 0.9, x, c.fixY, z));
     putPart(V, 'metal', geoBox(0.05, roofY - 1.6 - c.fixY, 0.05, x, (roofY - 1.6 + c.fixY) / 2, z));
-    const b = makeBeam(0xfff1d8, c.beam, 0.35, 2.6, c.fixY); b.position.set(x, c.fixY - 0.1, z); V.stands.add(b);
   }
   // Big screens hanging in front of each upper tier.
   for (const s of [-1, 1]) {
@@ -2043,25 +2013,8 @@ function buildBowl(key) {
   finishParts(V);
   return V;
 }
-/** World Championship: colour beams sweeping from the roof (harder when the crowd roars) and the
- *  flags of the nations hanging above the upper tier. */
+/** World Championship: the flags of the nations hanging above the upper tier. */
 function stadiumExtras(V, fz, uw, roofY) {
-  const beams = [];
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2, pivot = new THREE.Group(), b = makeBeam(0xffffff, 0.05, 0.2, 2.4, roofY + 1);
-    pivot.position.set(Math.cos(a) * 9, roofY - 2, Math.sin(a) * 12);
-    pivot.add(b); V.stands.add(pivot);
-    beams.push({ pivot, b, hue: i / 8 });
-  }
-  V.tick = (dt, t) => {
-    const e = 0.45 + crowd.cheer.z;
-    beams.forEach((o, i) => {
-      o.pivot.rotation.x = Math.sin(t * 0.45 + i) * 0.5;
-      o.pivot.rotation.z = Math.cos(t * 0.37 + i * 1.7) * 0.5;
-      o.b.material.uniforms.uColor.value.setHSL((o.hue + t * 0.04) % 1, 0.85, 0.6);
-      o.b.material.uniforms.uOpacity.value = 0.05 * e;
-    });
-  };
   const flags = [[0xc8102e, 0xffffff, 0x002395], [0x009246, 0xffffff, 0xce2b37], [0x000000, 0xdd0000, 0xffce00], [0x003893, 0xffffff, 0xcf2027],
     [0xff883e, 0xffffff, 0x009b3a], [0x0055a4, 0xffd700, 0x0055a4], [0xd52b1e, 0xffd700, 0xd52b1e], [0x002b7f, 0xfcd116, 0xce1126]];
   const tex = canvasTex(1024, 256, g => flags.forEach((f, i) => {
@@ -2143,8 +2096,8 @@ function buildGym() {
     for (const dx of [-0.6, 0.6]) P('metal', geoBox(0.04, 0.75, 0.3, x + dx, 0.375, z));
   }
   // Bleachers along both side walls and the far end; a row of chairs for the players at the far end.
-  const bleacher = { depth: 0.7, rise: 0.36, base: 0.3, gap: 0.5, aisle: 0, bench: true, stepKey: 'bleacher' };
-  for (const s of [-1, 1]) addStand(V, seats, { ...bleacher, x: s * 8, yaw: -s * Math.PI / 2, width: 2 * D - 6, rows: 5, banners: [{ at: -0.25, k: 0 }, { at: 0.3, k: 1 }] });
+  const bleacher = { depth: 0.7, rise: 0.36, base: 0.3, gap: 0.56, aisle: 0, bench: true, stepKey: 'bleacher' };
+  for (const s of [-1, 1]) addStand(V, seats, { ...bleacher, x: s * 8, yaw: -s * Math.PI / 2, width: 2 * D - 6, rows: 4, banners: [{ at: -0.25, k: 0 }, { at: 0.3, k: 1 }] });
   addStand(V, seats, { ...bleacher, z: -9, width: 14, rows: 5, banners: [{ at: -0.45, k: 1 }, { at: 0.45, k: 0 }] });
   const waiting = [];
   for (let x = -5.1; x <= 5.1; x += 0.6) waiting.push({ x, y: 0, z: -7.1, yaw: 0, row: 0, fill: Math.random() * 0.6 });
@@ -4930,8 +4883,6 @@ function syncSettings() {
   $('btn-auto').setAttribute('aria-pressed', String(autoJutsu));
   $('btn-mute').textContent = Sound.muted ? 'Off' : 'On';
   $('btn-mute').setAttribute('aria-pressed', String(!Sound.muted));
-  $('btn-glow').textContent = glowOn ? 'On' : 'Off';
-  $('btn-glow').setAttribute('aria-pressed', String(glowOn));
   $('sens').value = touchSens.value;
   $('sens-val').textContent = touchSens.mult.toFixed(2).replace(/0$/, '') + '×';
 }
@@ -5246,8 +5197,6 @@ $('btn-mute').addEventListener('click', e => { e.stopPropagation(); Sound.init()
 { const v = store.get('pp3d.touchSens'); if (Number.isFinite(v)) touchSens.value = clamp(v, 0, 100); }
 $('sens').addEventListener('input', e => { touchSens.value = +e.target.value; store.set('pp3d.touchSens', touchSens.value); syncSettings(); });
 autoJutsu = !!store.get('pp3d.autoJutsu', false);
-glowOn = store.get('pp3d.glow', true) !== false;
-$('btn-glow').addEventListener('click', e => { e.stopPropagation(); glowOn = !glowOn; store.set('pp3d.glow', glowOn); syncSettings(); });
 $('btn-auto').addEventListener('click', e => { e.stopPropagation(); autoJutsu = !autoJutsu; store.set('pp3d.autoJutsu', autoJutsu); syncSettings(); syncChakra(); });
 $('btn-help-close').addEventListener('click', hideOverlay);
 $('btn-settings-close').addEventListener('click', hideOverlay);
@@ -5585,7 +5534,7 @@ function frame(now) {
   updateCrowd(dt, now / 1000);
   if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0) $('msg').classList.remove('show'); }
 
-  if (glowOn) composer.render(); else renderer.render(scene, camera);
+  renderer.render(scene, camera);
 }
 
 // Debug/console hook (handy for tuning; not used by the game itself).
