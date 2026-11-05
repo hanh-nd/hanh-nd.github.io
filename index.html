@@ -740,6 +740,8 @@ const PLAYER_CFG = {
   serveMaxZ: 1.75,        // ...but close enough to bounce the ball on your own half
   serveMaxX: 0.75,
   restY: 0.92,
+  maxY: 2.2,              // highest the racket reaches up for a ball that kicked up high (with the
+                          // lenient vertical contact, balls up to ~2.5 m): in frame on a phone
   followRate: 40,         // racket (arm) smoothing toward the target (1/s)
   heightRate: 30,
   bodySpeed: 4.5,         // footwork: top speed (m/s) and acceleration (m/s²) — quick, so the
@@ -778,11 +780,14 @@ const PLAYER_CFG = {
  *  smash: chance of smashing a ball that sits up high (see AI_COMMON.smashHeight) ·
  *  smashError: hand error of its smash, relative to the player's (AIM.smash) ·
  *  pattern: chance of playing one of its style's patterns in a point (STYLE_PATTERNS) ·
- *  adapt: at most this share of its shots goes at the zone where you keep missing (ADAPT) */
+ *  adapt: at most this share of its shots goes at the zone where you keep missing (ADAPT) ·
+ *  read: how well it sees its own ball sitting up for your smash — it backs off (SMASH_D) ·
+ *  counter: at full anti-smash, chance it meets a smash it could read with a counter-block ·
+ *  antiSmash: how far it adapts to a smash-happy opponent (ADAPT.smash, 0 = never) */
 const AI_LEVELS = {
-  easy:   { label: 'Easy',   speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.35, smashError: 1.9,  pattern: 0.55, adapt: 0.35 },
-  medium: { label: 'Medium', speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.6,  smashError: 1.45, pattern: 0.7,  adapt: 0.5 },
-  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.85, smashError: 1.15, pattern: 0.8,  adapt: 0.6 },
+  easy:   { label: 'Easy',   speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.35, smashError: 1.9,  pattern: 0.55, adapt: 0.35, read: 0,   counter: 0,    antiSmash: 0 },
+  medium: { label: 'Medium', speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.6,  smashError: 1.45, pattern: 0.7,  adapt: 0.5,  read: 0.5, counter: 0.35, antiSmash: 0.5 },
+  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 125, aimError: 0.03, power: 1.2,  spin: 1.0,  mistakeRate: 0.014, smash: 0.85, smashError: 1.15, pattern: 0.8,  adapt: 0.6,  read: 1,   counter: 0.65, antiSmash: 1 },
 };
 const LEVEL_ORDER = ['easy', 'medium', 'hard'];
 const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruthless' };
@@ -862,24 +867,31 @@ const PATTERN_BY_ID = Object.fromEntries(Object.values(STYLE_PATTERNS).flat().ma
  *  read your ball (contactSignature): deep / short (over the table) / high, your pace (minSpeed),
  *  your spin (backspin). Effects: see aiHit / aiServe / playerHit (sigReturn). */
 const SIGNATURES = {
-  'phantom-chop': { owner: 'Joo Se-hyuk', name: 'Phantom Chop', color: 0x8fe3ff, chance: 0.3, when: 'deep',
+  'phantom-chop': { owner: 'Joo Se-hyuk', name: 'Phantom Chop', color: 0x8fe3ff, chance: 0.45, when: 'deep',
     counter: 'PUSH it' },
-  'mozart-serve': { owner: 'Jan-Ove Waldner', name: 'Mozart Serve', color: 0xffd23f, chance: 0.35, when: 'serve',
+  'mozart-serve': { owner: 'Jan-Ove Waldner', name: 'Mozart Serve', color: 0xffd23f, chance: 0.5, when: 'serve',
     counter: 'Swipe against the lean' },
-  'chorei-counter': { owner: 'Tomokazu Harimoto', name: 'Chorei Counter', color: 0xff7a1a, chance: 0.3, when: 'deep', minSpeed: 8,
+  'chorei-counter': { owner: 'Tomokazu Harimoto', name: 'Chorei Counter', color: 0xff7a1a, chance: 0.45, when: 'deep', minSpeed: 8,
     counter: 'Slow it down' },
-  'dragon-loop': { owner: 'Ma Long', name: 'Dragon Loop', color: 0xff4d2e, chance: 0.3, when: 'deep', backspin: true,
+  'dragon-loop': { owner: 'Ma Long', name: 'Dragon Loop', color: 0xff4d2e, chance: 0.3, when: 'deep',
     counter: 'DRIVE through it' },
-  'chiquita': { owner: 'Zhang Jike', name: 'Chiquita Flick', color: 0xb8ff3a, chance: 0.4, when: 'short',
+  'chiquita': { owner: 'Zhang Jike', name: 'Chiquita Flick', color: 0xb8ff3a, chance: 0.6, when: 'short',
     counter: 'Keep it long' },
-  'ghost-serve': { owner: 'Ding Ning', name: 'Ghost Serve', color: 0xd78bff, chance: 0.35, when: 'serve',
+  'ghost-serve': { owner: 'Ding Ning', name: 'Ghost Serve', color: 0xd78bff, chance: 0.5, when: 'serve',
     counter: 'Do the opposite' },
-  'pimple-reversal': { owner: 'Kim Kyung-ah', name: 'Spin Reversal', color: 0x4dffc3, chance: 0.3, when: 'deep', backspin: true,
+  'pimple-reversal': { owner: 'Kim Kyung-ah', name: 'Spin Reversal', color: 0x4dffc3, chance: 0.45, when: 'deep', backspin: true,
     counter: 'DRIVE the fake chop' },
-  'hayabusa': { owner: 'Mima Ito', name: 'Hayabusa', color: 0xff4fa3, chance: 0.45, when: 'high',
+  'hayabusa': { owner: 'Mima Ito', name: 'Hayabusa', color: 0xff4fa3, chance: 0.65, when: 'high',
     counter: 'Keep it low' },
 };
 const SIGNATURE_OF = Object.fromEntries(Object.entries(SIGNATURES).map(([id, s]) => [s.owner, id]));
+/** How much a signature weighs. pressure: extra hand error (× 1 + pressure) on your return even
+ *  when you play the right counter — it gets the ball back, not a free one · lean: how far (m) a
+ *  Mozart Serve / Chiquita carries a return that doesn't swipe against its curve. Picked in the
+ *  headless sim (sim/sig.sh): signatures 1.5× as often (Dragon Loop: any deep ball, not just
+ *  backspin) with this pressure and lean make a signature win the point outright ~51% of the time
+ *  vs a player who doesn't know the counters and ~33% vs one who does (a normal stroke: ~10%). */
+const SIG_POWER = { pressure: 0.8, lean: 0.8 };
 
 /** Chakra and jutsu. Each side has a chakra bar of 3 seals (in 2v2 the team shares one: only you
  *  spend yours, your ally just fills it). Clean strokes, long rallies and every point fill it. With a
@@ -1015,6 +1027,29 @@ const ADAPT = {
   minWeight: 1.6,         // a zone needs this weight (about 2 recent misses) to be targeted
   hold: [3, 4],           // points a target is held before switching
   rest: 2,                // points without a target when nothing new stands out
+  // Your shot habits: it counts your smashes and the points they win you (both fade every point)
+  // and, the more you lean on the smash, the more it plays against it (anti, 0..1, capped by
+  // AI_LEVELS.antiSmash): lower balls with more backspin and drop shots, a deeper stance, quicker
+  // reads and counter-blocks (SMASH_D). Stop smashing and it fades back to its normal game.
+  smash: { decay: 0.85, use: 0.16, won: 0.16, rise: 0.15, fall: 0.1 },
+};
+/** Smash defense: what a CPU does about a smash (see aiOnOpponentHit, aiHit, aiCounterBlock).
+ *  Only the stance (back) is always on; the reads come with anti (ADAPT.smash), so a smash now and
+ *  then is as strong as ever — in the headless sim (sim/) any early read of the smash took a big
+ *  bite out of smashes off high balls. A smash off a ball that really sat up (contact above
+ *  `clean`) can't be read; one off a lower ball (at `lazy` and below) can, fully — the reads and
+ *  the counter-block scale in between.
+ *  back: m it steps back when its own ball will sit up for you (per m of height above sitsUp,
+ *  at most backMax, × level read) · antiBack: m deeper at full anti · react: share of its reaction
+ *  time it saves on a smash it read, at full anti · block: its counter-block's pace (× the
+ *  smash's) and pace range (m/s) · lowArc / chop / short: at full anti, its strokes' arc ceiling
+ *  drops by lowArc (m), and chop and drop-shot shares rise by these. */
+const SMASH_D = {
+  lazy: 0.25, clean: 0.45,
+  sitsUp: 0.28, back: 1.4, backMax: 0.5, antiBack: 0.3,
+  react: 0.45,
+  block: { pace: 0.55, min: 7.5, max: 10.5, top: [15, 35] },
+  lowArc: 0.12, chop: 0.3, short: 0.12,
 };
 
 /** Tournament field: world, Olympic and World Cup champions, men and women (styles are loose
@@ -2653,7 +2688,7 @@ function updatePlayer(dt) {
   // then — tracking the ball itself would put the racket in its path (a volley loses the point).
   let ty = PLAYER_CFG.restY;
   if (rally.live && rally.lastHitter === 'ai' && yourTurn() && ball.v.z > 0 && ball.p.z > -0.3) {
-    ty = clamp(canHit('player') ? ball.p.y : rally.expectY, TABLE_TOP + 0.06, 1.7);
+    ty = clamp(canHit('player') ? ball.p.y : rally.expectY, TABLE_TOP + 0.06, PLAYER_CFG.maxY);
   }
   const minY = racketMinY(r.pos.x, r.pos.z);
   r.pos.y += (Math.max(ty, minY) - r.pos.y) * (1 - Math.exp(-PLAYER_CFG.heightRate * dt));
@@ -2847,7 +2882,7 @@ function playerHit(contactDist) {
   // Mozart Serve, Chiquita: the sidespin carries your return toward the side it curved to, unless
   // you swipe sideways against it.
   if (bs && bs.lean && (sig === 'mozart-serve' || sig === 'chiquita')) {
-    tx += bs.lean * 0.4 * (1 - clamp(-sl * bs.lean / 1.2, 0, 1));
+    tx += bs.lean * SIG_POWER.lean * (1 - clamp(-sl * bs.lean / 1.2, 0, 1));
   }
 
   let edge = false;
@@ -2869,7 +2904,8 @@ function playerHit(contactDist) {
   // FLOW steadies the hand.
   const js = jid && jutsuShot(jid, 'player', 0, contact);
   if (js && js.shot) shot = js.shot;
-  const err = jid ? NO_ERROR : strokeError(AIM.stroke * (flow.player ? FLOW.aim : 1), contact.speedIn, contact.h, contact.off);
+  const heavy = sig && !sigMiss ? 1 + SIG_POWER.pressure : 1;   // a signature: even the right answer is hard to play
+  const err = jid ? NO_ERROR : strokeError(AIM.stroke * (flow.player ? FLOW.aim : 1) * heavy, contact.speedIn, contact.h, contact.off);
   shot = handPlay(ball.p, shot, err, brush ? 0 : AIM.rescues);
   if (sigMiss === 'net') intoNet(shot);   // the spin drags it down into the net
   if (sigMiss === 'long') {  // the spin kicks it off the end: it carries until it misses the table
@@ -2949,7 +2985,13 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   const jid = yourJutsu(), J = jid && JUTSU[jid];
   let vh = clamp(SMASH.minSpeed + (swing - SMASH.minSwing) * 1.2, SMASH.minSpeed, SMASH.maxSpeed);
   // The flick's direction leads the aim (diagonal right → right); contact point adds a little.
-  const tx = clamp(contact.x * 0.3 + contact.offX * 0.6 + sl * 0.25, -0.65, 0.65);
+  // A signature shot: a smash is a drive to it (see sigReturn) — it holds a Dragon Loop, but a
+  // Phantom Chop or a backspin Ghost Serve still drags it into the net, and a Mozart Serve's or a
+  // Chiquita's curve carries it wide unless the flick goes against it. (An upgrade: the stroke it
+  // grew from already answered the signature.)
+  const bs = rally.botShot, sig = !jid && !upgrade && bs && bs.by !== 'player' && bs.sig;
+  let tx = clamp(contact.x * 0.3 + contact.offX * 0.6 + sl * 0.25, -0.65, 0.65);
+  if (sig && bs.lean && (sig === 'mozart-serve' || sig === 'chiquita')) tx += bs.lean * SIG_POWER.lean * (1 - clamp(-sl * bs.lean / 1.2, 0, 1));
   const tz = -rand(0.95, 1.25);
   const top = SMASH.topspin + input.tilt * 40;
   let shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, clamp(sl * 5, -30, 30));
@@ -2959,8 +3001,12 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   }
   const js = jid && jutsuShot(jid, 'player', 0, contact);
   if (js && js.shot) shot = js.shot;
-  const err = jid ? NO_ERROR : strokeError(AIM.smash * (flow.player ? FLOW.aim : 1), contact.speedIn, contact.h, contact.off, contact.topIn - input.tilt * 80, AIM.smashLow);
+  const sigMiss = sig ? sigReturn(bs, { push: false, touch: false, drive: true }) : null;
+  const heavy = sig && !sigMiss ? 1 + SIG_POWER.pressure : 1;
+  const err = jid ? NO_ERROR : strokeError(AIM.smash * (flow.player ? FLOW.aim : 1) * heavy, contact.speedIn, contact.h, contact.off, contact.topIn - input.tilt * 80, AIM.smashLow);
   shot = handPlay(ball.p, shot, err, AIM.rescues);
+  if (sigMiss === 'net') intoNet(shot);
+  if (sigMiss === 'long') { shot.v.x *= 1.25; shot.v.z *= 1.25; shot.v.y += 0.8; }
   // Smashing into a jutsu that wants a block or a push: it flies long / dies in the net.
   const miss0 = answerMiss(J, { still: false, push: false });
   if (miss0 === 'long') { shot.v.x *= 1.25; shot.v.z *= 1.25; shot.v.y += 0.8; }
@@ -2980,8 +3026,10 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   } else showMessage('SMASH!', `${Math.round(kmh)} km/h${miss ? ` · ${miss}` : ''}`, miss ? 'bad' : 'warn', 0.9, 2);
   Sound.smash();
   pendingUpgrade = null;
-  if (upgrade) { const c = turnBot('ai'); if (c) aiOnOpponentHit(c); }   // same stroke, new trajectory: the CPU has to re-read it
-  else registerHit('player', 1.2);
+  if (!jid) rally.yourSmashes++;   // your habits (ADAPT.smash) — a jutsu is chakra, not a habit
+  rally.smashH = contact.h;
+  if (upgrade) { rally.smashed = !jid; const c = turnBot('ai'); if (c) aiOnOpponentHit(c); }   // same stroke, new trajectory: the CPU has to re-read it
+  else registerHit('player', 1.2, !jid);
 }
 
 /** If this smash won't land, the main reason, so the player learns which balls to smash. */
@@ -3042,7 +3090,7 @@ function makeAI(owner, racket, body) {
     adapt: newAdapt() };
 }
 /** Per-match adaptation state (see ADAPT): decayed miss weights per zone and the current target. */
-function newAdapt() { return { zoneMiss: {}, target: null, heldPoints: 0, hold: ADAPT.hold[0], rest: 0 }; }
+function newAdapt() { return { zoneMiss: {}, target: null, heldPoints: 0, hold: ADAPT.hold[0], rest: 0, smashUse: 0, smashWon: 0, anti: 0 }; }
 const ai = makeAI('ai', aiRacket, aiBody);
 const nearAI = makeAI('player', player, playerBody);
 const ally = makeAI('player', allyRacket, allyBody), ai2 = makeAI('ai', ai2Racket, ai2Body);
@@ -3083,6 +3131,10 @@ const reachZ = (c, depth) => c.s * clamp(depth, -AI_COMMON.maxZ, -AI_COMMON.minZ
 const signatureOf = c => SIGNATURE_OF[c.name] || null;
 /** Is c adapting to you? Only the far CPU, only when you play it. */
 const adapting = c => c === ai && !match.watch;
+/** How hard c plays against your smash right now (0..1): its adaptation × its level's cap. */
+const antiSmash = c => (adapting(c) ? c.adapt.anti * levelCfg(c).antiSmash : 0);
+/** How readable the smash coming at it is: 1 off a low ball, 0 off one that really sat up (SMASH_D). */
+const smashRead = () => (rally.smashed ? clamp((SMASH_D.clean - rally.smashH) / (SMASH_D.clean - SMASH_D.lazy), 0, 1) : 0);
 
 function aiOnOpponentHit(c) {
   c.plan = { readyAt: simTime + levelCfg(c).reactionMs * styleCfg(c).reaction / 1000, computed: false, nextUpdate: 0, point: null, err: null,
@@ -3096,6 +3148,11 @@ function aiOnOpponentHit(c) {
   // Boomerang Snake: unless it reads the curl, it follows the ball out wide.
   if (jt && JUTSU[jt.id].snake && jt.by !== c.owner && Math.random() >= JUTSU_AI[c.level].see) {
     c.plan.err = { x: Math.sign(ball.p.x || 1) * 0.22, y: 0, z: 0 };
+  }
+  // A smash it saw coming (it knows you love the smash, and the ball wasn't that high): it reacts sooner.
+  if (rally.smashed) {
+    const save = SMASH_D.react * antiSmash(c) * smashRead();
+    c.plan.readyAt = simTime + (c.plan.readyAt - simTime) * (1 - save);
   }
   // Infinite Void: the other side's domain — it reacts late. Flying Thunder God: it is there at once.
   if (rally.void && rally.void !== c.owner) c.plan.readyAt += VOID.delay;
@@ -3281,7 +3338,8 @@ function aiIntercept(c, take, b0 = ball) {
 function updateAI(c, dt) {
   const cfg = levelCfg(c), r = c.racket;
   if (rally.stop && rally.stop.side === c.owner) return r.integrateVelocity(dt);   // Time Stop: frozen with the ball
-  const homeZ = c.s * (-AI_COMMON.home.z + styleCfg(c).depth);
+  // Its ball sits up for you (backOff, set as it hits) or you smash a lot (antiSmash): it waits deeper.
+  const homeZ = c.s * (-AI_COMMON.home.z + styleCfg(c).depth + (c.backOff || 0) + SMASH_D.antiBack * antiSmash(c));
   let goal = { x: ball.p.x * 0.3, y: AI_COMMON.home.y, z: homeZ };   // drift home, shading the ball
   const pre = match.state === 'serve' || match.state === 'toss';
   if (pre && serverBot() === c) {
@@ -3350,6 +3408,9 @@ function aiHit(c) {
   const when = it.sig && SIGNATURES[it.sig].when;
   if (when && when !== 'high' && (when === 'short') !== overTable) it = { ...it, sig: null };   // the contact changed
   if (overTable && it.sig !== 'hayabusa') return aiShortBall(c, it, mistake);   // (a ball high over the table can be hit)
+  // Your smash: once it has adapted to you, it may meet it with a counter-block.
+  const anti = antiSmash(c);
+  if (rally.smashed && !mistake && !it.sig && Math.random() < cfg.counter * anti * smashRead()) return aiCounterBlock(c, speedIn, it);
   const pace = it.pace || 1;
   const power = cfg.power * st.power;
   const sideSign = aiSide(c, it);
@@ -3364,14 +3425,14 @@ function aiHit(c) {
   let vh = (3.4 + power * 4.5 + Math.random() * 0.6) * (1 - stretch * 0.35) * pace;
   // Topspin drives, sometimes a slower chop (heavy backspin: push it back) — how often depends on
   // the style, or on the plan. Better players spin harder.
-  const chop = it.spin ? it.spin === 'chop' || it.spin === 'float' : Math.random() < st.chop;
+  const chop = it.spin ? it.spin === 'chop' || it.spin === 'float' : Math.random() < st.chop + SMASH_D.chop * anti;   // vs a smasher: more backspin
   let top = chop ? -rand(0.55, 1) * (90 + 110 * cfg.spin) * st.chopSpin : rand(0.5, 1) * (50 + 130 * cfg.spin) * st.top;
   let shownTop = top;   // what the racket face shows: a float or a reversal looks just like a chop
   if (it.spin === 'top') top = rand(0.8, 1) * (50 + 130 * cfg.spin) * Math.max(st.top, 1);
   if (it.spin === 'flat') top = rand(15, 35);
   if (it.spin === 'float') top = -rand(5, 15);   // ...but carries almost no spin
   if (chop) { vh *= 0.8; tz = Math.max(tz, 0.95); }   // chops are slow and deep
-  let side = rand(-1, 1) * cfg.spin * 40 * st.side, maxArc = AI_COMMON.maxArc;
+  let side = rand(-1, 1) * cfg.spin * 40 * st.side, maxArc = AI_COMMON.maxArc - SMASH_D.lowArc * anti;   // ...and lower
   // Signatures: the stroke itself (see SIGNATURES; their effect on your return: sigReturn).
   const sig = mistake ? null : it.sig;
   if (sig === 'phantom-chop') { top = -rand(0.92, 1) * (300 + 60 * cfg.spin); vh = rand(6.2, 6.8); maxArc = 0.3; }   // low, deep, dead
@@ -3382,7 +3443,7 @@ function aiHit(c) {
   if (sig === 'pimple-reversal' || it.spin === 'float') shownTop = -rand(0.55, 1) * (90 + 110 * cfg.spin) * st.chopSpin;
   else if (sig) shownTop = top;
   // A short drop shot, just over the net (only if the opponent can reach it before its second bounce).
-  if (!mistake && !sig && (it.depth === 'short' || (!it.depth && Math.random() < st.short))) {
+  if (!mistake && !sig && (it.depth === 'short' || (!it.depth && Math.random() < st.short + SMASH_D.short * anti))) {
     const drop = solveShot(ball.p, { x: tx * 0.7, z: toward * rand(0.5, 0.7) }, vh * 0.6, top * 0.5, side);
     if (opponentCanReach(c, drop)) {
       aiPlay(c, drop, it.spin === 'float' ? shownTop * 0.5 : top * 0.5, 0.3);
@@ -3398,6 +3459,21 @@ function aiHit(c) {
   if (kind === 'net') intoNet(shot);
   aiPlay(c, shot, shownTop, sig ? 1 : 0.4 + power * 0.5);
   noteAIShot(c, { ...it, sig }, tx, top, false);   // a missed signature isn't one
+}
+
+/** Counter-block of a smash: no swing, the racket just meets it and sends its pace back — flat,
+ *  low and fast to the corner away from the smasher's racket, while they are still finishing
+ *  the smash (SMASH_D.block). */
+function aiCounterBlock(c, speedIn, it) {
+  const cfg = levelCfg(c), toward = -c.s, B = SMASH_D.block;
+  const opp = turnRacket(other(c.owner));
+  const open = Math.abs(opp.pos.x) > 0.08 ? -Math.sign(opp.pos.x) : Math.random() < 0.5 ? -1 : 1;
+  const tx = open * rand(0.42, 0.64) * (1 - cfg.aimError) + rand(-1, 1) * cfg.aimError * 0.5;
+  const tz = toward * rand(0.95, 1.2);
+  const top = rand(...B.top);
+  const shot = aimAI(c, { x: tx, z: tz }, clamp(speedIn * B.pace, B.min, B.max), top, 0, AI_COMMON.maxArc - SMASH_D.lowArc, true);
+  aiPlay(c, shot, top, 0.8);
+  noteAIShot(c, { ...it, sig: null }, tx, top, false);
 }
 
 /** A jutsu coming at c that wants `need` ('block' / 'push'): it answers right (JUTSU_AI.block) — a
@@ -3532,8 +3608,22 @@ function aiPlay(c, shot, top, intensity) {
   c.racket.tilt = clamp(top / 140, -1, 1);
   c.racket.swing = 1;
   c.recoverUntil = simTime + AI_COMMON.recovery;
+  readOwnBall(c);
   if (match.watch) trackFastest(shot);
   registerHit(c.owner, intensity);
+}
+/** c has just struck the ball (now in flight): if it will sit up for the opponent after its bounce,
+ *  a CPU that reads it (AI_LEVELS.read) steps back for the smash it expects (SMASH_D). */
+function readOwnBall(c) {
+  c.backOff = 0;
+  // In 2v2 its partner plays the next ball (called before registerHit passes the turn).
+  const next = match.doubles ? memberBot(c.owner, rally.turn[c.owner] ^ 1) : c;
+  if (!next) return;
+  next.backOff = 0;
+  const read = levelCfg(next).read;
+  if (!read) return;
+  const top = predictIntercept(ball, -c.s, 2.5, PLAYER_CFG.minZ);
+  if (top) next.backOff = clamp((top.y - TABLE_TOP - SMASH_D.sitsUp) * SMASH_D.back, 0, SMASH_D.backMax) * read;
 }
 /** Record a shot's pace for the end-of-match stats; returns it in km/h. */
 function trackFastest(shot) {
@@ -3564,7 +3654,9 @@ function aiSmash(c, speedIn) {
   const kmh = match.watch ? trackFastest(shot) : Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
   showMessage('SMASH!', `${match.watch ? nameOf(c.owner) + ' · ' : ''}${Math.round(kmh)} km/h`, match.watch ? 'warn' : 'bad', 0.9, 2);
   Sound.smash();
-  registerHit(c.owner, 1.2);
+  rally.smashH = ball.p.y - TABLE_TOP;
+  c.backOff = 0;
+  registerHit(c.owner, 1.2, true);
   noteAIShot(c, null, tx, SMASH.topspin, false);   // a smash replaces the planned stroke (the pattern waits)
 }
 
@@ -3766,6 +3858,7 @@ function godHandSave(side) {
   flashFx(j.color); Sound.godhand(); buzz(40);
   callout(j.kanji, j.name, 'CAUGHT', j.color);
   rally.pendingJutsu = null;
+  rally.botShot = null;   // the save is no stroke of theirs: an earlier signature no longer applies
   registerHit(side, 0.8);
 }
 /** Time Stop: the ball hangs over the net while the receiving side stands frozen (STOP.time). */
@@ -4048,6 +4141,7 @@ const match = {
   stats: null,
 };
 const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, lastHitTime: 0,
+  smashed: false, smashH: 0, yourSmashes: 0,
   shotW: { x: 0, y: 0, z: 0 }, shotBounces: 0,   // spin the last stroke put on the ball, table bounces since
   expectY: 0.92,                                  // height the player's racket waits at before the bounce
   botShot: null,      // the CPU's last stroke: { by, zone, sig, lean } (adaptation, scouting, signature trail)
@@ -4181,10 +4275,11 @@ function setupServe(first = false) {
   match.state = 'serve';
   match.rallyCount = 0;
   Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0, botShot: null, answering: null,
-    turn: { [match.server]: match.serverIdx, [other(match.server)]: match.receiverIdx }, jutsu: null, pendingJutsu: null, jutsuAnswer: null, cloneRevealAt: Infinity, fired: { player: false, ai: false }, slow: false, zone: null, warp: { player: false, ai: false }, hand: { player: false, ai: false }, void: null, hidden: false, snake: null, stop: null });
+    turn: { [match.server]: match.serverIdx, [other(match.server)]: match.receiverIdx }, jutsu: null, pendingJutsu: null, jutsuAnswer: null, cloneRevealAt: Infinity, fired: { player: false, ai: false }, slow: false, zone: null, warp: { player: false, ai: false }, hand: { player: false, ai: false }, void: null, hidden: false, snake: null, stop: null,
+    smashed: false, smashH: 0, yourSmashes: 0 });   // the last stroke was a smash · your smashes this point (ADAPT.smash)
   clearDecoys();
   match.toss = null;
-  for (const c of BOTS) { c.plan = null; c.recoverUntil = 0; }
+  for (const c of BOTS) { c.plan = null; c.recoverUntil = 0; c.backOff = 0; }
   for (const c of activeBots()) aiStartPoint(c);
   pendingUpgrade = null;
   marker.visible = false;
@@ -4218,8 +4313,10 @@ function canHit(who) {
   return rally.live && rally.serveStage === 0 && rally.lastHitter !== who && rally.bounceCount === 1;
 }
 
-function registerHit(who, intensity) {
+/** smash: this stroke is a smash (the receiving CPU may read it: SMASH_D). */
+function registerHit(who, intensity, smash = false) {
   const self = turnBot(who), youHit = isYou(who) && rally.turn[who] === 0;   // before the turn passes
+  rally.smashed = smash;   // (its contact height, rally.smashH, is set by the smash itself)
   // Jutsu: the one this stroke answered (if it lands, a counter) and the one it fired.
   rally.jutsuAnswer = rally.jutsu && rally.jutsu.by !== who ? rally.jutsu : null;
   rally.jutsu = rally.pendingJutsu;
@@ -4360,6 +4457,7 @@ function endPoint(winner, why, kind) {
  *  hammers your worst shot. */
 function adaptAfterPoint(c, winner, kind) {
   const a = c.adapt, shot = rally.botShot;
+  adaptToSmash(a, rally.yourSmashes, winner !== c.owner && kind === 'miss' && rally.smashed);
   for (const z in a.zoneMiss) a.zoneMiss[z] *= ADAPT.decay;
   if (winner === c.owner && kind !== 'fault' && shot && shot.by === c.owner) a.zoneMiss[shot.zone] = (a.zoneMiss[shot.zone] || 0) + 1;
   a.heldPoints++;
@@ -4375,6 +4473,16 @@ function adaptAfterPoint(c, winner, kind) {
     a.target = null;
     a.rest = ADAPT.rest;
   }
+}
+
+/** Your smash habit (ADAPT.smash): smashes this point and whether one won it (a winner, not an
+ *  error of the CPU's) build up `anti`; without them it fades. */
+function adaptToSmash(a, smashes, won) {
+  const S = ADAPT.smash;
+  a.smashUse = a.smashUse * S.decay + smashes;
+  a.smashWon = a.smashWon * S.decay + (won ? 1 : 0);
+  const want = clamp(a.smashUse * S.use + a.smashWon * S.won, 0, 1);
+  a.anti = want > a.anti ? Math.min(want, a.anti + S.rise) : Math.max(want, a.anti - S.fall);
 }
 
 function afterPoint() {
@@ -5539,7 +5647,9 @@ function frame(now) {
 window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiRacket, input, AI_LEVELS, predictIntercept, startMatch, playerServe, PLAYER_CFG,
   chakra, flow, armJutsu, get armed() { return armed; }, setWatchSpeed: n => { watchSpeed = n; }, ally, ai2, allyRacket, ai2Racket, startDuo, startQuick, startCharge, releaseCharge, JUTSU, JUTSU_AI, JUTSU_POOL, CHAKRA, decoys,
   playerBody, aiBody, togglePause, updateHUD, endMatch, showTourHub, Sound, ai, nearAI, scout, watchTourMatch, newTournament, playTourMatch,
-  get tour() { return tour; }, get simTime() { return simTime; } };
+  get tour() { return tour; }, get simTime() { return simTime; },
+  // Headless balance runs (a script steps the game and drives input.target like a finger).
+  test: { fixedUpdate, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SIG_POWER, SMASH_D, yourTurn, youServe, canHit, chakra } };
 
 showStartMenu();
 requestAnimationFrame(frame);
