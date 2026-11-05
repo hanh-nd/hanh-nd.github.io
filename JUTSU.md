@@ -62,6 +62,15 @@ The numbers come from CPU-vs-CPU duels at Medium: each point, one side gets 1–
 - **Practice:** a 1v1 that never ends (games roll on, no rank change, no grade). Two switches on Ready: **Seals refill every point** (on) and **CPU uses jutsu**. Leave from the pause menu.
 - **Game speed** is in Settings and applies straight away. Every choice (rival, level, event, speed, practice switches) is remembered.
 
+## Venues
+- Each kind of match has its own venue, all built in code (no image files). The menus show the venue of what you are choosing (pick an event to preview its venue).
+  - **School gym** (Club Open, Practice): wooden floor with court lines, bleachers, hoops, tube lights, the club's sign, a wall scoreboard.
+  - **Arena** (1v1, 2v2, Pro Tour): seats on all four sides, an upper tier behind an LED ribbon, floodlights with light beams, big screens with the live score.
+  - **Stadium** (World Championship): a bigger arena with colour beams sweeping from the roof and the nations' flags.
+- **Fans** sit on seats, stand and jump to cheer, raise their arms or clap, and follow the ball with their heads. Your fans wear your colour and the rival's fans wear theirs; some wave flags, and the banners on the stands name the players. Phone flashes go off after big points. Attendance grows round by round in a tournament.
+- Around the court: a coach for each player (they cheer their player's points) and towel boxes.
+- **Glow** (Settings): a glow on lights, screens and jutsu. Turn it off if a slow phone stutters.
+
 ## FLOW, Ego rank
 - **FLOW:** 3 points in a row. Until you lose a point: hand error ×0.6 (steadier aim) and chakra gain ×1.6. It does not slow time (that is Meta Vision). A CPU in FLOW makes 40% fewer mistakes.
 - **Ego rank:** starts at #300, climbs with wins (more against Hard, ×1.2 in 2v2, ×1.5 in the tournament), slips 4 on a loss. Each match ends with an S–D grade.
