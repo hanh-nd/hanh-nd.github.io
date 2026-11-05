@@ -26,29 +26,15 @@ node sim/run.mjs '{"policy":"mixed","matches":17,"level":"hard","tune":{"SMASH_D
 
 Scripted bots only approximate a person on a phone. Treat the numbers as relative (before vs after, bot vs bot), not as your own win rate.
 
-## Smash counterplay (Nov 2026)
+## Smash habit (Nov 2026)
 
-Problem: the smash felt like the only move needed against Hard. The CPU had no answer to a smash-happy player, and a ball that kicked above 1.7 m was out of reach.
+The CPU tracks your smashes per point and the points they win (`ADAPT.smash`). That builds up `anti` over a match, and it fades when you stop smashing. It's capped by level (`AI_LEVELS.antiSmash`: Easy 0, Medium 0.5, Hard 1).
 
-Changes:
-- **High balls:** the racket now reaches up to 2.2 m (`PLAYER_CFG.maxY`), which covers balls up to about 2.5 m.
-- **Smash habit:** the CPU tracks your smashes per point and the points they win (`ADAPT.smash`). This builds up `anti` over a match and fades when you stop smashing. Capped by level (`AI_LEVELS.antiSmash`: Easy 0, Medium 0.5, Hard 1).
-- **What `anti` does (`SMASH_D`):**
-  - Lower balls with more backspin and drop shots.
-  - A deeper stance.
-  - Reads a smash sooner and counter-blocks it to your open corner.
-  - Only smashes off balls lower than 0.45 m can be read. A smash off a ball that really sat up stays as strong as before.
-- **Always on (scaled by `AI_LEVELS.read`):** the CPU steps back when its own ball will sit up for you.
-- **Hard retune:** reaction 140 → 125 ms, aim error 0.04 → 0.03, unforced errors 0.02 → 0.014, pace 1.15 → 1.2. Footwork is unchanged: the sims showed faster CPU feet wiped out smash winners even on high balls.
-- **Signatures:** see SIGNATURE.md ("Balance").
+What `anti` does (`SMASH_D`):
+- Lower balls with more backspin and drop shots.
+- A deeper stance.
+- Reads a smash sooner and counter-blocks it to your open corner.
 
-Results vs Hard, 51 matches per bot, share of points the bot won:
+Only smashes off balls lower than 0.45 m can be read. A smash off a ball that really sat up is as strong as without it.
 
-| Bot | Before | Now |
-|---|---|---|
-| smash-all (smashes nearly everything) | 0.17 | 0.10 |
-| smasher (smashes anything above 0.2 m) | 0.38 | 0.35 |
-| mixed (sets up, smashes high balls) | 0.42 | 0.37 |
-| switcher (smashes, then changes plan after losing a game) | 0.38 | 0.33, 11 comebacks from a game down out of 50 |
-
-A smash-only bot (above 0.15 m) won 0 of 51 matches; its point share stays near 0.25 as the CPU's read climbs to about 0.66. The switcher takes 23% of game 1's points and 59% of game 3's once it changes plan.
+Everything else is unchanged: the racket height cap, the Hard numbers and the signatures. A first version also changed those; it was reverted.
