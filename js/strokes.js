@@ -1,10 +1,11 @@
 // Your strokes: contact, which stroke a swipe makes (drive, block, chop, sidespin, smash) and where it goes.
 import { clamp, rand } from './util.js';
-import { AIM, BLOCK, CHOP, JUTSU, PHYS, PLAYER_CFG, SIGNATURES, SMASH, SPIN } from './config.js';
+import { AIM, BLOCK, CHOP, COMBO, JUTSU, PHYS, PLAYER_CFG, SIGNATURES, SMASH, SPIN } from './config.js';
 import { HALF_L, HALF_W, TABLE_TOP, carriedSpin, handPlay, landingOf, solveShot, strokeError } from './physics.js';
 import { player } from './render/racket.js';
 import { ball, ballPrev, setSpinShotAt, spinShotAt } from './render/ball.js';
 import { input, smashIntent, swing } from './input.js';
+import { poppedUp } from './combo.js';
 import { DEBUG, TLOG, lr } from './log.js';
 import { aiOnOpponentHit, arcOf, turnBot } from './ai.js';
 import { NO_ERROR, fireJutsu, jutsuShot, mirrorCheck, mirrorReflect, possessedStroke, startJutsu, yourJutsu, yourReach, yourSteady } from './jutsu.js';
@@ -202,8 +203,8 @@ export function playerHit(contactDist) {
   if (jid) fireJutsu('player', jid, 0, js && js.fizzle);
   else if (edge) showMessage('Edge!', '', 'warn', 0.7);
   if (touch) match.stats.touches++;
+  setSpinShotAt(spin ? simTime : -1);   // (before registerHit stamps simTime on the ball: the CPU's read, combos, sees the brush)
   registerHit('player', jid ? 1.2 : touch ? 0.2 : power);
-  setSpinShotAt(spin ? rally.lastHitTime : -1);
   pendingUpgrade = { hitTime: rally.lastHitTime, contact, miss: sigMiss };   // a wrong answer stays wrong as a smash
 }
 
@@ -257,6 +258,7 @@ function contactOf(contactDist) {
     offX: ball.p.x - player.pos.x, x: ball.p.x, h: ball.p.y - TABLE_TOP,
     off: contactDist / yourReach(), speedIn: Math.hypot(ball.v.x, ball.v.y, ball.v.z),
     topIn: topspinOf(unreadSpin(), ball.v),
+    popUp: poppedUp(),   // the CPU floated your brush back up (Set & Kill)
   };
 }
 
@@ -280,7 +282,9 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   }
   const js = jid && jutsuShot(jid, 'player', 0, contact);
   if (js && js.shot) shot = js.shot;
-  const err = jid ? NO_ERROR : strokeError(AIM.smash * yourSteady(), contact.speedIn, contact.h, contact.off, contact.topIn - input.tilt * 80, AIM.smashLow);
+  // Set & Kill: the pop-up your brush forced — a steady smash, with no low-ball risk.
+  const setUp = contact.popUp;
+  const err = jid ? NO_ERROR : strokeError(AIM.smash * yourSteady() * (setUp ? COMBO.setKill.steady : 1), contact.speedIn, contact.h, contact.off, contact.topIn - input.tilt * 80, setUp ? 0 : AIM.smashLow);
   shot = handPlay(ball.p, shot, err, AIM.rescues);
   // Smashing into a jutsu that wants a block or a push: it flies long / dies in the net.
   const miss0 = answerMiss(J, { still: false, push: false });
@@ -294,7 +298,7 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   setSpinShotAt(-1);
   setCameraShake(SMASH.shake * (jid ? 2 : 1));
   const miss = smashMissReason(shot, contact, err);
-  const smashLog = { stroke: upgrade ? 'smash(late)' : 'smash', flick: lr(swing), smashSl: lr(sl), err: lr(err.pitch), errBias: lr(err.bias), smashMiss: miss || null, jutsu: jid || null };
+  const smashLog = { setKill: setUp ? 1 : 0, stroke: upgrade ? 'smash(late)' : 'smash', flick: lr(swing), smashSl: lr(sl), err: lr(err.pitch), errBias: lr(err.bias), smashMiss: miss || null, jutsu: jid || null };
   if (upgrade) TLOG.amend(smashLog); else TLOG.note(smashLog);
   if (DEBUG.on) DEBUG.log.push({ stroke: jid || 'smash', sig: rally.botShot && rally.botShot.sig, miss, h: +contact.h.toFixed(2) });
   if (jid) {

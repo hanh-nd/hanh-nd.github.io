@@ -85,6 +85,21 @@ window.runSim = function (opts) {
       if (h >= (opts.kill ?? 0.3) && ip.x < -0.25) return 'smash';
       const r = Math.random(); return r < 0.5 ? 'side' : r < 0.88 ? 'drive' : 'block';
     }
+    // 'mixer': your game ('you': the same smashes, from your left) plus the combos (COMBO) on the
+    // balls it doesn't smash: the pop-up a brush forced is smashed (Set & Kill); after a short ball,
+    // deep and fast (Draw & Drive); after a wide ball, the other side (Run Around); after a fast ball
+    // a brush or a block, after a soft one a drive (Change Up).
+    if (pol === 'mixer') {
+      const p = bot.plan, last = (rally.yourStrokes || []).slice(-1)[0];
+      if (rally.popUpAt === rally.lastHitTime && !short) return 'smash';
+      if (short) return speed < 7 && Math.random() < 0.4 ? 'touch' : 'push';
+      if (last && last.x != null && Math.abs(last.x) > 0.38) p.side = -Math.sign(last.x);   // Run Around
+      if (h >= (opts.youMinH ?? 0.06) && ip.x < (opts.youLeft ?? -0.25) && Math.random() < (opts.youSmash ?? 0.85)) return 'smash';
+      if (last && last.depth != null && last.depth < 0.6) return 'drive';                    // Draw & Drive
+      if (last && last.soft) return 'drive';                                                  // Change Up
+      if (last && last.fast) return Math.random() < 0.65 ? 'side' : 'block';                  // a brush, or Change Up
+      return Math.random() < 0.6 ? 'drive' : 'side';
+    }
     if (pol === 'youBlock') return short && speed < 7 && Math.random() < 0.3 ? 'touch' : Math.random() < 0.15 ? 'side' : 'block';
     if (pol === 'block' || pol === 'chop' || pol === 'drive') {
       if (h >= (opts.kill ?? 0.5) && !short && !mirror) return 'smash';

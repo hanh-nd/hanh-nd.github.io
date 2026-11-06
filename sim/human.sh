@@ -2,7 +2,7 @@
 # The human-like bot (bot.js human.real, fitted to real play logged with ?log) in your three ways to
 # play, against every CPU style in turn (POOL='["allround"]' for one). Point share and how points end,
 # in the terms of sim/bench/logstats.py.
-#   sim/human.sh [LEVEL] [MATCHES] [POLICIES]      POLICIES: you youSpin youBlock (default: all three)
+#   sim/human.sh [LEVEL] [MATCHES] [POLICIES]      POLICIES: you youSpin youBlock mixer (default: the first three)
 #   SIM_URL=http://localhost:8765/sim/_baseline/index.html sim/human.sh ...   (the live version: sim/baseline.sh)
 L=${1:-hard}; N=${2:-20}; S=${3:-"you youSpin youBlock"}
 # The finger, as logged (iPhone, sensitivity 2×): see README "Human-like bot".
@@ -13,6 +13,7 @@ for s in $S; do
     you)      W='"take":"drop","dropH":0.17,"takeDepth":2.0,"home":1.6' ;;   # lets the ball come, smashes it early
     youSpin)  W='"takeDepth":1.7,"home":1.55' ;;
     youBlock) W='"takeDepth":1.6,"home":1.5' ;;                            # at the table
+    mixer)    W='"takeDepth":1.7,"home":1.55' ;;                           # plays the combos (COMBO)
   esac
   args="$args {\"tune\":${TUNE:-null},\"name\":\"$s\",\"policy\":\"$s\",\"pool\":${POOL:-null},\"matches\":$N,\"level\":\"$L\",\"human\":{$F,$W${HUMAN:+,$HUMAN}}}"
 done

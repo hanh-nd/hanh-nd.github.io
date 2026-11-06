@@ -13,6 +13,7 @@ A table tennis game in the browser (three.js, no build step): open `index.html` 
 | `physics.js` | Ball flight, bounces, the shot solver (pure functions, no Three.js) |
 | `input.js` | Mouse and touch: racket target, swipe tracking, stroke intent |
 | `strokes.js` | Your strokes: which stroke a swipe makes and where it goes |
+| `combo.js` | Combos: two strokes in a row read as a tactic (Draw & Drive, Run Around, Change Up, Set & Kill), scaled by each CPU style's weakness |
 | `ai.js` | The CPU: reading your shot, moving, choosing and playing strokes, adapting |
 | `serve.js` | Serves and the toss |
 | `jutsu.js` | Chakra, jutsu, FLOW, Ego rank |

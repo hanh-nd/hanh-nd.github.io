@@ -171,18 +171,27 @@ export const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruth
  *  flick: share of short balls (met over the table) it flicks with topspin instead of pushing ·
  *  serveBack: share of backspin serves · reaction: reaction time ·
  *  take: when it meets the ball — 'top' of the bounce, on the 'rise', or as it 'drop's ·
- *  spinErr: × the errors your spin forces (SPIN_D) — a blocker's quick hands soak it up. */
+ *  spinErr: × the errors your spin forces (SPIN_D) — a blocker's quick hands soak it up ·
+ *  weak: × the effect of each of your combos on it (COMBO) · smashSave: share of its reaction time it
+ *  saves against your smash (> 0: it retrieves smashes from deep; < 0: they catch it out) ·
+ *  punishSoft: pace it adds to its return of a soft ball of yours · weakTo / punishes: the rival
+ *  card's lines (shown before the match). */
 export const AI_STYLES = {
   allround: { label: 'All-rounder', tag: 'Balanced', blurb: 'No obvious weakness: steady drives with the odd chop.', tip: 'Be patient. Move it around.',
-    chop: 0.2, chopSpin: 1, top: 1, side: 1, power: 1, smash: 1, mistake: 1, depth: 0, wide: 1, short: 0.06, flick: 0.3, serveBack: 0.5, reaction: 1, take: 'top', spinErr: 1 },
+    chop: 0.2, chopSpin: 1, top: 1, side: 1, power: 1, smash: 1, mistake: 1, depth: 0, wide: 1, short: 0.06, flick: 0.3, serveBack: 0.5, reaction: 1, take: 'top', spinErr: 1,
+    weak: {}, smashSave: 0, punishSoft: 0, weakTo: 'Nothing in particular', punishes: 'Nothing in particular' },
   attacker: { label: 'Attacker', tag: 'Loops & smashes', blurb: 'Heavy topspin loops and a smash for anything that sits up — but takes risks.', tip: 'Keep it low. Block the loops.',
-    chop: 0.04, chopSpin: 1, top: 1.35, side: 0.8, power: 1.15, smash: 1.6, mistake: 1.4, depth: 0.2, wide: 1.05, short: 0.03, flick: 0.6, serveBack: 0.3, reaction: 1, take: 'top', spinErr: 1 },
+    chop: 0.04, chopSpin: 1, top: 1.35, side: 0.8, power: 1.15, smash: 1.6, mistake: 1.4, depth: 0.2, wide: 1.05, short: 0.03, flick: 0.6, serveBack: 0.3, reaction: 1, take: 'top', spinErr: 1,
+    weak: { changeUp: 1.6 }, smashSave: -0.25, punishSoft: 0.12, weakTo: 'Change Up · the smash', punishes: 'Slow, soft balls' },
   defender: { label: 'Defender', tag: 'Chops from deep', blurb: 'Stands far back and chops almost everything with heavy backspin.', tip: 'Push the chops. Smash high balls.',
-    chop: 0.75, chopSpin: 1.25, top: 0.8, side: 0.5, power: 0.82, smash: 0.4, mistake: 0.7, depth: 0.55, wide: 0.95, short: 0.04, flick: 0.08, serveBack: 0.85, reaction: 1, take: 'drop', spinErr: 0.7 },
+    chop: 0.75, chopSpin: 1.25, top: 0.8, side: 0.5, power: 0.82, smash: 0.4, mistake: 0.7, depth: 0.55, wide: 0.95, short: 0.04, flick: 0.08, serveBack: 0.85, reaction: 1, take: 'drop', spinErr: 0.7,
+    weak: { drawDrive: 1.6, setKill: 1.6 }, smashSave: 0.35, punishSoft: 0, weakTo: 'Draw & Drive · Set & Kill', punishes: 'Smash after smash' },
   blocker: { label: 'Blocker', tag: 'Quick & flat', blurb: 'Hugs the table and redirects your pace with flat, quick blocks to the corners.', tip: 'Cover the corners.',
-    chop: 0.05, chopSpin: 1, top: 0.4, side: 0.3, power: 1.05, smash: 0.7, mistake: 0.85, depth: -0.15, wide: 1.1, short: 0.12, flick: 0.3, serveBack: 0.4, reaction: 0.8, take: 'rise', spinErr: 0.15 },
+    chop: 0.05, chopSpin: 1, top: 0.4, side: 0.3, power: 1.05, smash: 0.7, mistake: 0.85, depth: -0.15, wide: 1.1, short: 0.12, flick: 0.3, serveBack: 0.4, reaction: 0.8, take: 'rise', spinErr: 0.15,
+    weak: { runAround: 1.6 }, smashSave: 0, punishSoft: 0, weakTo: 'Run Around', punishes: 'Pace (it blocks it back)' },
   wizard: { label: 'Spin Wizard', tag: 'Sidespin & tricks', blurb: 'Wicked sidespin, sneaky short balls and spin that changes every shot.', tip: 'Read the racket face.',
-    chop: 0.35, chopSpin: 1.3, top: 1.15, side: 2.3, power: 0.9, smash: 0.8, mistake: 1.1, depth: 0.1, wide: 1, short: 0.22, flick: 0.35, serveBack: 0.5, reaction: 1, take: 'top', spinErr: 0.7 },
+    chop: 0.35, chopSpin: 1.3, top: 1.15, side: 2.3, power: 0.9, smash: 0.8, mistake: 1.1, depth: 0.1, wide: 1, short: 0.22, flick: 0.35, serveBack: 0.5, reaction: 1, take: 'top', spinErr: 0.7,
+    weak: { changeUp: 1.5 }, smashSave: 0, punishSoft: 0, weakTo: 'Change Up · flat pace', punishes: 'Drives into its spin' },
 };
 export const STYLE_ORDER = ['allround', 'attacker', 'defender', 'blocker', 'wizard'];
 
@@ -428,6 +437,37 @@ export const ADAPT = {
   // AI_LEVELS.antiSmash): lower balls with more backspin and drop shots, a deeper stance, quicker
   // reads and counter-blocks (SMASH_D). Stop smashing and it fades back to its normal game.
   smash: { decay: 0.85, use: 0.16, won: 0.16, rise: 0.15, fall: 0.1 },
+};
+/** Combos: your stroke read together with your previous one in the rally, as a real tactic — and
+ *  what the tactic does to the CPU, exaggerated so it shows (no on-screen text: the Playbook in
+ *  Help and the rival card explain them before the match). Each one also costs you something.
+ *  Draw & Drive, Run Around and Change Up arm your rally strokes — a drive, a block, a brush can
+ *  beat it outright — not the smash (it wins ~70% of the balls it lands on its own; sim, Nov 2026,
+ *  when no rally stroke ever did): a smash only finishes Set & Kill.
+ *  - Draw & Drive: a short ball (lands within `short` m of the net), then a deep (beyond `deep`)
+ *    firm one (at least `fast` m/s): it stepped in, and is caught at the table — it starts `late` s later and moves
+ *    `slow` slower to that ball. (Risk: a short ball it reads gets flicked.)
+ *  - Run Around: wide (|x| beyond `wide`) to one side, then wide to the other: it drifted back
+ *    to the middle and is stretched — `late` s, and `stretch` added to its stretch (errors, pace).
+ *    (Risk: your finger goes wide too.)
+ *  - Change Up: a soft ball (at most `soft` m/s: a block, a push, a brush), then a fast one (at
+ *    least `fast` m/s) — or the other way round: its timing breaks, `mistake` added to its error
+ *    chance. (Risk: a soft ball gives it time to attack.)
+ *  - Set & Kill: a real brush (sidespin past SPIN_D.side.tol) floats back up — popUp: chance
+ *    `misread` if it misread the spin, `read` if it read it; `speed` m/s, `top` topspin, `depth` m
+ *    (~0.5 m apex, ~0.35 m off the bounce) — and your smash
+ *    off that ball is steady (error × `steady`, no low-ball risk). (Risk: a big brush leaves you wide.)
+ *  - read: the same stroke to the same place `n` times running (not a smash: ADAPT does that) — it
+ *    saw it coming and saves `save` of its reaction time.
+ *  A style's `weak` multiplies a combo's effect (AI_STYLES). */
+export const COMBO = {
+  short: 0.6, deep: 0.95, wide: 0.38, soft: 5.8, fast: 7.2,   // real play: block / push ~5 m/s, brush 4.4–6.7, drive 6.4–7.9, smash ~12.3
+  drawDrive: { late: 0.25, slow: 0.4 },
+  runAround: { late: 0.15, stretch: 0.5 },
+  changeUp: { mistake: 0.15 },
+  popUp: { misread: 0.6, read: 0.2, speed: [4.2, 4.7], top: 40, depth: [0.85, 1.05] },
+  setKill: { steady: 0.5 },
+  read: { n: 3, save: 0.3 },
 };
 /** Smash defense: what a CPU does about your smash once it has adapted to it (anti, ADAPT.smash),
  *  so a smash now and then is as strong as ever — in the headless sim (sim/) any early read of the

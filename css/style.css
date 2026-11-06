@@ -440,3 +440,7 @@
     #msg { top: 45%; }
     #callout { top: 30%; }
   }
+
+  .howto.playbook div { justify-content: flex-start; gap: 12px; }
+  .howto.playbook span { text-align: left; }
+  .howto.playbook small { font-weight: 500; color: var(--muted); }

@@ -1,10 +1,11 @@
 // The CPU players: reading your shot, moving to it, choosing and playing their strokes, adapting.
 import { clamp, rand, randn } from './util.js';
-import { ADAPT, AIM, AI_COMMON, AI_LEVELS, AI_STYLES, FLOW, GAME, HIRAISHIN, JUTSU, JUTSU_AI, META_STEADY, MIRROR, PLAYER_CFG, POSSESSION, REACH, SHORT_PLAY, SIGNATURES, SIGNATURE_OF, SIG_INTENT, SLOTS, SLOT_COST, SMART, SMART_J, SMASH, SMASH_D, SPIN_D, STYLE_PATTERNS, VOID } from './config.js';
+import { ADAPT, AIM, AI_COMMON, COMBO, AI_LEVELS, AI_STYLES, FLOW, GAME, HIRAISHIN, JUTSU, JUTSU_AI, META_STEADY, MIRROR, PLAYER_CFG, POSSESSION, REACH, SHORT_PLAY, SIGNATURES, SIGNATURE_OF, SIG_INTENT, SLOTS, SLOT_COST, SMART, SMART_J, SMASH, SMASH_D, SPIN_D, STYLE_PATTERNS, VOID } from './config.js';
 import { HALF_L, HALF_W, TABLE_TOP, handPlay, moveBody, predictIntercept, racketMinY, simulate, solveShot, strokeError } from './physics.js';
 import { ai2Body, ai2Racket, aiBody, aiRacket, allyBody, allyRacket, player, playerBody } from './render/racket.js';
 import { ball, decoys } from './render/ball.js';
 import { DEBUG, TLOG, lr } from './log.js';
+import { comboFor } from './combo.js';
 import { applyShot, intoNet, topspinOf, unreadSpin } from './strokes.js';
 import { callout, canFire, chakraFull, fireJutsu, flow, idleJutsu, jutsuShot, kitOfBot, mirrorReflect, possessedStroke, sealsOf } from './jutsu.js';
 import { incomingJutsu, match, nameOf, other, rally, registerHit } from './rules.js';
@@ -92,10 +93,17 @@ export function aiOnOpponentHit(c) {
   if (jt && JUTSU[jt.id].snake && jt.by !== c.owner && !seesJutsu(c, jt.id)) {
     c.plan.err = { x: Math.sign(ball.p.x || 1) * 0.22, y: 0, z: 0 };
   }
-  // A smash it saw coming (it knows you love the smash, and the ball wasn't that high): it reacts sooner.
+  // A smash it saw coming (it knows you love the smash, and the ball wasn't that high): it reacts
+  // sooner. A defender retrieves smashes from deep; an attacker at the table is caught by them.
   if (rally.smashed) {
-    const save = SMASH_D.react * antiSmash(c) * smashRead();
+    const save = SMASH_D.react * antiSmash(c) * smashRead() + (styleCfg(c).smashSave || 0);
     c.plan.readyAt = simTime + (c.plan.readyAt - simTime) * (1 - save);
+  }
+  // Your combo (COMBO): it's caught in, or stretched — or it saw the same stroke coming again.
+  const cb = c.plan.combo = c.owner === 'ai' && rally.byYou && !match.watch ? comboFor(c) : null;
+  if (cb) {
+    if (cb.read) c.plan.readyAt = simTime + (c.plan.readyAt - simTime) * (1 - COMBO.read.save);
+    c.plan.readyAt += (cb.drawDrive || 0) * COMBO.drawDrive.late + (cb.runAround || 0) * COMBO.runAround.late;
   }
   // Infinite Void: the other side's domain — it reacts late. Flying Thunder God: it is there at once.
   if (rally.void && rally.void !== c.owner) c.plan.readyAt += VOID.delay;
@@ -343,7 +351,8 @@ export function updateAI(c, dt) {
   const body = c.body, recovering = simTime < c.recoverUntil;
   const bodyZ = c.s * Math.max(c.s * (recovering ? body.z : goal.z), HALF_L + REACH.bodyBehind);
   const voided = (rally.live && rally.void && rally.void !== c.owner ? VOID.speed : 1)   // inside the other side's Infinite Void
-    * (rally.live && rally.warp[c.owner] ? HIRAISHIN.speed : 1);                          // Flying Thunder God
+    * (rally.live && rally.warp[c.owner] ? HIRAISHIN.speed : 1)                           // Flying Thunder God
+    * (c.plan && c.plan.combo && c.plan.combo.drawDrive ? Math.max(0.4, 1 - COMBO.drawDrive.slow * c.plan.combo.drawDrive) : 1);   // caught in (Draw & Drive)
   moveBody(body, recovering ? body.x : goal.x, bodyZ, cfg.speed * voided, cfg.accel * voided, dt);
   const ax = clamp(goal.x, body.x - REACH.armX, body.x + REACH.armX) - r.pos.x;
   const az = clamp(goal.z, body.z - REACH.armZ, body.z + REACH.armZ) - r.pos.z, d = Math.hypot(ax, az);
@@ -375,7 +384,10 @@ export function aiHit(c) {
   // raise the chance of an error and take pace off the return.
   const stretch = rally.warp[c.owner] ? 0 : clamp(Math.hypot((r.pos.x - body.x) / REACH.armX, (r.pos.z - body.z) / REACH.armZ) - 0.6, 0, 0.6)
     + clamp(Math.hypot(body.vx, body.vz) / cfg.speed - 0.5, 0, 0.5);   // (Flying Thunder God: never)
-  const pressure = clamp((speedIn - 6) / 8, 0, 1) * 0.6 + clamp(spinIn / 250, 0, 0.6) + stretch;
+  const cb = (c.plan && c.plan.combo) || {};
+  const stretch2 = stretch + (cb.runAround || 0) * COMBO.runAround.stretch;   // Run Around: stretched
+  const pressure = (clamp((speedIn - 6) / 8, 0, 1) * 0.6 + clamp(spinIn / 250, 0, 0.6) + stretch2)
+    * (rally.smashed && st.smashSave > 0 ? 1 - st.smashSave : 1);   // a defender is at home against a smash
   // A jutsu coming at it: one that wants an answer must get it (a Copy Wheel of its own cancels
   // it); any jutsu rattles it a little.
   const jIn = incomingJutsu(c.owner), ja = JUTSU_AI[c.level];
@@ -384,7 +396,8 @@ export function aiHit(c) {
   const calm = flow[c.owner] ? (flow.deep[c.owner] ? FLOW.deep.mistake : FLOW.mistake) : 1;
   const steady = rally.zone === c.owner ? META_STEADY : 1;   // Meta Vision: fewer errors this point
   const voidErr = rally.void && rally.void !== c.owner ? VOID.err : 0;   // inside their Infinite Void: lost
-  const mistake = Math.random() < (cfg.mistakeRate * st.mistake * (1 + pressure * 1.5) * calm + (jIn && !copy ? ja.rattle : 0) + voidErr) * steady;
+  const mistake = Math.random() < (cfg.mistakeRate * st.mistake * (1 + pressure * 1.5) * calm + (jIn && !copy ? ja.rattle : 0) + voidErr
+    + (cb.changeUp || 0) * COMBO.changeUp.mistake) * steady;   // Change Up: off its timing
   // Its plan for this stroke (pattern step, signature, jutsu, adaptive bias — see decideIntent).
   let it = c.intent || {};
   // A ball met over the table (a short ball) leaves no room to swing: a push, a flick or a drop.
@@ -419,7 +432,7 @@ export function aiHit(c) {
   if (curveIn) tx = clamp(tx + curveIn * 0.12 * (0.4 + cfg.aimError * 5), -0.74, 0.74);
   let tz = it.depth === 'long' ? clamp(1.12 + rand(-1, 1) * cfg.aimError * 0.4, 1.0, 1.27)
     : clamp(0.75 + power * 0.4 + rand(-1, 1) * cfg.aimError * 0.5, 0.45, 1.27);
-  let vh = (3.4 + power * 4.5 + Math.random() * 0.6) * (1 - stretch * 0.35) * pace;
+  let vh = (3.4 + power * 4.5 + Math.random() * 0.6) * (1 - Math.min(0.6, stretch2) * 0.35) * pace * (cb.soft ? 1 + (st.punishSoft || 0) : 1);
   // Topspin drives, sometimes a slower chop (heavy backspin: push it back) — how often depends on
   // the style, or on the plan. Better players spin harder.
   const chop = it.spin ? it.spin === 'chop' || it.spin === 'float' : Math.random() < st.chop + SMASH_D.chop * anti;   // vs a smasher: more backspin
@@ -438,6 +451,18 @@ export function aiHit(c) {
   const spun = mistake || it.sig ? null : spinMiss(sr, chop, st.spinErr);
   // Signatures: the stroke itself (see SIGNATURES; their effect on your return: sigReturn).
   const sig = mistake ? null : it.sig;
+  // Set & Kill: your brush, misread (or just heavy), floats back up — a ball to smash.
+  if (cb.spin && !spun && !mistake && !sig) {
+    const U0 = COMBO.popUp, brush = Math.abs(sr.side) >= SPIN_D.side.tol, misread = Math.abs(sr.offSide) >= SPIN_D.side.tol;
+    if (brush && Math.random() < (misread ? U0.misread : U0.read) * (cb.setKill || 1)) {
+      const U = COMBO.popUp, ptop = U.top;
+      const shot = solveShot(ball.p, { x: tx * 0.5, z: toward * rand(...U.depth) }, rand(...U.speed), ptop, 0);
+      TLOG.note({ kind: 'popup', offSide: Math.round(sr.offSide) });
+      rally.popUpAt = simTime;   // (its registerHit stamps this time on the ball)
+      aiPlay(c, shot, ptop, 0.3);
+      return noteAIShot(c, it, tx * 0.5, ptop, false);
+    }
+  }
   if (sig === 'phantom-chop') { top = -rand(0.92, 1) * (300 + 60 * cfg.spin); vh = rand(6.2, 6.8); maxArc = 0.3; }   // low, deep, dead
   if (sig === 'chorei-counter') { top = rand(90, 120); vh = rand(13, 14.5); }
   if (sig === 'dragon-loop') { top = rand(250, 290); vh = rand(10.5, 11.5); tz = rand(1.12, 1.25); }

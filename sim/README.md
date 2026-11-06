@@ -30,6 +30,7 @@ node sim/run.mjs '{"policy":"mixed","matches":17,"level":"hard","tune":{"SMASH_D
 - **`smash` policy:** smashes everything above `smashMinH`. `smash-all` uses 0.12 m, `smasher` 0.2 m.
 - **`mixed` policy:** drives, pushes, blocks and touches, and smashes only balls above 0.3 m.
 - **`aware`:** plays each signature's counter.
+- **`mixer`:** your smash game plus the combos (COMBO) on purpose on the other balls: smash a pop-up, deep after short, the other wide after a wide, soft and fast in turn. `human.sh LEVEL N "you mixer"` shows whether mixing beats smashing.
 - **`switcher`:** smashes until it loses a game, then mixes.
 - **`human.recover`:** how fast the finger drifts back to the middle between shots (m/s, default 2.2). A slow one (0.6) is closer to a real thumb and shows what the CPU's open-side aim does.
 - **`doubles`:** 2v2, you + an all-rounder ally vs two CPUs (styles in turn). `allyIq` / `cpuIq` override their iq. In `why`, `duo:*` keys say whose ball each point was lost on.

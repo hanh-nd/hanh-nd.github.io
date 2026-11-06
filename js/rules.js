@@ -186,7 +186,7 @@ function setupServe(first = false) {
   Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0, botShot: null, answering: null,
     turn: { [match.server]: match.serverIdx, [other(match.server)]: match.receiverIdx }, jutsu: null, pendingJutsu: null, jutsuAnswer: null, cloneRevealAt: Infinity, fired: { player: false, ai: false }, slow: false, zone: null, warp: { player: false, ai: false }, hand: { player: false, ai: false }, void: null, hidden: false, snake: null, stop: null,
     mirror: { player: 0, ai: 0 }, bind: null, held: null, combo: null, shark: null,
-    smashed: false, smashH: 0, yourSmashes: 0 });   // the last stroke was a smash · your smashes this point (ADAPT.smash)
+    smashed: false, smashH: 0, yourSmashes: 0, byYou: false, yourStrokes: [], popUpAt: -1 });   // the last stroke was a smash · your smashes this point (ADAPT.smash)
   clearDecoys();
   match.toss = null;
   for (const c of BOTS) { c.plan = null; c.recoverUntil = 0; }
@@ -227,6 +227,7 @@ export function canHit(who) {
 export function registerHit(who, intensity, smash = false) {
   const self = turnBot(who), youHit = isYou(who) && rally.turn[who] === 0;   // before the turn passes
   rally.smashed = smash;   // (its contact height, rally.smashH, is set by the smash itself)
+  rally.byYou = youHit;    // your stroke (not your 2v2 partner's, not a watched CPU's): combos (COMBO)
   // Jutsu: the one this stroke answered (if it lands, a counter) and the one it fired.
   rally.jutsuAnswer = rally.jutsu && rally.jutsu.by !== who ? rally.jutsu : null;
   rally.jutsu = rally.pendingJutsu;

@@ -177,13 +177,30 @@ $('btn-pick-next').addEventListener('click', () => showReady());
 
 /** A player's card: flag, name, style, signature (and its counter), top jutsu, level, and
  *  (the tournament's) attribute bars. */
+/** The Playbook (Help): each combo (COMBO) with a mini diagram of their half of the table, seen from
+ *  your end (net at the bottom): where your two strokes land, 1 then 2. */
+const PLAYBOOK = [
+  { name: 'Draw & Drive', how: 'Short, then a deep drive', why: 'It stepped in: caught at the table', pts: [[0.1, 0.3, '1'], [-0.5, 1.15, '2']] },
+  { name: 'Run Around', how: 'Wide, then the other wide', why: 'It drifted back: stretched, it errs', pts: [[-0.6, 0.9, '1'], [0.6, 0.95, '2']] },
+  { name: 'Change Up', how: 'Soft ↔ fast (block, push, brush ↔ drive)', why: 'Its timing breaks', pts: [[-0.1, 0.75, 's'], [0.35, 1.15, 'F']] },
+  { name: 'Set & Kill', how: 'Sidespin, then smash the pop-up', why: 'The spin floats it up: a safe smash', pts: [[0.45, 0.9, '↺'], [-0.35, 1.05, '★']] },
+  { name: 'Careful', how: 'Same stroke, same place, 3×', why: 'It reads you and gets there early', pts: [[0.4, 1.0, '3×']] },
+];
+function playbookRow(c) {
+  const X = x => 32 + x / 0.76 * 26, Y = d => 44 - d / 1.37 * 38;
+  const dots = c.pts.map(([x, d, t], i) => `<circle cx="${X(x)}" cy="${Y(d)}" r="6" fill="${i ? '#ffd23f' : '#6fe3ff'}"/><text x="${X(x)}" y="${Y(d) + 3}" font-size="8" font-weight="800" text-anchor="middle" fill="#111">${t}</text>`).join('');
+  const line = c.pts.length > 1 ? `<path d="M${X(c.pts[0][0])} ${Y(c.pts[0][1])} L${X(c.pts[1][0])} ${Y(c.pts[1][1])}" stroke="rgba(255,255,255,.45)" stroke-dasharray="2 2"/>` : '';
+  return `<div><svg width="64" height="48" viewBox="0 0 64 48" aria-hidden="true"><rect x="6" y="6" width="52" height="38" rx="2" fill="#1d4f91" stroke="#fff" stroke-width="1"/><line x1="32" y1="6" x2="32" y2="44" stroke="#fff" stroke-width=".5"/><line x1="3" y1="44" x2="61" y2="44" stroke="#ddd" stroke-width="2"/>${line}${dots}</svg>
+    <span><b>${c.name}</b> · ${c.how}<br><small>${c.why}</small></span></div>`;
+}
+
 export function oppCard(e, eyebrow, bars = true) {
   const st = AI_STYLES[e.style], sg = sigOf(e);
   return `<div class="opp" style="--opp:${hex(e.color)}"><div class="opp-flag">${e.flag}</div><div style="min-width:0">
     <div class="eyebrow">${eyebrow}</div>
     <div class="opp-name">${e.name} <i>“${e.nick}”</i></div>
     <span class="chip style">${st.label}</span>${sg ? `<span class="chip sig">★ ${sg.name}</span>` : ''}<span class="chip">${JUTSU[STYLE_KIT[e.style][2]].name}</span><span class="chip">${AI_LEVELS[e.level].label}</span>
-    <p><b>Tip:</b> ${st.tip}</p>${sg ? `<p><b>★ ${sg.name}:</b> ${sg.counter.toLowerCase()}.</p>` : ''}
+    <p><b>Weak to:</b> ${st.weakTo} · <b>Punishes:</b> ${st.punishes}</p>${sg ? `<p><b>★ ${sg.name}:</b> ${sg.counter.toLowerCase()}.</p>` : ''}
     ${bars ? `<div class="attrs">${attrBars(e)}</div>` : ''}</div></div>`;
 }
 
@@ -320,6 +337,7 @@ let overlayPaused = false;
 export function showOverlay(id) {
   const inMenu = match.state === 'menu';
   if (openOverlay() || (!inMenu && (!isPlaying() || !$('menu-pause').classList.contains('hidden')))) return;
+  if (id === 'menu-help') $('help-combos').innerHTML = PLAYBOOK.map(playbookRow).join('');
   if (id === 'menu-help') $('help-kit').innerHTML = SLOTS.map((slot, i) => `<div><kbd>${SLOT_LABEL[slot]} ${'●'.repeat(SLOT_COST[slot])}</kbd><span class="j">${JUTSU[inMenu ? yourKit[i] : kitJutsu('player', slot)].name}</span></div>`).join('')
     + `<div><kbd>${isDesktop ? 'Keys 1–3' : 'Tap the list'}</kbd><span>Pick a smaller one</span></div>`;
   if (!inMenu) {
