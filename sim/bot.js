@@ -228,7 +228,7 @@ window.runSim = function (opts) {
       const S = Object.keys(T.AI_STYLES), lv = opts.level || 'hard';
       T.setOpponent({ name: 'CPU', short: 'CPU', color: 0x2f80ed, level: lv, style: S[m % S.length] });
       Object.assign(P.ai2, { level: lv, style: S[(m + 1 + Math.floor(m / S.length)) % S.length], name: '' });
-      Object.assign(P.ally, { level: opts.allyLevel || lv, style: 'allround', name: '' });
+      Object.assign(P.ally, { level: opts.allyLevel || lv, style: opts.allyStyle || 'allround', name: '' });
       P.ally.iq = opts.allyIq ?? undefined; P.ai.iq = P.ai2.iq = opts.cpuIq ?? undefined;
     } else T.setOpponent({ ...e, level: opts.level || 'hard' });
     if (J && J.kit) T.setKit(J.kit);

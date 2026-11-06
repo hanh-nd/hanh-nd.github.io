@@ -1,7 +1,7 @@
 // The ball: mesh, shadow, spin marker, trail, and the jutsu effects drawn around it.
 import * as THREE from 'three';
 import { clamp, rand } from '../util.js';
-import { COLORS, JUTSU, PHYS, SIGNATURES } from '../config.js';
+import { BARRIER, COLORS, JUTSU, PHYS, SIGNATURES, SPIRIT } from '../config.js';
 import { HALF_L, HALF_W, TABLE_TOP, makeBallState } from '../physics.js';
 import { ambLight, hemiLight, scene, sun } from './scene.js';
 import { std } from './table.js';
@@ -174,6 +174,23 @@ const bindFx = ['player', 'ai'].map(() => {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTexture('ring'), color: JUTSU.possession.color, transparent: true, opacity: 0.9, depthWrite: false }));
   sp.visible = false; scene.add(sp); return sp;
 });
+/** Barrier: on the caster's half, each walled side strip glows, with a low wall on its inner edge.
+ *  Spirit Bomb: a light orb over the gathering racket that grows with each charge. */
+const barrierFx = ['player', 'ai'].map(side => {
+  const g = new THREE.Group(), s = side === 'player' ? 1 : -1, col = JUTSU.barrier.color;
+  for (const sx of [-1, 1]) {
+    const strip = new THREE.Mesh(new THREE.PlaneGeometry(BARRIER.w, HALF_L), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending }));
+    strip.rotation.x = -Math.PI / 2; strip.position.set(sx * (HALF_W - BARRIER.w / 2), TABLE_TOP + 0.004, s * HALF_L / 2);
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(HALF_L, 0.14), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+    wall.rotation.y = Math.PI / 2; wall.position.set(sx * (HALF_W - BARRIER.w), TABLE_TOP + 0.07, s * HALF_L / 2);
+    g.add(strip, wall);
+  }
+  g.visible = false; scene.add(g); return g;
+});
+const spiritFx = ['player', 'ai'].map(() => {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTexture('glow'), color: JUTSU.spiritbomb.color, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+  sp.visible = false; scene.add(sp); return sp;
+});
 function updateFx(dt) {
   for (const f of fxPool) if (f.alive) {
     f.t += dt;
@@ -188,6 +205,19 @@ function updateFx(dt) {
     k.m.scale.setScalar(k.size * (1 + u * k.grow)); k.m.material.opacity = (1 - u) * (k.life > 1 ? 0.9 : 1);
   }
   ['player', 'ai'].forEach((side, i) => {
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 180);
+    const bw = barrierFx[i];
+    bw.visible = !!(rally.live && rally.barrier === side);
+    if (bw.visible) bw.children.forEach(m => { m.material.opacity = 0.38 + 0.22 * pulse; });
+    const ch = rally.live && rally.charge[side], sp = spiritFx[i], rr = turnRacket(side);
+    sp.visible = !!ch;
+    if (ch) {
+      const k = Math.min(ch.n, SPIRIT.need) / SPIRIT.need;   // 0 → 1 as it gathers; full: ready
+      // Low over the racket and small on your side (it mustn't hide the ball); bigger over theirs.
+      const near = side === 'player', s0 = near ? 0.07 : 0.12, s1 = near ? 0.13 : 0.26;
+      sp.position.set(rr.pos.x, rr.pos.y + (near ? 0.06 : 0.18), rr.pos.z + (near ? 0.06 : 0));
+      sp.scale.setScalar(s0 + s1 * k + 0.02 * pulse * (k >= 1 ? 2 : 1));
+    }
     const on = rally.live && rally.hand[side], r = turnRacket(side);
     handFx[i].visible = !!on;
     if (on) { handFx[i].position.set(r.pos.x, r.pos.y + 0.12, r.pos.z + (side === 'player' ? 0.08 : -0.08)); handFx[i].scale.setScalar(0.62 + 0.03 * Math.sin(performance.now() / 160)); }

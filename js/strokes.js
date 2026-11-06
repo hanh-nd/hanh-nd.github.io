@@ -8,7 +8,7 @@ import { input, smashIntent, swing } from './input.js';
 import { poppedUp } from './combo.js';
 import { DEBUG, TLOG, lr } from './log.js';
 import { aiOnOpponentHit, arcOf, turnBot } from './ai.js';
-import { NO_ERROR, fireJutsu, jutsuShot, mirrorCheck, mirrorReflect, possessedStroke, startJutsu, yourJutsu, yourReach, yourSteady } from './jutsu.js';
+import { NO_ERROR, fireJutsu, jutsuShot, mirrorCheck, mirrorReflect, possessedStroke, releaseSpirit, spiritReady, startJutsu, yourJutsu, yourReach, yourSteady } from './jutsu.js';
 import { canHit, incomingJutsu, match, rally, registerHit, timeScale } from './rules.js';
 import { showMessage } from './ui/hud.js';
 import { Sound } from './audio.js';
@@ -84,6 +84,7 @@ export function playerHit(contactDist) {
   // stroke is theirs, unless it fires a jutsu (chakra breaks the shadow).
   if (rally.mirror.player === 'primed') { TLOG.note({ stroke: 'mirror' }); return mirrorReflect('player'); }
   if (rally.bind === 'player' && !yourJutsu()) { TLOG.note({ stroke: 'possessed' }); return possessedStroke('player'); }
+  if (spiritReady('player')) { TLOG.note({ stroke: 'spiritbomb' }); return releaseSpirit('player'); }
   const { sl, sf } = strokeSwipe();
   const contact = contactOf(contactDist);
   // Only forward-pointing flicks count; one that peaked a moment ago still does.

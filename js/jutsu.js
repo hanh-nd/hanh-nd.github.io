@@ -1,6 +1,6 @@
 // Chakra, the jutsu and their effects, FLOW, Ego rank.
 import { clamp, rand } from './util.js';
-import { AI_COMMON, CHAKRA, FLOW, GODHAND, HIRAISHIN, JUTSU, JUTSU_AI, META_REACH, META_STEADY, MIRROR, MISDIRECT, PLAYER_CFG, POSSESSION, RANK, SAMEHADA, SLOTS, SLOT_COST, SMASH, STOP, STYLE_KIT } from './config.js';
+import { AI_COMMON, CHAKRA, FLOW, GODHAND, HIRAISHIN, JUTSU, JUTSU_AI, META_REACH, META_STEADY, MIRROR, MISDIRECT, PLAYER_CFG, POSSESSION, RANK, SAMEHADA, SLOTS, SLOT_COST, SMASH, SPIRIT, STOP, STYLE_KIT } from './config.js';
 import { HALF_L, HALF_W, TABLE_TOP, landingOf, predictBounce, simulate, solveShot, stepBall } from './physics.js';
 import { crowdReact } from './render/venues.js';
 import { player } from './render/racket.js';
@@ -75,7 +75,7 @@ export function idleJutsu(side, id) {
   const self = JUTSU[id].self;
   return self === 'copy' ? !incomingJutsu(side) : self === 'drain' ? sealsOf(other(side)) < 1
     : self === 'flow' ? flow.deep[side] : self === 'warp' ? rally.warp[side] : self === 'hand' ? rally.hand[side]
-    : self === 'mirror' ? !!rally.mirror[side] : false;
+    : self === 'mirror' ? !!rally.mirror[side] : self === 'barrier' ? rally.barrier === side : self === 'charge' ? !!rally.charge[side] : false;
 }
 
 /** `side`'s stroke fires jutsu `id`: seals spent; it goes live in registerHit. dir: the corner (world
@@ -89,9 +89,10 @@ export function fireJutsu(side, id, dir = 0, fizzle = false) {
   const broke = rally.bind === side;
   if (broke) breakBind(side);   // chakra breaks a Shadow Possession — and that's all it does (but a mirror)
   let j = JUTSU[id], name = j.name;
+  let copied = false;
   if (j.self === 'copy') {
     const copy = incomingJutsu(side);
-    if (copy) { name = `${j.name} · ${JUTSU[copy].name}`; id = copy; j = JUTSU[copy]; Sound.sharingan(); }
+    if (copy) { name = `${j.name} · ${JUTSU[copy].name}`; id = copy; j = JUTSU[copy]; copied = true; Sound.sharingan(); }
   }
   if (isYou(side)) { armed = 0; match.stats.jutsu++; buzz([20, 30, 40]); }
   if (fizzle) {
@@ -109,6 +110,8 @@ export function fireJutsu(side, id, dir = 0, fizzle = false) {
   if (j.self === 'drain') rally.shark = side;   // pays out in endPoint, if this side wins the point
   if (j.self === 'mirror') rally.mirror[side] = 'up';
   if (j.self === 'bind') rally.bind = other(side);
+  if (j.self === 'barrier') rally.barrier = side;
+  if (j.self === 'charge') { rally.charge[side] = { n: 0 }; if (copied) rally.charge[other(side)] = null; }   // a copy cancels theirs
   if (j.self === 'flow') { flow[side] = flow.deep[side] = true; flow.streak[side] = Math.max(flow.streak[side], FLOW.streak); syncFlow(); }
   rally.pendingJutsu = { id, by: side, dir };
   syncChakra();
@@ -170,6 +173,25 @@ export function mirrorReflect(side, c = null) {
   setPendingUpgrade(null);
   if (c) { aiPlay(c, shot, top, 1.3); noteAIShot(c, null, tx, top, false); }
   else { applyShot(shot); player.swing = 1; registerHit('player', 1.3); }
+}
+/** Spirit Bomb ready: `side`'s next stroke is the bomb. */
+export const spiritReady = side => !!rally.charge[side] && rally.charge[side].n >= SPIRIT.need;
+/** `side` (c: its bot, null = you) releases its gathered Spirit Bomb: chakra-guided (no error), fast,
+ *  to the corner away from the receiver. It is a jutsu ball: returned onto the table, a COUNTER. */
+export function releaseSpirit(side, c = null) {
+  const j = JUTSU.spiritbomb, toward = side === 'player' ? -1 : 1, recv = turnRacket(other(side)), r = turnRacket(side);
+  rally.charge[side] = null;
+  const tx = -(Math.sign(recv.pos.x) || 1) * rand(...SPIRIT.wide), tgt = { x: tx, z: toward * rand(1.0, 1.2) };
+  const lands = sh => sh.land && sh.land.table && !sh.land.net && Math.sign(sh.land.z) === toward;
+  let vh = rand(...SPIRIT.speed), shot = solveShot(ball.p, tgt, vh, SPIRIT.top, 0);
+  for (let i = 0; i < 12 && !lands(shot); i++) shot = solveShot(ball.p, tgt, vh *= 0.94, SPIRIT.top, 0);
+  fxSprite(FX_TEX.burst, j.color, r.pos.x, r.pos.y + 0.1, r.pos.z, 0.7, 0.5, 2.5);
+  flashFx(j.color); setCameraShake(SMASH.shake * 2);
+  callout(j.kanji, j.name, isYou(side) || match.watch ? 'RELEASED' : '', j.color);
+  rally.pendingJutsu = { id: 'spiritbomb', by: side, dir: 0 };
+  setPendingUpgrade(null);
+  if (c) { aiPlay(c, shot, SPIRIT.top, 1.4); noteAIShot(c, null, tx, SPIRIT.top, false); }
+  else { applyShot(shot); player.swing = 1; registerHit('player', 1.4); }
 }
 /** Shadow Possession: `side` is bound and strikes without a jutsu — the stroke is the caster's: it
  *  floats to the caster's racket and sits up (POSSESSION). The caster's next ball is the combo. */
@@ -352,6 +374,8 @@ export function jutsuAtBounce(jt, side) {
 /** `side`'s stroke landed on the other half: chakra, and if it answered a jutsu, a COUNTER. */
 export function strokeLanded(side) {
   gainChakra(side, CHAKRA.stroke + (match.rallyCount > CHAKRA.rallyFrom ? CHAKRA.rally : 0));
+  if (rally.void && rally.void !== side) rally.void = null;   // FOCUS ON THE BALL: a ball landed back breaks their Infinite Void
+  if (rally.charge[side]) rally.charge[side].n++;              // a Spirit Bomb gathers
   const j = rally.jutsuAnswer;
   rally.jutsuAnswer = null;
   if (!j || j.by === side) return;

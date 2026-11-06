@@ -38,7 +38,8 @@ export const touchSens = {
   get mult() { return Math.pow(2, (this.value - 50) / 50); },
 };
 // Only the first finger drives the racket; a second finger's tap arms a jutsu, and so does a
-// double-tap (two short, still taps close together — a re-grip to drag again is longer or moves).
+// double-tap: two short, still taps close together, armed when the second one lifts — a re-grip
+// that goes on to drag (or hold) is not a tap. The tap that serves never starts a double-tap.
 let touchId = null;
 let tapDown = null, lastTap = null;
 canvas.addEventListener('pointermove', e => {
@@ -60,12 +61,9 @@ canvas.addEventListener('pointerdown', e => {
     if (touchLast && e.pointerId !== touchId) return armJutsu();   // second finger
     touchLast = { x: e.clientX, y: e.clientY }; touchId = e.pointerId;
     const now = performance.now();
-    if (lastTap && now - lastTap.t < DOUBLE_TAP.gap && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < DOUBLE_TAP.dist) {
-      lastTap = null; tapDown = null; armJutsu();
-      input.mouseActive = false;
-      return;
-    }
-    tapDown = { t: now, x: e.clientX, y: e.clientY };
+    const second = !!lastTap && now - lastTap.t < DOUBLE_TAP.gap && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < DOUBLE_TAP.dist;
+    lastTap = null;
+    tapDown = { t: now, x: e.clientX, y: e.clientY, second };
     input.mouseActive = false;
   } else {
     input.ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -77,8 +75,10 @@ canvas.addEventListener('pointerdown', e => {
 window.addEventListener('pointerup', e => {
   if (e.pointerType === 'touch' && touchId != null && e.pointerId !== touchId) return;
   if (e.pointerType === 'touch' && tapDown) {
-    const now = performance.now(), still = Math.hypot(e.clientX - tapDown.x, e.clientY - tapDown.y) < DOUBLE_TAP.move;
-    lastTap = still && now - tapDown.t < DOUBLE_TAP.hold ? { t: now, x: e.clientX, y: e.clientY } : null;
+    const now = performance.now();
+    const tap = Math.hypot(e.clientX - tapDown.x, e.clientY - tapDown.y) < DOUBLE_TAP.move && now - tapDown.t < DOUBLE_TAP.hold;
+    if (tap && tapDown.second) { input.charging = false; armJutsu(); }                    // the second tap: armed
+    else lastTap = tap && !input.charging ? { t: now, x: e.clientX, y: e.clientY } : null;   // (a serving tap doesn't count)
     tapDown = null;
   }
   touchLast = null; touchId = null;

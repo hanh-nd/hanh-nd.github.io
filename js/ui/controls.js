@@ -1,6 +1,6 @@
 // Start-up wiring: saved settings and every button.
 import { clamp } from '../util.js';
-import { GAME, LEVEL_ORDER, TIER_ORDER } from '../config.js';
+import { AI_STYLES, GAME, LEVEL_ORDER, TIER_ORDER } from '../config.js';
 import { touchSens } from '../input.js';
 import { armJutsu, autoJutsu, setAutoJutsu, syncChakra } from '../jutsu.js';
 import { WATCH_SPEEDS, match, setWatchSpeed, startMatch, watchSpeed } from '../rules.js';
@@ -17,6 +17,7 @@ import { Sound } from '../audio.js';
       const v = s[k];
       if (!v || typeof v !== 'object') continue;
       if (LEVEL_ORDER.includes(v.level)) o.level = v.level;
+      if (o === duo && v.ally in AI_STYLES) duo.ally = v.ally;
       if ('opp' in o && (v.opp === 'random' || rosterBy(v.opp))) o.opp = v.opp;
       if (o === practice) { practice.refill = v.refill !== false; practice.cpuJutsu = v.cpuJutsu !== false; }
     }

@@ -21,14 +21,14 @@ import { Sound } from '../audio.js';
 /** Your setup per mode. opp: a roster name, or 'random' (rolled each time you reach Ready). */
 export const quick = { level: 'easy', opp: 'random' };
 export const practice = { level: 'easy', opp: 'random', refill: true, cpuJutsu: true };
-export const duo = { level: 'easy', styles: null };   // styles: the two CPUs, rolled on the Ready screen
+export const duo = { level: 'easy', styles: null, ally: 'blocker' };   // styles: the two CPUs, rolled on the Ready screen · ally: your partner's style
 export let selTier = 'pro', uiMode = 'quick';
 let rival = null;   // the roster entry you face in 1v1 / Practice (shown on Ready)
 export const rosterBy = name => ROSTER.find(e => e.name === name) || null;
 const sigOf = e => (SIGNATURE_OF[e.name] ? SIGNATURES[SIGNATURE_OF[e.name]] : null);
 const setupOf = mode => (mode === 'practice' ? practice : quick);
 const MODE_LABEL = { practice: 'Practice', quick: '1v1', duo: '2v2', tour: 'Tournament' };
-const saveSetup = () => store.set('pp3d.setup', { quick, practice, duo: { level: duo.level }, tier: selTier });
+const saveSetup = () => store.set('pp3d.setup', { quick, practice, duo: { level: duo.level, ally: duo.ally }, tier: selTier });
 
 /** A row of choice buttons (one selected). */
 function buildChoices(wrapId, keys, render, isSel, onPick) {
@@ -219,7 +219,11 @@ function showReady(roll = true) {
   if (d) {
     $('ready-them').innerHTML = `<div class="row-label">Opponents</div><div class="duo-team">${duo.styles.map(st =>
       `<span class="chip style">CPU · ${AI_STYLES[st].label}</span>`).join('')}<button class="btn alt reroll" id="btn-reroll">Re-roll</button></div>
+      <div class="row-label">Your ally</div><div class="seg ally-seg" id="duo-ally"></div><p class="ally-blurb" id="duo-ally-blurb"></p>
       <div class="row-label">Level</div><div class="seg" id="duo-levels" style="margin-bottom:14px"></div>`;
+    const allyBlurb = () => { $('duo-ally-blurb').textContent = AI_STYLES[duo.ally].blurb; };
+    buildSeg('duo-ally', STYLE_ORDER, k => AI_STYLES[k].label, duo.ally, k => { duo.ally = k; saveSetup(); allyBlurb(); });
+    allyBlurb();
     buildSeg('duo-levels', LEVEL_ORDER, k => `${AI_LEVELS[k].label}<small>${LEVEL_BLURB[k]}</small>`, duo.level, k => { duo.level = k; saveSetup(); showReady(false); });
     $('btn-reroll').addEventListener('click', () => { duo.styles = null; showReady(false); });
   } else {
@@ -312,7 +316,7 @@ function startPractice() {
   startMatch();
 }
 
-/** 2v2: you + a CPU ally (all-rounder) vs two CPUs of the chosen level with different styles. */
+/** 2v2: you + a CPU ally (the style you picked) vs two CPUs of the chosen level with different styles. */
 export function startDuo() {
   Sound.init();
   match.mode = 'duo';
@@ -323,7 +327,7 @@ export function startDuo() {
   const [s1, s2] = duo.styles || [...STYLE_ORDER].sort(() => Math.random() - 0.5);
   setOpponent({ name: 'CPU', short: 'CPU', color: COLORS.ai, level: duo.level, style: s1 });
   Object.assign(ai2, { level: duo.level, style: s2, name: '' });
-  Object.assign(ally, { level: duo.level, style: 'allround', name: '' });
+  Object.assign(ally, { level: duo.level, style: duo.ally, name: '' });
   ai2Racket.setColor(COLORS.ai2);
   rememberLast('duo', null, duo.level);
   startMatch();

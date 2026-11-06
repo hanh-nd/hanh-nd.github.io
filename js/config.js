@@ -290,7 +290,7 @@ export const SLOTS = ['block', 'drive', 'smash'];       // a kit's jutsu 1, 2, 3
 export const SLOT_COST = { block: 1, drive: 2, smash: 3 };   // ...and its price in seals
 export const SLOT_LABEL = { block: 'JUTSU 1', drive: 'JUTSU 2', smash: 'JUTSU 3' };
 /** The jutsu, as data (see jutsuShot and the effects in stepLiveBall / aiHit / playerHit). Each one
- *  does one thing no other does, from one of six angles (JUTSU_ANGLE).
+ *  does one thing no other does, from one of the angles in JUTSU_ANGLE.
  *  speed: m/s (unset: the stroke's own pace) · top: its topspin (− backspin) · aim: 'body' (at the
  *  receiver's racket), 'corner' (away from it) · depth: m from the net it lands · on the way —
  *  decoys: two clones (only the real ball casts a shadow) · vanish: ball and shadow disappear from
@@ -303,10 +303,13 @@ export const SLOT_LABEL = { block: 'JUTSU 1', drive: 'JUTSU 2', smash: 'JUTSU 3'
  *  stroke · self (no shot of its own) — 'copy' (with an incoming jutsu: cancels it and fires it
  *  back), 'warp' (the rest of the point your racket blinks to the ball: HIRAISHIN), 'hand' (the
  *  first ball that would lose you the point is caught and sent back: GODHAND), 'slow' (their balls in
- *  slow motion; a CPU: few errors), 'void' (the rest of the point the other side is slow to react),
+ *  slow motion; a CPU: few errors), 'void' (the other side is slow to react until it lands a ball back),
  *  'drain' (win the point and you eat their seals: SAMEHADA), 'flow' (FLOW now, and it holds through
  *  one lost point), 'mirror' (your ball floats up as bait; the next hard ball they hit at you is
- *  sent back faster: MIRROR), 'bind' (their next stroke floats up to you: POSSESSION).
+ *  sent back faster: MIRROR), 'bind' (their next stroke floats up to you: POSSESSION), 'barrier'
+ *  (the rest of the point walls stand on your half's side strips: a ball of theirs landing there is
+ *  out — BARRIER), 'charge' (a Spirit Bomb gathers with your balls that land, then your stroke after
+ *  SPIRIT.need of them is released as it — SPIRIT).
  *  fx: its look — aura (swirl, spark, ring, smoke, eye, clock, none), spin (aura rad/s), size,
  *  trail ('zigzag' crackles, 'none'), mark (what its bounce leaves: ripple). */
 export const JUTSU = {
@@ -314,8 +317,8 @@ export const JUTSU = {
   rasengan:   { angle: 'power', name: 'Rasengan', kanji: '螺旋丸', color: 0x4fc3ff, counter: 'BLOCK IT', speed: [15.5, 17], top: 110, aim: 'body', answer: 'block', answerK: 0.55, fx: { aura: 'swirl', spin: 22, size: 0.22, big: true } },
   blackflash: { angle: 'power', name: 'Black Flash', kanji: '黒閃', color: 0xff1744, counter: 'GET BACK', speed: [12.5, 13.5], top: 100, aim: 'corner', flash: 0.4, fx: { aura: 'spark', spin: 3, trail: 'zigzag', size: 0.15 } },
   // 🌀 Curve
-  zeroshiki:  { angle: 'curve', name: 'Zero-Shiki Drop', kanji: '零式', color: 0x9cff6e, counter: 'STEP IN', speed: [7, 7.8], top: -260, depth: [1.0, 1.12], rollback: true, readK: 1.3, fx: { aura: 'ring', spin: -12, mark: 'ripple' } },
-  snake:      { angle: 'curve', name: 'Boomerang Snake', kanji: '蛇', color: 0x2ee6a8, counter: 'STEP WIDE', speed: [9.5, 10.5], top: 40, depth: [0.85, 1.1], snake: 0.5, readK: 0.5, fx: { aura: 'ring', spin: 6 } },
+  zeroshiki:  { angle: 'curve', name: 'Zero-Shiki Drop', kanji: '零式', color: 0x9cff6e, counter: 'STEP IN', speed: [7, 7.8], top: -260, depth: [1.0, 1.12], rollback: true, readK: 0.35, fx: { aura: 'ring', spin: -12, mark: 'ripple' } },
+  snake:      { angle: 'curve', name: 'Boomerang Snake', kanji: '蛇', color: 0x2ee6a8, counter: 'STEP WIDE', speed: [9.5, 10.5], top: 40, depth: [0.85, 1.1], snake: 0.5, readK: 1, fx: { aura: 'ring', spin: 6 } },
   // 👁️ Illusion
   clone:      { angle: 'illusion', name: 'Shadow Clone', kanji: '影分身', color: 0xffa630, counter: 'FOLLOW THE SHADOW', decoys: true, fx: { aura: 'none' } },
   misdirect:  { angle: 'illusion', name: 'Misdirection', kanji: '視線誘導', color: 0xd6f2ff, counter: 'TRUST THE ARC', speed: [10.5, 11.5], top: 60, aim: 'corner', vanish: true, readK: 0.5, fx: { aura: 'smoke', spin: 1, trail: 'none', mark: 'ripple' } },
@@ -333,10 +336,14 @@ export const JUTSU = {
   mirror:     { angle: 'guard', name: 'Yata Mirror', kanji: '八咫鏡', color: 0xb8f3ff, counter: "DON'T SMASH IT", self: 'mirror', readK: 0.5, fx: { aura: 'none' } },
   // 🕸️ Control: you play their stroke
   possession: { angle: 'control', name: 'Shadow Possession', kanji: '影真似', color: 0xb06bff, counter: 'JUTSU BREAKS IT', self: 'bind', fx: { aura: 'none' } },
+  // 🧱 Space: reshapes the table
+  barrier:    { angle: 'space', name: 'Barrier', kanji: '結界', color: 0x7cf5ff, counter: 'AIM INSIDE', self: 'barrier', readK: 1.3, fx: { aura: 'none' } },
+  // 🌀 Charge: grows while the rally lasts
+  spiritbomb: { angle: 'charge', name: 'Spirit Bomb', kanji: '元気玉', color: 0x9fd8ff, counter: 'END IT FAST', self: 'charge', fx: { aura: 'swirl', spin: 5, size: 0.2, big: true } },
   awaken:     { angle: 'spirit', name: 'Awakening', kanji: '覚醒', color: 0x2f6bff, counter: 'BREAK THEIR STREAK', self: 'flow', speed: [12.5, 13.5], top: 90, aim: 'corner', fx: { aura: 'spark', spin: 4, size: 0.14 } },
 };
 JUTSU.clone.reveal = 0;   // the clones vanish this long after the real ball's bounce (s)
-/** The six angles a jutsu comes from: how it wins you the point. */
+/** The angles a jutsu comes from: how it wins you the point. */
 export const JUTSU_ANGLE = {
   power:    { label: 'Power', blurb: 'overwhelms with force' },
   curve:    { label: 'Curve', blurb: 'an impossible path' },
@@ -345,12 +352,14 @@ export const JUTSU_ANGLE = {
   tempo:    { label: 'Tempo', blurb: 'bends time' },
   spirit:   { label: 'Spirit', blurb: 'chakra and momentum' },
   control:  { label: 'Control', blurb: 'plays their stroke for them' },
+  space:    { label: 'Space', blurb: 'reshapes the table' },
+  charge:   { label: 'Charge', blurb: 'grows while the rally lasts' },
 };
 /** Flying Thunder God: contact reach × and footwork × (rest of the point). God Hand: the save it
  *  plays back (m/s, topspin, corner x: away from them). Time Stop: how long time stands still (s).
- *  Samehada: seals it eats, and how many of them it keeps. Infinite Void (rest of the point): a bot
- *  inside it reacts delay s later to each ball, moves at speed× and has err extra error chance;
- *  you inside it move at you× (heavy feet; the screen also goes dark). */
+ *  Samehada: seals it eats, and how many of them it keeps. Infinite Void (until the other side lands a
+ *  ball back — FOCUS ON THE BALL breaks it): a bot inside it reacts delay s later, moves at speed×
+ *  and has err extra error chance; you inside it move at you× (heavy feet; the screen also goes dark). */
 export const HIRAISHIN = { reach: 2.2, speed: 2.4 };
 export const GODHAND = { speed: [11, 12], top: 80, wide: [0.45, 0.6] };
 export const STOP = { time: 0.6, dart: { speed: [10.5, 11.5], wide: [0.42, 0.56] } };   // dart: the ball when time flows again (m/s, corner x)
@@ -369,7 +378,16 @@ export const MIRROR = { min: 11.5, boost: 1.12, max: 19, reach: 1.6, catchH: 0.2
  *  possessed CPU is still in the shadow — it reacts this much later (s) to the combo ball. */
 export const POSSESSION = { speed: [4.0, 4.5], top: 20, depth: [0.95, 1.12], combo: { easy: 0.55, medium: 0.8, hard: 0.95 }, aim: 0.5, hold: 0.25 };
 export const MISDIRECT = { freeze: 3 };   // Misdirection: a bot that lost the ball freezes this × longer (JUTSU_AI.reread)
-export const VOID = { delay: 0.35, speed: 0.55, err: 0.22, you: 0.45 };
+export const VOID = { delay: 0.28, speed: 0.62, err: 0.16, you: 0.45 };
+/** Barrier: the strip this wide (m) along each side line of the caster's half is walled for the rest
+ *  of the point — a ball the other side lands there is out. A bot that reads it (seesJutsu) aims
+ *  at least margin m inside the wall. */
+export const BARRIER = { w: 0.15, margin: 0.06 };
+/** Spirit Bomb: it gathers one charge per ball its side lands after firing it; with `need`, that
+ *  side's next stroke is the bomb — chakra-guided (no error), speed m/s with topspin `top` to the
+ *  corner away from the receiver (x `wide`). A bot that reads the gathering hits harder (pace×)
+ *  to end the point first. */
+export const SPIRIT = { need: 2, speed: [13.5, 14.5], top: 90, wide: [0.48, 0.62], pace: 1.08 };
 /** Jutsu kits — jutsu 1 / 2 / 3. Each CPU style has one (Black Flash and Flying Thunder God are
  *  yours only); you pick yours (JUTSU_POOL). */
 export const STYLE_KIT = {
@@ -382,7 +400,7 @@ export const STYLE_KIT = {
 /** Your jutsu (start menu): one per cost, picked from that cost's pool; kept in storage. */
 export const JUTSU_POOL = {
   block: ['clone', 'sharingan', 'zeroshiki', 'metavision', 'samehada'],
-  drive: ['snake', 'misdirect', 'blackflash', 'hiraishin', 'timestop', 'mirror', 'possession'],
+  drive: ['snake', 'misdirect', 'blackflash', 'hiraishin', 'timestop', 'mirror', 'possession', 'barrier', 'spiritbomb'],
   smash: ['rasengan', 'godhand', 'void', 'awaken'],
 };
 /** One line each for the picker. */
@@ -401,8 +419,10 @@ export const JUTSU_TIP = {
   timestop: 'Freezes over the net, then darts to the open corner',
   rasengan: 'Huge spiral smash — they must block it',
   godhand: 'Saves you once: the ball that would lose you the point is caught and fired back',
-  void: 'Domain for the rest of the point: they react late, slow and lost',
+  void: 'Domain: they react late, slow and lost — until they land a ball back',
   awaken: 'Blazing corner drive + deep FLOW (steadier, more reach) through one lost point',
+  barrier: 'Rest of the point: walls on your side strips — their balls landing there are out',
+  spiritbomb: 'Gathers with each ball you land; after 2, your next stroke unleashes it',
 };
 /** Bots against a jutsu, by level: chance to answer it with the right stroke (else it flies long),
  *  to pick the real ball among the clones, and to read a vanish, curl, time stop or roll-back in

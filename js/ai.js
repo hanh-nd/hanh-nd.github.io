@@ -1,13 +1,13 @@
 // The CPU players: reading your shot, moving to it, choosing and playing their strokes, adapting.
 import { clamp, rand, randn } from './util.js';
-import { ADAPT, AIM, AI_COMMON, COMBO, AI_LEVELS, AI_STYLES, FLOW, GAME, HIRAISHIN, JUTSU, JUTSU_AI, META_STEADY, MIRROR, PLAYER_CFG, POSSESSION, REACH, SHORT_PLAY, SIGNATURES, SIGNATURE_OF, SIG_INTENT, SLOTS, SLOT_COST, SMART, SMART_J, SMASH, SMASH_D, SPIN_D, STYLE_PATTERNS, VOID } from './config.js';
+import { ADAPT, AIM, AI_COMMON, BARRIER, COMBO, AI_LEVELS, AI_STYLES, FLOW, GAME, HIRAISHIN, JUTSU, JUTSU_AI, META_STEADY, MIRROR, PLAYER_CFG, POSSESSION, REACH, SHORT_PLAY, SIGNATURES, SIGNATURE_OF, SIG_INTENT, SLOTS, SLOT_COST, SMART, SMART_J, SMASH, SMASH_D, SPIN_D, SPIRIT, STYLE_PATTERNS, VOID } from './config.js';
 import { HALF_L, HALF_W, TABLE_TOP, handPlay, moveBody, predictIntercept, racketMinY, reachableShort, simulate, solveShot, strokeError } from './physics.js';
 import { ai2Body, ai2Racket, aiBody, aiRacket, allyBody, allyRacket, player, playerBody } from './render/racket.js';
 import { ball, decoys } from './render/ball.js';
 import { DEBUG, TLOG, lr } from './log.js';
 import { comboFor } from './combo.js';
 import { applyShot, intoNet, topspinOf, unreadSpin } from './strokes.js';
-import { callout, canFire, chakraFull, fireJutsu, flow, idleJutsu, jutsuShot, kitOfBot, mirrorReflect, possessedStroke, sealsOf } from './jutsu.js';
+import { callout, canFire, chakraFull, fireJutsu, flow, idleJutsu, jutsuShot, kitOfBot, mirrorReflect, possessedStroke, releaseSpirit, sealsOf, spiritReady } from './jutsu.js';
 import { incomingJutsu, match, nameOf, other, rally, registerHit } from './rules.js';
 import { scoutPattern, scoutSignature, showMessage } from './ui/hud.js';
 import { practice } from './ui/menus.js';
@@ -109,6 +109,10 @@ export function aiOnOpponentHit(c) {
   if (rally.void && rally.void !== c.owner) c.plan.readyAt += VOID.delay;
   if (rally.warp[c.owner]) c.plan.readyAt = simTime + (c.plan.readyAt - simTime) * 0.5;
   if (rally.mirror[c.owner] === 'primed') c.plan.readyAt = simTime + (c.plan.readyAt - simTime) * 0.4;   // its mirror waits for it
+  // Their Barrier: if it reads the walls it aims inside them (aiPlay). Their Spirit Bomb gathering:
+  // if it reads it, it hits harder to end the point first (END IT FAST).
+  c.plan.barrierRead = rally.barrier === other(c.owner) && seesJutsu(c, 'barrier');
+  c.plan.bombRead = !!rally.charge[other(c.owner)] && seesJutsu(c, 'spiritbomb');
   if (rally.held === c.owner) { c.plan.readyAt += POSSESSION.hold; rally.held = null; }   // still in the shadow
   // Their Yata Mirror is up: it reads it (no hard ball at it) or it goes for the bait.
   if (rally.mirror[other(c.owner)] === 'up') c.plan.mirror = seesJutsu(c, 'mirror') ? 'read' : 'bait';
@@ -378,6 +382,7 @@ export function aiHit(c) {
     const it0 = c.intent, breaks = it0 && it0.jutsu && c.s * ball.p.z >= HALF_L - 0.1 && canFire(c.owner, SLOTS[kitOfBot(c).indexOf(it0.jutsu)]);
     if (!breaks) return possessedStroke(c.owner, c);
   }
+  if (spiritReady(c.owner)) return releaseSpirit(c.owner, c);   // its Spirit Bomb, gathered
   const speedIn = Math.hypot(ball.v.x, ball.v.y, ball.v.z);
   const spinIn = Math.hypot(ball.w.x, ball.w.y, ball.w.z);
   // Fast or spinny balls, and being stretched (racket far from the body, or still running),
@@ -432,7 +437,7 @@ export function aiHit(c) {
   if (curveIn) tx = clamp(tx + curveIn * 0.12 * (0.4 + cfg.aimError * 5), -0.74, 0.74);
   let tz = it.depth === 'long' ? clamp(1.12 + rand(-1, 1) * cfg.aimError * 0.4, 1.0, 1.27)
     : clamp(0.75 + power * 0.4 + rand(-1, 1) * cfg.aimError * 0.5, 0.45, 1.27);
-  let vh = (3.4 + power * 4.5 + Math.random() * 0.6) * (1 - Math.min(0.6, stretch2) * 0.35) * pace * (cb.soft ? 1 + (st.punishSoft || 0) : 1);
+  let vh = (c.plan && c.plan.bombRead ? SPIRIT.pace : 1) * (3.4 + power * 4.5 + Math.random() * 0.6) * (1 - Math.min(0.6, stretch2) * 0.35) * pace * (cb.soft ? 1 + (st.punishSoft || 0) : 1);
   // Topspin drives, sometimes a slower chop (heavy backspin: push it back) — how often depends on
   // the style, or on the plan. Better players spin harder.
   const chop = it.spin ? it.spin === 'chop' || it.spin === 'float' : Math.random() < st.chop + SMASH_D.chop * anti;   // vs a smasher: more backspin
@@ -670,6 +675,12 @@ function aiShortBall(c, it, mistake) {
   noteAIShot(c, { ...it, sig, lean }, tx, top, kind === 'drop');
 }
 export function aiPlay(c, shot, top, intensity) {
+  // Their Barrier, read: a ball headed for a walled strip is aimed back inside it.
+  const lim = HALF_W - BARRIER.w - BARRIER.margin;
+  if (rally.barrier === other(c.owner) && c.plan && c.plan.barrierRead && shot.land && shot.land.table && Math.abs(shot.land.x) > lim) {
+    const s2 = solveShot(ball.p, { x: Math.sign(shot.land.x) * lim, z: shot.land.z }, Math.hypot(shot.v.x, shot.v.z), top, 0);
+    if (s2.land && s2.land.table && !s2.land.net) shot = s2;
+  }
   applyShot(shot);
   c.racket.tilt = clamp(top / 140, -1, 1);
   c.racket.swing = 1;

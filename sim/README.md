@@ -33,7 +33,7 @@ node sim/run.mjs '{"policy":"mixed","matches":17,"level":"hard","tune":{"SMASH_D
 - **`mixer`:** your smash game plus the combos (COMBO) on purpose on the other balls: smash a pop-up, deep after short, the other wide after a wide, soft and fast in turn. `human.sh LEVEL N "you mixer"` shows whether mixing beats smashing.
 - **`switcher`:** smashes until it loses a game, then mixes.
 - **`human.recover`:** how fast the finger drifts back to the middle between shots (m/s, default 2.2). A slow one (0.6) is closer to a real thumb and shows what the CPU's open-side aim does.
-- **`doubles`:** 2v2, you + an all-rounder ally vs two CPUs (styles in turn). `allyIq` / `cpuIq` override their iq. In `why`, `duo:*` keys say whose ball each point was lost on.
+- **`doubles`:** 2v2, you + an ally (`allyStyle`, default all-rounder; the game's default pick is Blocker) vs two CPUs (styles in turn). `allyIq` / `cpuIq` override their iq. In `why`, `duo:*` keys say whose ball each point was lost on.
 - **`jutsu`:** `{ kit: [j1, j2, j3], tier: 1|2|3|'max' }` arms that jutsu whenever the seals pay for it. The result's `jutsu` field counts the jutsu each side fired, the points they were fired in, and the points won (`cpuPts` / `youPts`). `jutsu.sh` prints the CPU's jutsu per point, which shows whether yours shuts it out.
 
 ## Jutsu duel

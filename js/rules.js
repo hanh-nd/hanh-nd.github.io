@@ -1,6 +1,6 @@
 // Match state and the rules: serves, faults, lets, scoring, games; the time scale.
 import { clamp, rand } from './util.js';
-import { ADAPT, AI_COMMON, AI_LEVELS, AI_STYLES, CHAKRA, COLORS, GAME, JUTSU, META_SLOW, PLAYER_CFG, ROUND_NAMES, SIGNATURES, TIERS } from './config.js';
+import { ADAPT, AI_COMMON, AI_LEVELS, AI_STYLES, BARRIER, CHAKRA, COLORS, GAME, JUTSU, META_SLOW, PLAYER_CFG, ROUND_NAMES, SIGNATURES, TIERS } from './config.js';
 import { HALF_L, HALF_W, TABLE_TOP, predictBounce, predictIntercept } from './physics.js';
 import { setBoardText } from './render/table.js';
 import { VENUE_OF_TIER, crowdReact, drawBanners, drawScreens, setAttendance, setCrowdColors, setVenue, startWave, venueFor } from './render/venues.js';
@@ -59,6 +59,8 @@ export const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount
   void: null,         // the side whose Infinite Void is up (the other reacts late)
   hidden: false,      // Misdirection: the ball is invisible
   snake: null,        // Boomerang Snake: { t0, T, out, off } the curl it flies on
+  barrier: null,      // the side whose Barrier walls its half's side strips (BARRIER)
+  charge: { player: null, ai: null },   // a side's Spirit Bomb gathering: { n } balls landed since (SPIRIT)
   mirror: { player: 0, ai: 0 },   // Yata Mirror, per side: 'up' (waiting for their ball), 'primed' (it reflects)
   bind: null,         // the side a Shadow Possession binds (its next stroke floats to the caster)
   held: null,         // a CPU side that just played a possessed stroke (slow to the next ball)
@@ -185,7 +187,7 @@ function setupServe(first = false) {
   TLOG.pointStart();
   Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0, botShot: null, answering: null,
     turn: { [match.server]: match.serverIdx, [other(match.server)]: match.receiverIdx }, jutsu: null, pendingJutsu: null, jutsuAnswer: null, cloneRevealAt: Infinity, fired: { player: false, ai: false }, slow: false, zone: null, warp: { player: false, ai: false }, hand: { player: false, ai: false }, void: null, hidden: false, snake: null, stop: null,
-    mirror: { player: 0, ai: 0 }, bind: null, held: null, combo: null, shark: null,
+    mirror: { player: 0, ai: 0 }, bind: null, held: null, combo: null, shark: null, barrier: null, charge: { player: null, ai: null },
     smashed: false, smashH: 0, yourSmashes: 0, byYou: false, yourStrokes: [], popUpAt: -1 });   // the last stroke was a smash · your smashes this point (ADAPT.smash)
   clearDecoys();
   syncChakra();   // a new point: seals spent last point are usable again
@@ -284,6 +286,8 @@ export function onTableBounce(side, x) {
   } else if (side === rally.lastHitter) {
     endPoint(other(side), rally.netTouched ? 'Net' : 'Own side', 'error');
   } else {
+    // Their Barrier: a ball landing on its walled side strip is out.
+    if (rally.bounceCount === 0 && rally.barrier === side && Math.abs(x) > HALF_W - BARRIER.w) return endPoint(side, 'Barrier', 'error');
     rally.bounceCount++;
     if (rally.bounceCount === 1) strokeLanded(rally.lastHitter);
     if (rally.bounceCount === 1 && rally.answering) returnedClean(rally.answering);
