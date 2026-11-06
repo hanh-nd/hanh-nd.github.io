@@ -21,9 +21,12 @@ const out = await page.evaluate(() => {
     }
     const k = `${p.end.winner}:${p.end.why}`; ends[k] = (ends[k] || 0) + 1;
   }
+  const ch = m.points.flatMap(p => p.hits.filter(h => h.chase).map(h => ({ ...h.chase, path: h.chase.path.length, won: p.end.winner })));
+  const chase = { n: ch.length, ends: ch.reduce((o, c) => ((o[c.end ? c.end.why : 'open'] = (o[c.end ? c.end.why : 'open'] || 0) + 1), o), {}),
+    unreachable: ch.filter(c => c.reach && c.reach.slack < 0).length, noReach: ch.filter(c => !c.reach).length, examples: ch.slice(0, 3) };
   const sample = m.points.find(p => p.hits.some(h => h.who === 'you' && !h.serve));
-  return { on: L.on, matches: d.matches.length, points: m.points.length, kb: Math.round(L.json().length / 1024), strokes, cpu, ends,
-    stored: Math.round((localStorage.getItem('pp3d.log') || '').length / 1024), samplePoint: sample };
+  return { on: L.on, matches: d.matches.length, points: m.points.length, kb: Math.round(L.json().length / 1024), strokes, cpu, ends, chase,
+    stored: Math.round((localStorage.getItem('pp3d.log') || '').length / 1024), };
 });
 console.log(JSON.stringify(out, null, 1).slice(0, 6000));
 console.log(errors.length ? 'ERRORS:\n' + [...new Set(errors)].join('\n') : 'no page errors');

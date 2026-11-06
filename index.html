@@ -2908,7 +2908,7 @@ const TLOG = (() => {
   } catch { /* off */ }
   const r2 = v => (typeof v === 'number' && isFinite(v) ? Math.round(v * 100) / 100 : v);
   const v3 = v => [r2(v.x), r2(v.y), r2(v.z)];
-  const L = { on, data: null, cur: null, pt: null, ctx: null, last: null, trace: [], after: null, miss: null, trying: 'normal' };
+  const L = { on, chase: null, data: null, cur: null, pt: null, ctx: null, last: null, trace: [], after: null, miss: null, trying: 'normal' };
   const load = () => {
     L.data = ls.get('pp3d.log', null);
     if (!L.data || L.data.v !== 1) L.data = { v: 1, matches: [] };
@@ -2951,6 +2951,7 @@ const TLOG = (() => {
     if (!L.on) return;
     L.trace.push([simTime, input.target.x, input.target.z, swing.tvx * ts, -swing.tvz * ts, r.vel.x * ts, -r.vel.z * ts, touchLast ? 1 : 0]);
     while (L.trace.length && simTime - L.trace[0][0] > 0.6) L.trace.shift();
+    if (L.chase) L.chaseStep();
     if (L.after && simTime - L.after.t >= 0.2) { L.after.rec.after = L.path(L.after.t, L.after.t + 0.2, L.after.t); L.after = null; }
     if (live() && L.pt && canHit('player')) {
       const dx = ball.p.x - r.pos.x, dy = (ball.p.y - r.pos.y) * PLAYER_CFG.yWeight, dz = ball.p.z - r.pos.z, d = Math.hypot(dx, dy, dz);
@@ -2967,6 +2968,7 @@ const TLOG = (() => {
   /** The ball as `who` meets it, before the stroke changes it. */
   L.contact = who => {
     if (!live()) return;
+    if (who === 'player') L.endChase('hit');
     const w = unreadSpin();
     L.ctx = { who: who === 'player' ? 'you' : 'cpu', t: simTime, pos: v3(ball.p), h: r2(ball.p.y - TABLE_TOP), vin: v3(ball.v),
       speedIn: r2(Math.hypot(ball.v.x, ball.v.y, ball.v.z)), rising: ball.v.y > 0 ? 1 : 0, topIn: Math.round(topspinOf(w, ball.v)),
@@ -2990,6 +2992,47 @@ const TLOG = (() => {
     L.pt.hits.push(c);
     L.last = c; L.miss = null;
     if (me === 'you' && !c.serve) { L.after = { t: simTime, rec: c }; L.show(c); }
+    L.endChase(null);
+    if (me === 'cpu' && !match.doubles) L.startChase(c);
+  };
+  /** Your chase of a CPU ball, from its hit to your contact (or the point's end): where you stood,
+   *  how soon you moved, your path, and whether the ball was reachable at all — the time to spare
+   *  with an instant start (slack: footwork at PLAYER_CFG.bodySpeed / bodyAccel, the racket an
+   *  arm's reach from the body). Times are sim s (real s = sim / ts). */
+  L.startChase = c => {
+    const b = playerBody, r = player.pos, ch = c.chase = {
+      from: { body: [r2(b.x), r2(b.z)], racket: [r2(r.x), r2(r.z)], finger: [r2(input.target.x), r2(input.target.z)], down: touchLast ? 1 : 0 },
+      react: null, path: [], end: null };
+    const vmax = PLAYER_CFG.bodySpeed, a = PLAYER_CFG.bodyAccel, need = d => (d < vmax * vmax / (2 * a) ? Math.sqrt(2 * d / a) : d / vmax + vmax / (2 * a));
+    let best = null, bounced = false;
+    const win = [Infinity, -Infinity];   // when it is playable
+    simulate({ p: { ...ball.p }, v: { ...ball.v }, w: { ...ball.w } }, 3, (q, ev, t) => {
+      if (ev.floor) return true;
+      if (ev.table) { if (bounced) return true; if (ev.table.z > 0) bounced = true; return; }
+      const h = q.p.y - TABLE_TOP;   // playable: over the table top (racketMinY), within reach
+      if (!bounced || h < 0.03 || h > 1 || q.p.z < PLAYER_CFG.minZ || q.p.z > PLAYER_CFG.maxZ || Math.abs(q.p.x) > -PLAYER_CFG.minX + REACH.armX) return;
+      win[0] = Math.min(win[0], t); win[1] = Math.max(win[1], t);
+      const d = Math.hypot(Math.max(0, Math.abs(q.p.x - b.x) - REACH.armX), Math.max(0, Math.abs(q.p.z - b.z) - REACH.armZ)), slack = t - need(d);
+      if (!best || slack > best.slack) best = { slack, t, d, at: [q.p.x, q.p.y - TABLE_TOP, q.p.z] };
+    });
+    ch.reach = best ? { slack: r2(best.slack), t: r2(best.t), run: r2(best.d), at: best.at.map(r2), window: win.map(r2) } : null;   // null: never playable (long / net)
+    L.chase = { ch, t0: simTime, next: simTime, fx: input.target.x, fz: input.target.z, bx: b.x, bz: b.z };
+  };
+  L.chaseStep = () => {
+    const k = L.chase, ch = k.ch, t = simTime - k.t0;
+    if (ch.react == null && Math.hypot(input.target.x - k.fx, input.target.z - k.fz) > 0.03) ch.react = r2(t);
+    if (ch.bodyMove == null && Math.hypot(playerBody.x - k.bx, playerBody.z - k.bz) > 0.03) ch.bodyMove = r2(t);
+    if (simTime >= k.next) {
+      k.next = simTime + 0.05;
+      ch.path.push([r2(t), r2(playerBody.x), r2(playerBody.z), r2(player.pos.x), r2(player.pos.z), r2(input.target.x), r2(input.target.z), touchLast ? 1 : 0]);
+    }
+    if (t > 3) L.endChase('timeout');
+  };
+  /** why: 'hit' (you met it), 'point' (the point ended first), 'timeout'. */
+  L.endChase = why => {
+    if (!L.chase) return;
+    if (why) L.chase.ch.end = { why, t: r2(simTime - L.chase.t0) };
+    L.chase = null;
   };
   L.outcome = c => {
     const land = landingOf({ p: { ...ball.p }, v: { ...ball.v }, w: { ...ball.w } }, false);
@@ -3009,6 +3052,7 @@ const TLOG = (() => {
   };
   L.pointEnd = (winner, why, kind) => {
     if (!live() || !L.pt) return;
+    L.endChase('point');
     const p = L.pt;
     p.end = { winner: winner === 'player' ? 'you' : 'cpu', why, kind, rally: match.rallyCount, t: r2(simTime - p.t0) };
     if (winner !== 'player' && kind === 'miss' && L.miss) p.end.yourMiss = L.miss;   // the ball you didn't reach
