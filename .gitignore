@@ -1,3 +1,5 @@
 .agent-kit
 sim/_baseline.html
 node_modules/
+sim/out/
+logs/

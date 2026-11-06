@@ -98,3 +98,22 @@ Point share by style, 30 matches each:
 The before chop is a bot with a home at 1.85 m; it gets 0.25–0.33. A chopper who stays deep invites drop shots and smashes; chop from 1.85 m and it scores higher (Hard ~0.52), but the CPU's drop shots punish it once it stands back.
 
 CPU against CPU, each style vs the All-rounder on Hard (`duel.mjs` with `styles`, both ends): Wizard 0.37 → ~0.50, Attacker 0.64 → ~0.58, Defender ~0.47, Blocker ~0.44 → ~0.45.
+
+## Human-like bot (Nov 2026)
+Real play is logged with `?log` (see the play log in index.html); `sim/bench/logstats.py LOG [matches]`
+and `sim/bench/smashcmp.py` summarize a log, and `sim/bench/botlog.mjs` makes the bot play with the log
+on, so bot and human go through the same analysis. `bot.js` `human.real` plays like the logged iPhone
+player: reaction 0.22 s, a rough first read that sharpens, a finger that never stops (it drags the
+racket to the ball and jumps ~8 m/s to get near it), a smash flick that peaks just after contact,
+mostly cross-court and very sideways (8 fwd / 12 side m/s), a follow-through, touch sensitivity 2×.
+Policies `you` (your normal game: smash anything not short, else drive or sidespin) and `youBlock`.
+`sim/human.sh [LEVEL] [MATCHES] [POLICIES]` runs them (`SIM_URL=…/sim/_baseline.html` for the live
+version). Hard vs All-rounders, live version:
+
+| | real (points won) | bot |
+|---|---|---|
+| normal (smash) | 0.19 / 0.44 (two matches) | 0.20–0.25 |
+| trying to block | 0.27, 0.24 (vs a Blocker) | 0.34 |
+
+Open gap: the CPU misses ~19% of the real smashes, ~5% of the bot's (same landing spots and pace) —
+the log now records the CPU's side (where it stood, its reaction, how close it got) to find out why.

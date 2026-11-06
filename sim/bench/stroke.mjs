@@ -18,7 +18,7 @@ const out = await page.evaluate((stroke) => {
       Object.assign(ball.w, w); rally.shotW = w; rally.lastHitTime = P.simTime; rally.shotBounces = 0; rally.botShot = null;
       Object.assign(P.player.pos, { x: 0.2, y: TT + h, z });
       P.input.tilt = 0;
-      Object.assign(swing, { vx: 0, vf: 0, peak: 0, peakAt: -9, sl: 0, sf, strokeAt: P.simTime });
+      Object.assign(swing, { vx: 0, vf: 0, peak: 0, peakAt: -9, sl: 0, sf, strokeAt: P.simTime, arm: sf, armAt: P.simTime });
       T.playerHit(0.02);
       let bounced = false, top2 = 0, arc = 0, land = null;
       T.simulate({ p: { ...ball.p }, v: { ...ball.v }, w: { ...ball.w } }, 3, (b, ev) => {

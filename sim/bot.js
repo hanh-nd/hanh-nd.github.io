@@ -9,6 +9,15 @@ window.runSim = function (opts) {
   const randn = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
   const H = opts.human || {};
   const reaction = H.reaction ?? 0.2, posErr = H.posErr ?? 0.035, timeErr = H.timeErr ?? 0.018;
+  // H.real: a human finger, as measured on real play (an iPhone, ?log, Nov 2026). It reacts later and
+  // more unevenly (reaction ± reactSd); its first read of the ball is rough (read0 m, shrinking to
+  // posErr over the last `settle` s); it never stops: it keeps dragging the racket to the ball at the
+  // pace that gets it there at contact (at least `drag` m/s), so the racket is still moving when it
+  // meets the ball — after a quick jump (`jump` m/s, the log's median peak per chase) to within `near`
+  // m of where it reads the ball; a smash flick peaks just after contact (lead `smashLead` s: < 0 after); after a
+  // stroke it follows through (`follow` s) before it recovers.
+  const R = H.real ? { reactSd: H.reactSd ?? 0.05, read0: H.read0 ?? 0.3, settle: H.settle ?? 0.3, drag: H.drag ?? 1.5,
+    smashLead: H.smashLead || [-0.05, 0.01], follow: H.follow ?? 0.1, jump: H.jump ?? 8, near: H.near ?? 0.15 } : null;
 
   // opts.tune: { SMASH_D: {...}, ADAPT: {...}, AI_LEVELS: { hard: {...} }, ... } deep-merged into the game's config
   const merge = (dst, src) => { for (const k in src) { if (src[k] && typeof src[k] === 'object' && !Array.isArray(src[k]) && dst[k]) merge(dst[k], src[k]); else dst[k] = src[k]; } };
@@ -59,6 +68,14 @@ window.runSim = function (opts) {
       if (short) return speed < 7 && Math.random() < 0.4 ? 'touch' : 'push';
       const r = Math.random(); return r < 0.4 ? 'push' : r < 0.75 ? 'drive' : 'side';
     }
+    // 'you': your normal play (?log, Hard): a smash at anything that isn't short, whatever its height,
+    // else a drive, sometimes a sidespin flick. 'youBlock': trying to block (and no smash).
+    if (pol === 'you') {   // (it lets the ball come: H.take 'drop' — you take nearly everything ~0.15 m up, 1.8 m back)
+      if (short) return speed < 7 && Math.random() < 0.2 ? 'touch' : 'push';
+      if (h < (opts.youMinH ?? 0.06)) return Math.random() < 0.6 ? 'drive' : 'side';
+      const r = Math.random(); return r < (opts.youSmash ?? 0.6) ? 'smash' : r < 0.8 ? 'drive' : 'side';
+    }
+    if (pol === 'youBlock') return short && speed < 7 && Math.random() < 0.3 ? 'touch' : Math.random() < 0.15 ? 'side' : 'block';
     if (pol === 'block' || pol === 'chop' || pol === 'drive') {
       if (h >= (opts.kill ?? 0.5) && !short && !mirror) return 'smash';
       if (short) return speed < 7 && Math.random() < 0.4 ? 'touch' : 'push';
@@ -97,11 +114,24 @@ window.runSim = function (opts) {
       bot.plan = null;
       return moveTargetToward(-(Math.sign(P.allyRacket.pos.x) || 1) * 0.7, 2.2, H.recover ?? 2.2);
     }
-    if (!rally.live || rally.lastHitter !== 'ai') { bot.plan = null; return moveTargetToward(ball.p.x * 0.25, H.home ?? 1.85, H.recover ?? 2.2); }
+    if (!rally.live || rally.lastHitter !== 'ai') {
+      const p0 = bot.plan;
+      if (R && p0 && rally.live) {   // just hit: a flick that hadn't finished (a smash peaking after contact) goes on, then the follow-through
+        const sw0 = p0.sw, end = sw0 ? p0.tContact - sw0.lead + sw0.dur : now;
+        bot.flick = sw0 && (sw0.v || sw0.sl) && end > now ? { from: Math.max(now, p0.tContact - sw0.lead), end, x: sw0.sl, z: -sw0.v } : null;
+        if (bot.flick) bot.followV = { x: bot.flick.x, z: bot.flick.z };
+        bot.followUntil = Math.max(now, bot.flick ? bot.flick.end : now) + R.follow;
+      }
+      bot.plan = null;
+      if (R && bot.flick && now <= bot.flick.end) { if (now >= bot.flick.from) { input.target.x += bot.flick.x * dt; input.target.z += bot.flick.z * dt; } return; }
+      if (R && now < (bot.followUntil || 0) && bot.followV) { input.target.x += bot.followV.x * 0.7 * dt; input.target.z += bot.followV.z * 0.7 * dt; return; }
+      return moveTargetToward(ball.p.x * 0.25, H.home ?? 1.85, H.recover ?? 2.2);
+    }
     let p = bot.plan;
     if (!p || p.hitTime !== rally.lastHitTime) {
-      p = bot.plan = { hitTime: rally.lastHitTime, readyAt: now + Math.max(0.08, reaction + randn() * 0.04), ip: null, tContact: 0, stroke: null, nextRead: 0,
-        ex: randn() * posErr, ez: randn() * posErr * 0.6, et: randn() * timeErr, side: aimSide(), started: false, sw: null, minD: 9 };
+      p = bot.plan = { hitTime: rally.lastHitTime, readyAt: now + Math.max(0.08, reaction + randn() * (R ? R.reactSd : 0.04)), ip: null, tContact: 0, stroke: null, nextRead: 0,
+        ex: randn() * posErr, ez: randn() * posErr * 0.6, et: randn() * timeErr, side: aimSide(), started: false, sw: null, minD: 9,
+        rx: R ? randn() * R.read0 : 0, rz: R ? randn() * R.read0 * 0.6 : 0 };
       agg.plans++;
       armJutsu();
       bot.prevSmash = bot.lastPlan && bot.lastPlan.stroke === 'smash' && bot.lastPlan.hitTime !== undefined && rally.rallyHits !== 0 && P.match.rallyCount > 1 && bot.smashedThisRally;
@@ -123,8 +153,10 @@ window.runSim = function (opts) {
     if (!p.ip) return moveTargetToward(ball.p.x, 1.9, 3);
     const ip = p.ip;
     if (!p.sw) {
+      // Your smash (?log): from a wide ball, cross-court — 42 of 51 that landed went from your left to the right.
+      if (R && p.stroke === 'smash' && Math.abs(ip.x) > 0.2 && Math.random() < (H.cross ?? 0.85)) p.side = -Math.sign(ip.x);
       p.sw = {
-        smash: { v: (H.smashV ?? 7.5) + randn() * 0.6, sl: p.side * rand(...(H.smashSl || [0.8, 2.2])), lead: 0.06, dur: 0.12 },
+        smash: { v: (H.smashV ?? 7.5) + randn() * (R ? 1.5 : 0.6), sl: p.side * rand(...(H.smashSl || [0.8, 2.2])), lead: R ? rand(...R.smashLead) : 0.06, dur: H.smashDur ?? 0.12 },
         drive: { v: rand(2.2, 3.8), sl: p.side * rand(0.4, 1.2), lead: 0.08, dur: 0.14 },
         ...(opts.aware && rally.botShot && rally.botShot.lean ? { [p.stroke]: { v: rand(2.2, 3.2), sl: -rally.botShot.lean * rand(1.4, 2), lead: 0.08, dur: 0.14 } } : {}),
         push: { v: -rand(0.8, 1.6), sl: p.side * rand(0.2, 0.6), lead: 0.06, dur: 0.12 },
@@ -136,12 +168,18 @@ window.runSim = function (opts) {
       bot.lastStroke = p.stroke;
     }
     const sw = p.sw;
-    const x0 = ip.x - p.side * 0.04 + p.ex - sw.sl * sw.lead;
-    const z0 = ip.z + p.ez + sw.v * sw.lead;
+    const fade = R ? Math.min(1, Math.max(0, (p.tContact - now) / R.settle)) : 0;   // the rough read, sharpening
+    const x0 = ip.x - p.side * 0.04 + p.ex + p.rx * fade - sw.sl * Math.max(0, sw.lead);
+    const z0 = ip.z + p.ez + p.rz * fade + sw.v * Math.max(0, sw.lead);
     if (!p.started && (sw.v || sw.sl) && now >= p.tContact - sw.lead) p.started = true;
     if (p.started) {
-      if (now <= p.tContact - sw.lead + sw.dur) { input.target.x += sw.sl * dt; input.target.z -= sw.v * dt; }
+      if (now <= p.tContact - sw.lead + sw.dur) { input.target.x += sw.sl * dt; input.target.z -= sw.v * dt; bot.followV = { x: sw.sl, z: -sw.v }; }
       return;
+    }
+    if (R) {   // drag the racket there, arriving at contact: still moving when it meets the ball
+      const t = input.target, d = Math.hypot(x0 - t.x, Math.max(z0, PLAYER_CFG.minZ) - t.z), left = p.tContact - Math.max(0, sw.lead) - now;
+      bot.followV = { x: 0, z: 0 };
+      return moveTargetToward(x0, Math.max(z0, PLAYER_CFG.minZ), d > R.near ? R.jump : Math.min(R.jump, Math.max(R.drag, d / Math.max(0.03, left))));
     }
     moveTargetToward(x0, Math.max(z0, PLAYER_CFG.minZ), p.tContact - sw.lead - now > 0.12 ? 4.4 : 2.5);   // under the smash / sidespin flick speeds   // get there, then settle
   }
@@ -163,6 +201,7 @@ window.runSim = function (opts) {
     P.startMatch();
     match.paused = true;   // the page's own frame loop stays out of it
     input.touch = true; input.mouseActive = false;
+    if (H.sens && T.touchSens) T.touchSens.value = 50 + 50 * Math.log2(H.sens);   // touch sensitivity (Settings): 2 = 2×
     bot.plan = null; bot.serveAt = 0;
     let hadSmash = false, lastPts = [0, 0], lastSm = 0, lastCpuSm = 0, steps = 0, lastHitter = null, trail = false, smash = null, sigId = null;
     const firedNow = { player: null, ai: null };
@@ -170,6 +209,7 @@ window.runSim = function (opts) {
       step();
       T.fixedUpdate(dt);
       steps++;
+      if (T.TLOG && T.TLOG.last && T.TLOG.last.who === 'you' && !T.TLOG.last.intent && bot.lastStroke) T.TLOG.last.intent = bot.lastStroke;   // (?log: what it meant)
       if (rally.live) {   // (after the point, rally.fired stays set until the next serve)
         for (const jt of [rally.pendingJutsu, rally.jutsu]) if (jt && !firedNow[jt.by]) firedNow[jt.by] = jt.id;
         for (const side of ['player', 'ai']) if (rally.fired[side] && !firedNow[side]) firedNow[side] = 'fizzle';

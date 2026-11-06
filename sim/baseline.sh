@@ -10,6 +10,8 @@ if 'test: {' not in s:
     old = "get simTime() { return simTime; } };"
     assert s.count(old) == 1, 'unknown PingPong hook layout'
     s = s.replace(old, "get simTime() { return simTime; }, test: { fixedUpdate, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, yourTurn, youServe, canHit, chakra } };")
-    open(p, 'w').write(s)
+if 'touchSens' not in s.split('test: {', 1)[1][:300]:   # the bot sets your touch sensitivity (H.sens)
+    s = s.replace('test: {', 'test: { touchSens,', 1)
+open(p, 'w').write(s)
 PY
 echo "sim/_baseline.html <- ${1:-HEAD}"

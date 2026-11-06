@@ -758,14 +758,14 @@ function brushOf(sideVx) {
  *  BLOCK — a still racket (no forward swipe to speak of) at the table (contact within `table` m
  *  behind the end line): the ball comes off it with a share `keep` of its own pace — more (`rise`)
  *  when you take it early, still rising off the bounce — flat and low (arc at most `arc` m over the
- *  table), deeper the faster it goes (`depth` m per m/s). Off a smash it is a counter-block. A
+ *  table), `base` m from the net and deeper the faster it goes (`depth` m per m/s). Off a smash it is a counter-block. A
  *  still racket further back has no pace to borrow: it floats, and sits up.
  *  CHOP — a pull-back from deep (contact at least `z` m from the net): a defensive stroke against
  *  topspin, not a push. It turns the incoming topspin into backspin (`reverse` of it, on top of
  *  `base`, more for a harder pull, at most `max` rad/s), low (`arc`) and deep (`depth`) at `speed`
  *  m/s — a slow ball that stays down after its bounce. Heavy backspin drags a loop or a smash into
  *  the net unless it is lifted (see SPIN_D, AIM.spinBias). */
-const BLOCK = { keep: 0.6, rise: 0.15, table: 0.45, max: 11, arc: 0.34, depth: 0.17 };
+const BLOCK = { keep: 0.6, rise: 0.15, table: 0.45, max: 11, arc: 0.34, base: 0.3, depth: 0.17 };
 const CHOP = { z: 1.8, base: 70, reverse: 0.35, pull: 40, max: 200, speed: [6, 7.4], arc: 0.36, depth: [1.0, 1.18],
   float: 0.14, floatFrom: 50, floatSpan: 100,   // a heavy loop lifts the chop: arc + float × (topspin − floatFrom) / floatSpan
   err: 1.3 };                                    // hand error × (a stroke from deep against a loop is the hard one)
@@ -1449,8 +1449,8 @@ const AIM = {
   stroke: 0.45,           // block / drive / push
   fastBall: 0.6,          // incoming speed (×1 at 6 m/s, ×1.6 at 14 m/s and above)
   lowBall: 0.8,           // contact height (×1 at 0.45 m above the table, ×1.8 at 0.2 m, ×1.96 lower)
-  smashLow: 2,            // ...for a smash (×3 at 0.2 m): in a headless sim (6–11 m/s balls with topspin)
-                          // it misses ~22% at 0.2 m, ~13% at 0.25 m, ~4% at 0.3 m and ~0 from 0.4 m up
+  smashLow: 2,            // ...for a smash (×3 at 0.2 m): with the rescue (below), your smash lands ~78% at
+                          // 0.15 m, ~85% at 0.2 m, ~95% from 0.25 m up (sim/bench/smash.mjs)
   offCenter: 1.0,         // contact off the sweet spot (×1 within 40% of the racket radius, ×1.6 at the edge)
   yaw: 0.7,               // sideways error relative to up/down
   spinBias: 0.25,         // a smash against spin: degrees per 100 rad/s, topspin lifts it long and
@@ -2848,7 +2848,7 @@ function sideIntent(vx, fwd) {
 /** Swing memory (real m/s): the peak recent smash flick (peak speed, its sideways vx and forward
  *  vf), the strongest recent swipe of any direction (sl, sf: it sets the stroke), and the racket's
  *  recent path. A swipe rarely peaks at the exact instant of contact, so all are kept briefly. */
-const swing = { peak: 0, peakAt: -1, vx: 0, vf: 0, sl: 0, sf: 0, strokeMag: 0, strokeAt: -1, path: [], tPrev: null, tvx: 0, tvz: 0,
+const swing = { peak: 0, peakAt: -1, vx: 0, vf: 0, sl: 0, sf: 0, strokeMag: 0, strokeAt: -1, arm: 0, armAt: -1, path: [], tPrev: null, tvx: 0, tvz: 0,
   sidePeak: 0, sideAt: -1, sideVx: 0 };   // the peak recent sidespin flick and its sideways speed
 function trackSwing(r, dt) {
   // The finger/mouse (target) velocity registers a swipe immediately; the racket's own velocity
@@ -2881,6 +2881,10 @@ function trackSwing(r, dt) {
   if (mag >= swing.strokeMag || simTime - swing.strokeAt > PLAYER_CFG.strokeWindow) {
     swing.sl = sl; swing.sf = sf; swing.strokeMag = mag; swing.strokeAt = simTime;
   }
+  // The arm: the racket's forward speed relative to the feet (see ARM). On touch it is measured
+  // per unit of sensitivity, so a stroke takes the same finger whatever the setting.
+  const arm = -(r.vel.z - playerBody.vz) * ts / (input.touch ? touchSens.mult : 1);
+  if (Math.abs(arm) >= Math.abs(swing.arm) || simTime - swing.armAt > PLAYER_CFG.strokeWindow) { swing.arm = arm; swing.armAt = simTime; }
   swing.path.push({ x: r.pos.x, y: r.pos.y, t: simTime });
   TLOG.step(r, ts);
   if (swing.path.length > Math.round(SMASH.sweepTime / PHYS.dt)) swing.path.shift();
@@ -2917,7 +2921,7 @@ const TLOG = (() => {
   const save = () => {
     const d = L.data;
     d.device = { ua: navigator.userAgent, w: innerWidth, h: innerHeight, dpr: devicePixelRatio, touch: input.touch, sens: r2(touchSens.mult) };
-    d.cfg = { driveFwd: PLAYER_CFG.driveFwd, pushMin: PLAYER_CFG.pushMin, touchMaxFwd: PLAYER_CFG.touchMaxFwd, touchZ: PLAYER_CFG.touchZ,
+    d.cfg = { driveFwd: PLAYER_CFG.driveFwd, pushMin: PLAYER_CFG.pushMin, ARM, touchZ: PLAYER_CFG.touchZ,
       strokeWindow: PLAYER_CFG.strokeWindow, smashMin: SMASH.minSwing, smashWindow: SMASH.window, sideMin: SPIN.minSwing, touchSmash: PLAYER_CFG.touchSmash,
       blockZ: r2(HALF_L + BLOCK.table), BLOCK, CHOP };
     d.saved = new Date().toISOString();
@@ -2935,8 +2939,8 @@ const TLOG = (() => {
   L.matchStart = () => {
     L.cur = null; L.pt = null;
     if (!L.on || match.watch) return;
-    L.cur = { at: new Date().toISOString(), mode: match.mode, level: match.levelKey, style: match.styleKey, doubles: !!match.doubles,
-      speed: match.speedKey, points: [] };
+    L.cur = { at: new Date().toISOString(), mode: match.mode, level: match.levelKey, style: match.styleKey, opp: match.doubles ? 'CPU ×2' : opp.name,
+      doubles: !!match.doubles, speed: match.speedKey, sens: r2(touchSens.mult), touch: input.touch ? 1 : 0, points: [] };
     L.data.matches.push(L.cur);
   };
   L.pointStart = () => {
@@ -2953,6 +2957,10 @@ const TLOG = (() => {
     while (L.trace.length && simTime - L.trace[0][0] > 0.6) L.trace.shift();
     if (L.chase) L.chaseStep();
     if (L.after && simTime - L.after.t >= 0.2) { L.after.rec.after = L.path(L.after.t, L.after.t + 0.2, L.after.t); L.after = null; }
+    if (live() && L.pt && canHit('ai')) {
+      const q = aiRacket.pos, dx = ball.p.x - q.x, dy = ball.p.y - q.y, dz = ball.p.z - q.z, d = Math.hypot(dx, dy * PLAYER_CFG.yWeight, dz);
+      if (!L.cpuMiss || d < L.cpuMiss.d) L.cpuMiss = { d: r2(d), dx: r2(dx), dy: r2(dy), dz: r2(dz), ball: v3(ball.p), racket: v3(q), body: [r2(aiBody.x), r2(aiBody.z)], t: r2(simTime - L.pt.t0) };
+    }
     if (live() && L.pt && canHit('player')) {
       const dx = ball.p.x - r.pos.x, dy = (ball.p.y - r.pos.y) * PLAYER_CFG.yWeight, dz = ball.p.z - r.pos.z, d = Math.hypot(dx, dy, dz);
       if (!L.miss || d < L.miss.d) L.miss = { d: r2(d), dx: r2(dx), dy: r2(ball.p.y - r.pos.y), dz: r2(dz), ball: v3(ball.p), racket: v3(r.pos),
@@ -2980,6 +2988,12 @@ const TLOG = (() => {
     }
   };
   L.note = o => { if (L.ctx) Object.assign(L.ctx, o); };
+  /** The CPU has read your stroke (aiOnOpponentHit): how long until it moves (again, after an upgrade). */
+  L.cpuPlan = c => {
+    if (!live() || !L.last || L.last.who !== 'you' || c.owner !== 'ai') return;
+    if (L.last.cpuReact != null) L.last.cpuReplan = 1;
+    L.last.cpuReact = r2(c.plan.readyAt - simTime);
+  };
   /** The stroke is played (registerHit): what came of it, as the ball leaves. */
   L.hit = who => {
     const me = who === 'player' ? 'you' : 'cpu';
@@ -2990,7 +3004,8 @@ const TLOG = (() => {
     L.outcome(c);
     if (rally.jutsu && rally.jutsu.by === who) c.jutsu = rally.jutsu.id;
     L.pt.hits.push(c);
-    L.last = c; L.miss = null;
+    L.last = c; L.miss = null; L.cpuMiss = null;
+    if (me === 'you') c.cpu = { racket: v3(aiRacket.pos), body: [r2(aiBody.x), r2(aiBody.z)] };   // where the CPU stood when you hit
     if (me === 'you' && !c.serve) { L.after = { t: simTime, rec: c }; L.show(c); }
     L.endChase(null);
     if (me === 'cpu' && !match.doubles) L.startChase(c);
@@ -3056,6 +3071,7 @@ const TLOG = (() => {
     const p = L.pt;
     p.end = { winner: winner === 'player' ? 'you' : 'cpu', why, kind, rally: match.rallyCount, t: r2(simTime - p.t0) };
     if (winner !== 'player' && kind === 'miss' && L.miss) p.end.yourMiss = L.miss;   // the ball you didn't reach
+    if (winner === 'player' && kind === 'miss' && L.cpuMiss) p.end.cpuMiss = L.cpuMiss;   // ...and the CPU's
     delete p.t0;
     L.cur.points.push(p);
     L.pt = null; L.miss = null; L.ctx = null;
@@ -3073,7 +3089,7 @@ const TLOG = (() => {
     if (!el) return;
     const bits = [`<b>${c.stroke || '?'}</b>`];
     if (c.fwd != null) bits.push(`fwd ${c.fwd} <small>(drive ≥${PLAYER_CFG.driveFwd})</small>`);
-    if (c.sf != null && c.sf < 0) bits.push(`pull ${r2(-c.sf)} <small>(push ≥${PLAYER_CFG.pushMin})</small>`);
+    if (c.arm != null) bits.push(`arm ${c.arm}`);
     if (c.flick != null) bits.push(`flick ${c.flick}<small>/${SMASH.minSwing}</small>`);
     if (c.sideFlick) bits.push(`side ${c.sideFlick}<small>/${SPIN.minSwing}</small>`);
     bits.push(`z ${c.pos[2]}${c.stroke === 'push' ? ` <small>(chop ≥${CHOP.z})</small>` : c.stroke === 'drive' || c.stroke === 'block' ? ` <small>(block ≤${r2(HALF_L + BLOCK.table)})</small>` : ''}`,
@@ -3086,6 +3102,15 @@ const TLOG = (() => {
   return L;
 })();
 const lr = TLOG.r2;   // (log rounding)
+/** (Measured and logged — not yet used to pick the stroke.) A drive is a stroke of the arm, not of
+ *  the feet: the racket has to move forward relative to the body, at least `drive` real m/s (at touch sensitivity 1×) within PLAYER_CFG.strokeWindow of
+ *  contact. Moving the whole body to the ball — on touch the finger never stops: it drags the
+ *  racket there — is no stroke: the racket meets the ball still, a block. `still`: the most arm a
+ *  jutsu that wants a block lets through. Measured on real play (an iPhone at 2×, ?log): blocks
+ *  +0.1 m/s (median), drives and smashes +1.0. (A pull-back stays a push: an intended chop and a
+ *  step back to the ball look the same, and a push is a fine return either way.) */
+const ARM = { drive: 0.25, still: 0.5 };
+const recentArm = () => (simTime - swing.armAt <= PLAYER_CFG.strokeWindow ? swing.arm : 0);
 const recentSwing = () => (simTime - swing.peakAt <= SMASH.window ? swing.peak : 0);
 const recentSide = () => (simTime - swing.sideAt <= SPIN.window ? swing.sidePeak : 0);
 
@@ -3154,7 +3179,9 @@ function playerHit(contactDist) {
   if (swingSpeed >= SMASH.minSwing) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl, contact);
   // A firm sideways flick: a sidespin stroke (see SPIN) — it replaces the push and the touch.
   const spin = recentSide() >= SPIN.minSwing;
-  const push = !spin && sf <= -PLAYER_CFG.pushMin, fwd = Math.max(0, sf);
+  const arm = recentArm(), fwd = Math.max(0, sf);
+  const push = !spin && sf <= -PLAYER_CFG.pushMin;
+  const drive = fwd >= PLAYER_CFG.driveFwd;   // (arm: logged only, for now — see ARM)
   // Short touch: a slow ball met over the table with a still racket drops just over the net.
   let touch = !spin && !push && fwd < PLAYER_CFG.touchMaxFwd && ball.p.z < PLAYER_CFG.touchZ && contact.speedIn < PLAYER_CFG.touchMaxSpeed;
   // A pull-back from deep is a chop; a still racket at the table a block (see BLOCK, CHOP).
@@ -3163,7 +3190,6 @@ function playerHit(contactDist) {
   const power = push ? PLAYER_CFG.pushPower + longPush : spin ? SPIN.power : clamp(0.38 + fwd * 0.085, 0.2, PLAYER_CFG.maxPower);
   const tilt = input.tilt;
   const bs = rally.botShot, sig = bs && bs.sig;
-  const drive = fwd >= PLAYER_CFG.driveFwd;
   // Armed, any stroke fires the jutsu you armed. Its chakra pushes through a signature shot.
   const jid = yourJutsu(), J = jid && JUTSU[jid];
   // A signature shot punishes the wrong stroke: it dies in the net or flies long (sigReturn).
@@ -3189,7 +3215,7 @@ function playerHit(contactDist) {
   if (block) {   // its pace, sent back: early (still rising) keeps more of it
     const keep = BLOCK.keep + (ball.v.y > 0 ? BLOCK.rise : 0);
     vh = clamp(Math.hypot(ball.v.x, ball.v.z) * keep, vh, BLOCK.max);
-    tz = -clamp(0.3 + (vh - 3.2) * BLOCK.depth + depthShift, 0.35, 1.2);
+    tz = -clamp(BLOCK.base + (vh - 3.2) * BLOCK.depth + depthShift, 0.35, 1.2);
     arc = Math.max(BLOCK.arc, contact.h + 0.05);
   }
   if (chop) {    // its topspin, turned into backspin: low, deep and slow
@@ -3207,7 +3233,7 @@ function playerHit(contactDist) {
   if (TLOG.on) {
     const ts = timeScale();
     TLOG.note({ stroke: spin ? 'sidespin' : chop ? 'chop' : push ? 'push' : touch ? 'touch' : drive ? 'drive' : block ? 'block' : 'soft',
-      sf: lr(sf), sl: lr(sl), fwd: lr(fwd), flick: lr(swingSpeed), sideFlick: lr(recentSide()), swipeAge: lr(simTime - swing.strokeAt),
+      sf: lr(sf), sl: lr(sl), fwd: lr(fwd), arm: lr(arm), flick: lr(swingSpeed), sideFlick: lr(recentSide()), swipeAge: lr(simTime - swing.strokeAt),
       fingerV: [lr(swing.tvx * ts), lr(-swing.tvz * ts)], racketV: [lr(r.vel.x * ts), lr(-r.vel.z * ts)], off: lr(contact.off), offX: lr(contact.offX),
       tilt: lr(tilt), misread: Math.round(misread), depthShift: lr(depthShift), aim: [lr(tx), lr(tz)], vh: lr(vh), arcCap: arc < Infinity ? lr(arc) : null,
       sig: sig || null, sigMiss, jutsu: jid || null });
@@ -3502,6 +3528,7 @@ function aiOnOpponentHit(c) {
   // Their Yata Mirror is up: it reads it (no hard ball at it) or it goes for the bait.
   if (rally.mirror[other(c.owner)] === 'up') c.plan.mirror = seesJutsu(c, 'mirror') ? 'read' : 'bait';
   if (!c.intent) c.intent = decideIntent(c);
+  TLOG.cpuPlan(c);
 }
 
 /** c has read your ball: with the seals for it (its team's) it may fire a jutsu of its kit on this
@@ -6227,7 +6254,7 @@ window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiR
   playerBody, aiBody, togglePause, updateHUD, endMatch, showTourHub, Sound, ai, nearAI, scout, watchTourMatch, newTournament, playTourMatch,
   get tour() { return tour; }, get simTime() { return simTime; },
   // Headless balance runs (a script steps the game and drives input.target like a finger).
-  test: { TLOG, fixedUpdate, simulate, playerHit, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
+  test: { TLOG, AIM, ARM, touchSens, fixedUpdate, simulate, playerHit, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
     JUTSU, JUTSU_AI, STYLE_KIT, SAMEHADA, SMART, SMART_J, VOID, BLOCK, CHOP, SPIN_D, sealsOf, get kit() { return yourKit; }, setKit: k => { yourKit = [...k]; } } };
 
 showStartMenu();
