@@ -73,7 +73,17 @@ window.runSim = function (opts) {
     if (pol === 'you') {   // (it lets the ball come: H.take 'drop' — you take nearly everything ~0.15 m up, 1.8 m back)
       if (short) return speed < 7 && Math.random() < 0.2 ? 'touch' : 'push';
       if (h < (opts.youMinH ?? 0.06)) return Math.random() < 0.6 ? 'drive' : 'side';
-      const r = Math.random(); return r < (opts.youSmash ?? 0.6) ? 'smash' : r < 0.8 ? 'drive' : 'side';
+      // You smash from your left (a right thumb's diagonal flick, cross-court): ~all your smashes.
+      const left = ip.x < (opts.youLeft ?? -0.25), r = Math.random();
+      if (r < (left ? opts.youSmash ?? 0.85 : opts.youSmashRight ?? 0.25)) return 'smash';
+      return Math.random() < 0.6 ? 'drive' : 'side';
+    }
+    // 'youSpin': your spin game (?log): mostly a sidespin flick, else a drive, sometimes a block; a
+    // smash only off a ball from your left that sits up.
+    if (pol === 'youSpin') {
+      if (short) return speed < 7 && Math.random() < 0.2 ? 'touch' : Math.random() < 0.5 ? 'side' : 'push';
+      if (h >= (opts.kill ?? 0.3) && ip.x < -0.25) return 'smash';
+      const r = Math.random(); return r < 0.5 ? 'side' : r < 0.88 ? 'drive' : 'block';
     }
     if (pol === 'youBlock') return short && speed < 7 && Math.random() < 0.3 ? 'touch' : Math.random() < 0.15 ? 'side' : 'block';
     if (pol === 'block' || pol === 'chop' || pol === 'drive') {
@@ -143,9 +153,18 @@ window.runSim = function (opts) {
     if (!p.started && now >= p.nextRead) {   // keep reading the ball until the stroke starts
       p.nextRead = now + 0.08;
       const bounced = rally.bounceCount === 1 && rally.serveStage === 0;
-      const ip = H.take === 'drop' ? dropIntercept(bounced) : P.predictIntercept(ball, 1, H.takeDepth ?? 2.5, PLAYER_CFG.minZ, bounced);
+      // You take your smash early, still rising (?log: 83% of the winners): H.smashZ, once it is a smash.
+      const earlyIp = () => { let b2 = bounced; return T.simulate(ball, 3, (b, ev, t) => {
+        if (ev.floor) return null;
+        if (ev.table) { if (!b2) { if (ev.table.z > 0) b2 = true; return undefined; } return null; }
+        return b2 && b.p.z >= H.smashZ ? { x: b.p.x, y: b.p.y, z: b.p.z, t } : undefined;
+      }); };
+      const smashEarly = R && H.smashZ && p.stroke === 'smash';
+      const ip = (smashEarly && earlyIp()) || (H.take === 'drop' ? dropIntercept(bounced) : P.predictIntercept(ball, 1, H.takeDepth ?? 2.5, PLAYER_CFG.minZ, bounced));
       if (ip) { p.ip = ip; p.tContact = now + ip.t + p.et;
         if (!p.stroke) { p.stroke = choose(ip);
+          const e = R && H.smashZ && p.stroke === 'smash' && earlyIp();
+          if (e) { p.ip = e; p.tContact = now + e.t + p.et; }
           const h = ip.y - TABLE_TOP, b = h < 0.2 ? '<.2' : h < 0.3 ? '.2-.3' : h < 0.45 ? '.3-.45' : h < 0.7 ? '.45-.7' : '>.7';
           const key = (bot.prevSmash ? 'afterSmash ' : 'normal ') + b; agg.hIn[key] = (agg.hIn[key] || 0) + 1;
           if (h > 0.94) agg.hIn.overCap = (agg.hIn.overCap || 0) + 1; } }
@@ -157,11 +176,11 @@ window.runSim = function (opts) {
       if (R && p.stroke === 'smash' && Math.abs(ip.x) > 0.2 && Math.random() < (H.cross ?? 0.85)) p.side = -Math.sign(ip.x);
       p.sw = {
         smash: { v: (H.smashV ?? 7.5) + randn() * (R ? 1.5 : 0.6), sl: p.side * rand(...(H.smashSl || [0.8, 2.2])), lead: R ? rand(...R.smashLead) : 0.06, dur: H.smashDur ?? 0.12 },
-        drive: { v: rand(2.2, 3.8), sl: p.side * rand(0.4, 1.2), lead: 0.08, dur: 0.14 },
+        drive: { v: rand(...(H.driveV || [2.2, 3.8])), sl: p.side * rand(0.4, 1.2), lead: 0.08, dur: 0.14 },
         ...(opts.aware && rally.botShot && rally.botShot.lean ? { [p.stroke]: { v: rand(2.2, 3.2), sl: -rally.botShot.lean * rand(1.4, 2), lead: 0.08, dur: 0.14 } } : {}),
         push: { v: -rand(0.8, 1.6), sl: p.side * rand(0.2, 0.6), lead: 0.06, dur: 0.12 },
         block: { v: 0, sl: 0, lead: 0, dur: 0 },
-        side: { v: 0, sl: p.side * rand(5.5, 7), lead: -0.01, dur: 0.09 },   // a sideways flick through the ball, just after contact (playerSpinUpgrade)
+        side: { v: rand(...(H.sideV || [0, 0])), sl: p.side * rand(...(H.sideSl || [5.5, 7])), lead: H.sideLead ? rand(...H.sideLead) : -0.01, dur: H.sideDur ?? 0.09 },   // (you: sl [10, 15], v [2, 5], ?log)   // a sideways flick through the ball, just after contact (playerSpinUpgrade)
         touch: { v: 0, sl: 0, lead: 0, dur: 0 },
       }[p.stroke];
       agg.strokes[p.stroke] = (agg.strokes[p.stroke] || 0) + 1;

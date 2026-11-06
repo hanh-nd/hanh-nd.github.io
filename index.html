@@ -727,6 +727,8 @@ const SMASH = {
   window: 0.22,           // a fast swing still counts this long after its peak (sim seconds)
   sweepTime: 0.2,         // during a fast swing, contact checks the path swept over this time
   grace: 0.1,             // a fast swing right after a normal hit ("through the ball") upgrades it
+  easeHigh: 0.3,          // a ball that sits up takes a smaller flick: minSwing × (1 − easeHigh) from 0.55 m
+                          // up, from 0.25 m (real play, ?log: flicks just short of it on high balls)
   sweepReach: 1.25,       // ...and accepts the ball slightly wider than a normal contact
 };
 
@@ -746,6 +748,9 @@ const SPIN = {
   maxBrush: 5,            // racket speed (m/s) past which the rubber just slips: at most ~0.7 m/s
                           // sideways and ~50 rad/s of sidespin
   power: 0.3,             // pace (see playerHit): a soft block, no forward push
+  arc: 0.34,              // ...kept low like a block: at most this high over the table (m)
+  drive: 0.8,             // a brush with a forward swipe keeps this share of a drive's pace (see playerHit):
+                          // a soft brush gave the CPU time to attack (sim/human.sh youSpin: Medium .42 → .48)
   window: 0.22,           // a flick still counts this long after its peak (sim s)
 };
 /** The brush of a sideways flick (see SPIN): sideways push (m/s) and sidespin about +Y (rad/s). */
@@ -771,7 +776,8 @@ const CHOP = { z: 1.8, base: 70, reverse: 0.35, pull: 40, max: 200, speed: [6, 7
   err: 1.3 };                                    // hand error × (a stroke from deep against a loop is the hard one)
 
 const PLAYER_CFG = {
-  hitRadius: 0.17,        // generous contact sphere around the racket center
+  hitRadius: 0.21,        // generous contact sphere around the racket center: a finger on glass misses a
+                          // ball it reached by ~0.2–0.35 m (real play, ?log); 0.17 left most points unreturned
   yWeight: 0.55,          // vertical distance counts less (racket height is auto-assisted)
   minX: -1.3, maxX: 1.3, minZ: TABLE.length / 2 - REACH.overTable, maxZ: 2.6,
   serveMinZ: 1.42,        // must serve from behind the end line...
@@ -1187,6 +1193,7 @@ const AI_COMMON = {
   smashFull: 0.2,         // ...and goes for every one (at its level's `smash` rate) this much higher
   smashSlow: 9,           // only balls slower than this (m/s): a fast ball is blocked, not smashed
   maxArc: 0.42,           // its strokes never float higher than this above the table (m): see aimAI
+  arcOver: 0.06,          // ...or than this over the ball, met high
 };
 
 const COLORS = { player: 0xe63946, ally: 0xff9f43, ai: 0x2f80ed, ai2: 0x8e7dff, table: 0x1b4f8f, ball: 0xff8c1a };
@@ -3110,6 +3117,8 @@ const lr = TLOG.r2;   // (log rounding)
  *  +0.1 m/s (median), drives and smashes +1.0. (A pull-back stays a push: an intended chop and a
  *  step back to the ball look the same, and a push is a fine return either way.) */
 const ARM = { drive: 0.25, still: 0.5 };
+/** The flick a smash takes off a ball met `h` m above the table (see SMASH.easeHigh). */
+const smashNeed = h => SMASH.minSwing * (1 - SMASH.easeHigh * clamp((h - 0.25) / 0.3, 0, 1));
 const recentArm = () => (simTime - swing.armAt <= PLAYER_CFG.strokeWindow ? swing.arm : 0);
 const recentSwing = () => (simTime - swing.peakAt <= SMASH.window ? swing.peak : 0);
 const recentSide = () => (simTime - swing.sideAt <= SPIN.window ? swing.sidePeak : 0);
@@ -3176,7 +3185,7 @@ function playerHit(contactDist) {
   const contact = contactOf(contactDist);
   // Only forward-pointing flicks count; one that peaked a moment ago still does.
   const swingSpeed = Math.max(smashIntent(sl, sf), recentSwing());
-  if (swingSpeed >= SMASH.minSwing) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl, contact);
+  if (swingSpeed >= smashNeed(contact.h)) return playerSmash(swingSpeed, Math.abs(swing.vx) > Math.abs(sl) ? swing.vx : sl, contact);
   // A firm sideways flick: a sidespin stroke (see SPIN) — it replaces the push and the touch.
   const spin = recentSide() >= SPIN.minSwing;
   const arm = recentArm(), fwd = Math.max(0, sf);
@@ -3187,7 +3196,9 @@ function playerHit(contactDist) {
   // A pull-back from deep is a chop; a still racket at the table a block (see BLOCK, CHOP).
   const chop = push && ball.p.z >= CHOP.z;
   const longPush = push ? clamp((-sf - PLAYER_CFG.pushMin) * PLAYER_CFG.longPush, 0, PLAYER_CFG.longPushMax) : 0;
-  const power = push ? PLAYER_CFG.pushPower + longPush : spin ? SPIN.power : clamp(0.38 + fwd * 0.085, 0.2, PLAYER_CFG.maxPower);
+  // A brush with a forward swipe is a sidespin drive (SPIN.drive of a drive's pace); without, a soft block.
+  const drivePower = clamp(0.38 + fwd * 0.085, 0.2, PLAYER_CFG.maxPower);
+  const power = push ? PLAYER_CFG.pushPower + longPush : spin ? Math.max(SPIN.power, drivePower * SPIN.drive) : drivePower;
   const tilt = input.tilt;
   const bs = rally.botShot, sig = bs && bs.sig;
   // Armed, any stroke fires the jutsu you armed. Its chakra pushes through a signature shot.
@@ -3218,6 +3229,7 @@ function playerHit(contactDist) {
     tz = -clamp(BLOCK.base + (vh - 3.2) * BLOCK.depth + depthShift, 0.35, 1.2);
     arc = Math.max(BLOCK.arc, contact.h + 0.05);
   }
+  if (spin) arc = Math.max(SPIN.arc, contact.h + 0.05);   // a brush stays low (it floated ~0.45 m: real play, ?log)
   if (chop) {    // its topspin, turned into backspin: low, deep and slow
     vh = rand(...CHOP.speed);
     tz = -(rand(...CHOP.depth) + depthShift);
@@ -3415,7 +3427,7 @@ function checkSmashUpgrade() {
   }
   if (u.miss) return;   // it already went wrong (a jutsu's or a signature's answer): no rescue
   if (rally.jutsu && rally.jutsu.by === 'player') return;   // a jutsu stroke stays what it was
-  if (recentSwing() >= SMASH.minSwing && swing.peakAt >= u.hitTime) playerSmash(recentSwing(), swing.vx, u.contact, true);
+  if (recentSwing() >= smashNeed(u.contact.h) && swing.peakAt >= u.hitTime) playerSmash(recentSwing(), swing.vx, u.contact, true);
   else if (spinShotAt !== u.hitTime && recentSide() >= SPIN.minSwing && swing.sideAt >= u.hitTime) playerSpinUpgrade(u);
 }
 
@@ -4026,6 +4038,10 @@ function arcOf(shot) {
  *  stroke, would otherwise loop up and sit there for a smash). fine: smaller pace steps (a
  *  signature finds the fastest pace that still lands). */
 function aimAI(c, target, vh, top, side, maxArc, fine = false) {
+  // The ceiling counts from where it meets the ball: a ball met high would otherwise be "too high"
+  // already and be hit harder and harder — a 9 m/s drive became a 16 m/s smash with none of a
+  // smash's risk (real play, ?log: most of the drives you couldn't reach came off your sidespin).
+  maxArc = Math.max(maxArc, ball.p.y - TABLE_TOP + AI_COMMON.arcOver);
   let shot = solveShot(ball.p, target, vh, top, side);
   for (let i = 0; i < (fine ? 12 : 5) && !landsFor(c, shot); i++) {
     vh *= fine ? 0.95 : 0.88;
@@ -6254,7 +6270,7 @@ window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiR
   playerBody, aiBody, togglePause, updateHUD, endMatch, showTourHub, Sound, ai, nearAI, scout, watchTourMatch, newTournament, playTourMatch,
   get tour() { return tour; }, get simTime() { return simTime; },
   // Headless balance runs (a script steps the game and drives input.target like a finger).
-  test: { TLOG, AIM, ARM, touchSens, fixedUpdate, simulate, playerHit, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
+  test: { TLOG, AIM, ARM, touchSens, PLAYER_CFG, SPIN, SMASH, fixedUpdate, simulate, playerHit, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
     JUTSU, JUTSU_AI, STYLE_KIT, SAMEHADA, SMART, SMART_J, VOID, BLOCK, CHOP, SPIN_D, sealsOf, get kit() { return yourKit; }, setKit: k => { yourKit = [...k]; } } };
 
 showStartMenu();

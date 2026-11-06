@@ -115,5 +115,20 @@ version). Hard vs All-rounders, live version:
 | normal (smash) | 0.19 / 0.44 (two matches) | 0.20–0.25 |
 | trying to block | 0.27, 0.24 (vs a Blocker) | 0.34 |
 
-Open gap: the CPU misses ~19% of the real smashes, ~5% of the bot's (same landing spots and pace) —
-the log now records the CPU's side (where it stood, its reaction, how close it got) to find out why.
+The smash gap (the CPU missed ~19% of the real smashes, ~5% of the bot's) closed once the bot smashed
+like you: from your left, cross-court, early on the rise (`smashZ`). Spin play (`youSpin`): your
+sidespin carries a forward swipe (topspin) and a 10–15 m/s sideways flick at 2×.
+
+Nov 2026 change, from these bots (points won; live → new): the catch zone 0.17 → 0.21 m (most of
+your points were lost to balls the racket missed by 0.2–0.35 m), a brush with a forward swipe is a
+sidespin drive (SPIN.drive), the CPU's arc ceiling counts from its contact (a high ball no longer
+turned into a 16 m/s drive), a brush stays low (SPIN.arc), a high ball smashes with a smaller flick.
+
+| | you (smash) | youSpin | youBlock |
+|---|---|---|---|
+| easy | .62 → .73 | .55 → .63 | .63 → .78 |
+| medium | .47 → .50 | .35 → .42 | .47 → .58 |
+| hard | .23 → .28 | .22 → .30 | .37 → .48 |
+
+(youBlock reads ~0.1 high against real blocking.) The sim only tunes what `PingPong.test` exposes —
+a TUNE key it doesn't know is silently ignored.
