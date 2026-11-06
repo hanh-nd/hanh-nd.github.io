@@ -12,9 +12,9 @@ for p in pts:
     if e['winner'] == 'you': why['won:cpuMissed' if e['kind'] == 'miss' else 'won:cpuErr'] += 1
     else: why['lost:noReturn' if e['kind'] == 'miss' else 'lost:myErr'] += 1
 you = [h for p in pts for h in p['hits'] if h['who'] == 'you' and not h.get('serve')]
-st = Counter(('smash' if h['stroke'].startswith('smash') else 'side' if 'side' in h['stroke'] else h['stroke']) for h in you)
+st = Counter(('smash' if h.get('stroke', '?').startswith('smash') else 'side' if 'side' in h.get('stroke', '?') else h.get('stroke', '?')) for h in you)
 tot = sum(st.values())
-sm = [h for h in you if h['stroke'].startswith('smash')]
+sm = [h for h in you if h.get('stroke', '?').startswith('smash')]
 rally = sum(p['end']['rally'] for p in pts) / n
 print(f"log pts={won/n:.3f} n={n} rally={rally:.1f} smash/pt={len(sm)/n:.2f} smashLands={sum(1 for h in sm if h['land'] and h['land']['table'] and h['land']['z'] < 0)/max(1,len(sm)):.2f}",
       ' '.join(f"{k}={v/n:.2f}" for k, v in sorted(why.items())), ' '.join(f"{k}{100*v/tot:.0f}%" for k, v in sorted(st.items())))

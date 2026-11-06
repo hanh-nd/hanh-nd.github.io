@@ -103,6 +103,8 @@ The before chop is a bot with a home at 1.85 m; it gets 0.25–0.33. A chopper w
 CPU against CPU, each style vs the All-rounder on Hard (`duel.mjs` with `styles`, both ends): Wizard 0.37 → ~0.50, Attacker 0.64 → ~0.58, Defender ~0.47, Blocker ~0.44 → ~0.45.
 
 ## Human-like bot (Nov 2026)
+`sim/bench/react.py LOG...` measures your real reaction time to CPU balls you had to move for, by ball speed (11-06 logs: median 0.27 s, 0.20 s on balls over 12 m/s).
+
 Real play is logged with `?log` (see the play log, js/log.js); `sim/bench/logstats.py LOG [matches]`
 and `sim/bench/smashcmp.py` summarize a log, and `sim/bench/botlog.mjs` makes the bot play with the log
 on, so bot and human go through the same analysis. `bot.js` `human.real` plays like the logged iPhone

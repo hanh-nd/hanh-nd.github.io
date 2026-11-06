@@ -240,7 +240,12 @@ const PATTERN_BY_ID = Object.fromEntries(Object.values(STYLE_PATTERNS).flat().ma
  *  your spin (backspin). Effects: see aiHit / aiServe / playerHit (sigReturn). */
 export const SIGNATURES = {
   'phantom-chop': { owner: 'Joo Se-hyuk', name: 'Phantom Chop', color: 0x8fe3ff, chance: 0.3, when: 'deep',
-    counter: 'PUSH it' },
+    counter: 'PUSH it',
+    // A drive swiped at least `fwd` (a hard one: real play's median drive is ~5.3) loops it over
+    // instead of into the net, but slow and high (`speed` m/s, at most `top` topspin, `depth` m from
+    // the net: ~0.5 m apex, ~0.35 m off the bounce) — a ball they can attack. Real play: drives sent
+    // 19 of 23 Phantom Chops into the net; no push was ever tried (logs 11-06).
+    loop: { fwd: 5, speed: 4.4, top: 60, depth: 0.95 } },
   'mozart-serve': { owner: 'Jan-Ove Waldner', name: 'Mozart Serve', color: 0xffd23f, chance: 0.35, when: 'serve',
     counter: 'Swipe against the lean' },
   'chorei-counter': { owner: 'Tomokazu Harimoto', name: 'Chorei Counter', color: 0xff7a1a, chance: 0.3, when: 'deep', minSpeed: 8,

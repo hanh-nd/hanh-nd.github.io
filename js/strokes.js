@@ -1,6 +1,6 @@
 // Your strokes: contact, which stroke a swipe makes (drive, block, chop, sidespin, smash) and where it goes.
 import { clamp, rand } from './util.js';
-import { AIM, BLOCK, CHOP, JUTSU, PHYS, PLAYER_CFG, SMASH, SPIN } from './config.js';
+import { AIM, BLOCK, CHOP, JUTSU, PHYS, PLAYER_CFG, SIGNATURES, SMASH, SPIN } from './config.js';
 import { HALF_L, HALF_W, TABLE_TOP, carriedSpin, handPlay, landingOf, solveShot, strokeError } from './physics.js';
 import { player } from './render/racket.js';
 import { ball, ballPrev, setSpinShotAt, spinShotAt } from './render/ball.js';
@@ -106,7 +106,9 @@ export function playerHit(contactDist) {
   // Armed, any stroke fires the jutsu you armed. Its chakra pushes through a signature shot.
   const jid = yourJutsu(), J = jid && JUTSU[jid];
   // A signature shot punishes the wrong stroke: it dies in the net or flies long (sigReturn).
-  let sigMiss = sig && !jid ? sigReturn(bs, { push, touch, drive }) : null;
+  let sigMiss = sig && !jid ? sigReturn(bs, { push, touch, drive, fwd }) : null;
+  const looped = sigMiss === 'loop';   // a hard drive got a heavy chop over — but it floats (SIGNATURES.loop)
+  if (looped) sigMiss = null;
   // A jutsu coming at you may need the right answer (a Sharingan cancels it): see answerMiss.
   sigMiss = answerMiss(J, { still: !push && !spin && fwd < PLAYER_CFG.answerFwd, push }) || sigMiss;
   if (sigMiss === 'long' || (J && J.speed)) touch = false;
@@ -150,7 +152,7 @@ export function playerHit(contactDist) {
       sf: lr(sf), sl: lr(sl), fwd: lr(fwd), arm: lr(arm), flick: lr(swingSpeed), sideFlick: lr(recentSide()), swipeAge: lr(simTime - swing.strokeAt),
       fingerV: [lr(swing.tvx * ts), lr(-swing.tvz * ts)], racketV: [lr(r.vel.x * ts), lr(-r.vel.z * ts)], off: lr(contact.off), offX: lr(contact.offX),
       tilt: lr(tilt), misread: Math.round(misread), depthShift: lr(depthShift), aim: [lr(tx), lr(tz)], vh: lr(vh), arcCap: arc < Infinity ? lr(arc) : null,
-      sig: sig || null, sigMiss, jutsu: jid || null });
+      sig: sig || null, sigMiss, looped: looped ? 1 : 0, jutsu: jid || null });
   }
   // Mozart Serve, Chiquita: the sidespin carries your return toward the side it curved to, unless
   // you swipe sideways against it.
@@ -163,6 +165,7 @@ export function playerHit(contactDist) {
     edge = true;
     tx += rand(-0.5, 0.5); tz -= rand(-0.15, 0.3); vh *= 0.85;
   }
+  if (looped) { const L = SIGNATURES[sig].loop; vh = L.speed; top = Math.min(top, L.top); tz = -L.depth; }
   let shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
   // Mild assist: if the planned stroke would find the net, take a little pace off.
   for (let i = 0; sigMiss !== 'net' && i < 3 && shot.land && shot.land.net; i++) {
@@ -216,12 +219,15 @@ function answerMiss(J, { still, push }) {
 }
 
 /** Your return of a signature shot with the wrong stroke (see SIGNATURES.counter): 'net' (it dies
- *  in the net), 'long' (it flies off the end), or null — the right stroke, or a lucky one
- *  (PLAYER_CFG.sigLuck). stroke: { push, touch, drive }. */
+ *  in the net), 'long' (it flies off the end), 'loop' (a Phantom Chop driven hard enough to get
+ *  over, see SIGNATURES.loop), or null — the right stroke, or a lucky one (PLAYER_CFG.sigLuck).
+ *  stroke: { push, touch, drive, fwd }. */
 function sigReturn(bs, stroke) {
-  const { push, touch, drive } = stroke;
+  const { push, touch, drive, fwd } = stroke;
+  const pc = SIGNATURES['phantom-chop'];
+  if (bs.sig === 'phantom-chop' && !push && drive && fwd >= pc.loop.fwd) return 'loop';
   const miss = {
-    'phantom-chop': !push ? 'net' : null,                       // only a push gets under it
+    'phantom-chop': !push ? 'net' : null,                       // a push gets under it (a hard drive loops it)
     'dragon-loop': !drive ? 'long' : null,                      // only a drive holds it down
     'pimple-reversal': push || touch ? 'long' : null,           // looks like a chop, it's topspin
     'ghost-serve': bs.hidden === 'top' ? (push || touch ? 'long' : null) : (!push ? 'net' : null),

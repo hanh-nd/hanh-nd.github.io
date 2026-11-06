@@ -94,15 +94,18 @@ export const TLOG = (() => {
     for (const s of L.trace) if (s[0] >= from && s[0] <= to + 1e-9 && s[0] >= next) { out.push([r2(s[0] - t0), ...s.slice(1, 7).map(r2), s[7]]); next = s[0] + 0.025; }
     return out;
   };
+  /** Who plays the ball for side `who`: 'you', your 2v2 partner ('ally', whose turn it is), or 'cpu'. */
+  const whoOf = who => (who !== 'player' ? 'cpu' : match.doubles && rally.turn && rally.turn.player === 1 ? 'ally' : 'you');
   /** The ball as `who` meets it, before the stroke changes it. */
   L.contact = who => {
     if (!live()) return;
-    if (who === 'player') L.endChase('hit');
+    const me = whoOf(who);
+    if (me === 'you') L.endChase('hit');
     const w = unreadSpin();
-    L.ctx = { who: who === 'player' ? 'you' : 'cpu', t: simTime, pos: v3(ball.p), h: r2(ball.p.y - TABLE_TOP), vin: v3(ball.v),
+    L.ctx = { who: me, t: simTime, pos: v3(ball.p), h: r2(ball.p.y - TABLE_TOP), vin: v3(ball.v),
       speedIn: r2(Math.hypot(ball.v.x, ball.v.y, ball.v.z)), rising: ball.v.y > 0 ? 1 : 0, topIn: Math.round(topspinOf(w, ball.v)),
       sideIn: Math.round(w.y * Math.sign(ball.v.z || 1)), ts: r2(timeScale()) };
-    if (who === 'player') {
+    if (me === 'you') {
       const ts = timeScale();
       Object.assign(L.ctx, { racket: v3(player.pos), body: [r2(playerBody.x), r2(playerBody.z)], bodyV: [r2(playerBody.vx * ts), r2(playerBody.vz * ts)],
         finger: touchLast ? 1 : 0, before: L.path(simTime - 0.4, simTime, simTime) });
@@ -117,7 +120,7 @@ export const TLOG = (() => {
   };
   /** The stroke is played (registerHit): what came of it, as the ball leaves. */
   L.hit = who => {
-    const me = who === 'player' ? 'you' : 'cpu';
+    const me = whoOf(who);
     if (!live() || !L.pt) { L.ctx = null; return; }
     const c = L.ctx && L.ctx.who === me ? L.ctx : { who: me, serve: 1, t: simTime, pos: v3(ball.p) };
     L.ctx = null;

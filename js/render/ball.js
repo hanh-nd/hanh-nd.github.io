@@ -230,6 +230,9 @@ function updateVoid(dt) {
     const dim = 1 - k * 0.6;
     ambLight.intensity = venue.light.amb * dim; hemiLight.intensity = venue.light.hemi * dim; sun.intensity = venue.light.sun * dim;
     venue.stands.visible = k < 0.5;
+    // Pull the fog in to hide the arena, but keep its start (near) in front of its end (far), past
+    // the court: with near beyond far, the whole scene was fogged out — table and ball too.
+    scene.fog.near = venue.fog[1] - k * (venue.fog[1] - 8);
     scene.fog.far = venue.fog[2] - k * (venue.fog[2] - 14);
   }
   voidSky.visible = k > 0.01; voidSky.material.opacity = k;
