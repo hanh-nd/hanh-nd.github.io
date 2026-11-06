@@ -1,6 +1,7 @@
 #!/bin/sh
 # The human-like bot (bot.js human.real, fitted to real play logged with ?log) in your three ways to
-# play, against every CPU style in turn (POOL='["allround"]' for one). Point share and how points end,
+# play, against every CPU style in turn (POOL='["allround"]' for one style,
+# OPP='"Ma Long"' for one player). Point share and how points end,
 # in the terms of sim/bench/logstats.py.
 #   sim/human.sh [LEVEL] [MATCHES] [POLICIES]      POLICIES: you youSpin youBlock mixer (default: the first three)
 #   SIM_URL=http://localhost:8765/sim/_baseline/index.html sim/human.sh ...   (the live version: sim/baseline.sh)
@@ -15,7 +16,7 @@ for s in $S; do
     youBlock) W='"takeDepth":1.6,"home":1.5' ;;                            # at the table
     mixer)    W='"takeDepth":1.7,"home":1.55' ;;                           # plays the combos (COMBO)
   esac
-  args="$args {\"tune\":${TUNE:-null},\"name\":\"$s\",\"policy\":\"$s\",\"pool\":${POOL:-null},\"matches\":$N,\"level\":\"$L\",\"human\":{$F,$W${HUMAN:+,$HUMAN}}}"
+  args="$args {\"tune\":${TUNE:-null},\"name\":\"$s\",\"policy\":\"$s\",\"pool\":${POOL:-null},\"opp\":${OPP:-null},\"matches\":$N,\"level\":\"$L\",\"human\":{$F,$W${HUMAN:+,$HUMAN}}}"
 done
 eval node sim/run.mjs $(for a in $args; do printf "'%s' " "$a"; done) | python3 -c "
 import json,sys

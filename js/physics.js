@@ -213,6 +213,21 @@ export function predictBounce(b0, sideSign) {
  *  at the top of the bounce (or where it passes maxDepth from the net). The racket can't reach
  *  closer to the net than minDepth, so a short ball is met where it comes within reach.
  *  bounced: the ball has already made that bounce (the next one would be its second). */
+/** Can side `sideSign` (+1 you, −1 the CPU) meet this shot from `p` before its second bounce? A
+ *  racket reaches REACH.overTable past its end line (the same for both sides), and the ball must
+ *  still be up there — at least `up` m over the table (past the end line, any height). Lower than
+ *  that, the racket doesn't get down to it in time: in the sims a short touch that only crept
+ *  within reach went unanswered 2 times in 3. */
+export function reachableShort(p, shot, sideSign, up = 0.1) {
+  const minD = TABLE.length / 2 - REACH.overTable;
+  let bounced = false;
+  return !!simulate({ p: { ...p }, v: { ...shot.v }, w: { ...shot.w } }, 3, (b, ev) => {
+    if (ev.floor) return false;
+    if (ev.table) { if (bounced) return false; if (Math.sign(ev.table.z) === sideSign) bounced = true; return undefined; }
+    if (!bounced || Math.abs(b.p.z) < minD) return undefined;
+    return Math.abs(b.p.z) > HALF_L + 0.06 || b.p.y - TABLE_TOP >= up ? true : undefined;
+  });
+}
 export function predictIntercept(b0, sideSign, maxDepth, minDepth = 0, bounced = false) {
   return simulate(b0, 3, (b, ev, t) => {
     if (ev.floor) return null;

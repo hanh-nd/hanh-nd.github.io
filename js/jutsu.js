@@ -184,7 +184,7 @@ export function possessedStroke(side, c = null) {
   if (isYou(side)) callout(j.kanji, 'POSSESSED', 'YOUR BALL FLOATS TO THEM', j.color);
   else if (!match.watch) showMessage('Possessed!', 'It floats to you — smash it', 'good', 1, 2);
   if (c) { rally.held = side; aiPlay(c, shot, POSSESSION.top, 0.3); noteAIShot(c, null, tx, POSSESSION.top, false); }
-  else { applyShot(shot); player.swing = 1; setPendingUpgrade(null); registerHit('player', 0.3); }
+  else { applyShot(shot); player.swing = 1; setPendingUpgrade(null); registerHit('player', 0.3, false, false); }
 }
 /** `side` fired a jutsu while bound: the shadow lets go. */
 function breakBind(side) {
@@ -208,7 +208,7 @@ export function godHandSave(side) {
   flashFx(j.color); Sound.godhand(); buzz(40);
   callout(j.kanji, j.name, 'CAUGHT', j.color);
   rally.pendingJutsu = null;
-  registerHit(side, 0.8);
+  registerHit(side, 0.8, false, false);
 }
 /** Time Stop: the ball hangs over the net while the receiving side stands frozen (STOP.time). */
 function stopTime(side) {
@@ -420,11 +420,14 @@ export function syncChakra() {
   for (const [side, k] of [['player', 'p'], ['ai', 'a']]) {
     $('ck-' + k).style.strokeDashoffset = 100 - chakra[side] / CHAKRA.max * 100;
     $('ckbar-' + k).classList.toggle('full', chakraFull(side));
-    const n = isPlaying() && !rally.fired[side] ? Math.min(sealsOf(side), SLOTS.length) : 0, kit = kitOf(side);
+    // n: the seals it holds (lit). Spent: it already fired this point — the seals it has left stay
+    // lit but dimmed (one jutsu per point), not dark: they are still there for the next point.
+    const n = isPlaying() ? Math.min(sealsOf(side), SLOTS.length) : 0, kit = kitOf(side), spent = !!rally.fired[side];
     const color = i => hex(JUTSU[kit[i]].color), ring = $('ckbar-' + k).style;
     ring.setProperty('--g1', n ? color(n - 1) : ''); ring.setProperty('--g2', n ? color(n - 1) : ''); ring.setProperty('--g3', n ? color(n - 1) : '');
     const orbs = $('orbs-' + k);
-    orbs.classList.toggle('full', n === SLOTS.length);
+    orbs.classList.toggle('full', n === SLOTS.length && !spent);
+    orbs.classList.toggle('spent', spent && n > 0);
     [...orbs.children].forEach((o, i) => {
       o.style.setProperty('--c', color(i));
       o.classList.toggle('on', i < n);

@@ -64,7 +64,7 @@ export const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount
   held: null,         // a CPU side that just played a possessed stroke (slow to the next ball)
   combo: null,        // the side whose Possession set up the ball now coming at it
   shark: null,        // the side whose Samehada eats the other's seals if it wins the point
-  warp: { player: false, ai: false } };      // Boomerang Snake: { t0, T, out, off } the curl it flies on
+  warp: { player: false, ai: false } };      // Flying Thunder God: the side that fired it this point (quick, never an edge)
 /** The jutsu on the ball now (in flight from the one who fired it), or null. */
 export const liveJutsu = () => (rally.live && rally.jutsu && rally.lastHitter === rally.jutsu.by ? rally.jutsu : null);
 /** The jutsu coming at `side` (to be answered by its next stroke), as its id. */
@@ -188,6 +188,7 @@ function setupServe(first = false) {
     mirror: { player: 0, ai: 0 }, bind: null, held: null, combo: null, shark: null,
     smashed: false, smashH: 0, yourSmashes: 0, byYou: false, yourStrokes: [], popUpAt: -1 });   // the last stroke was a smash · your smashes this point (ADAPT.smash)
   clearDecoys();
+  syncChakra();   // a new point: seals spent last point are usable again
   match.toss = null;
   for (const c of BOTS) { c.plan = null; c.recoverUntil = 0; }
   for (const c of activeBots()) aiStartPoint(c);
@@ -223,11 +224,12 @@ export function canHit(who) {
   return rally.live && rally.serveStage === 0 && rally.lastHitter !== who && rally.bounceCount === 1;
 }
 
-/** smash: this stroke is a smash (the receiving CPU may read it: SMASH_D). */
-export function registerHit(who, intensity, smash = false) {
+/** smash: this stroke is a smash (the receiving CPU may read it: SMASH_D). stroke: false for a ball
+ *  a jutsu played for you (a possessed float, a God Hand save) — not a stroke of yours for COMBO. */
+export function registerHit(who, intensity, smash = false, stroke = true) {
   const self = turnBot(who), youHit = isYou(who) && rally.turn[who] === 0;   // before the turn passes
   rally.smashed = smash;   // (its contact height, rally.smashH, is set by the smash itself)
-  rally.byYou = youHit;    // your stroke (not your 2v2 partner's, not a watched CPU's): combos (COMBO)
+  rally.byYou = youHit && stroke;    // your stroke (not your 2v2 partner's, not a watched CPU's): combos (COMBO)
   // Jutsu: the one this stroke answered (if it lands, a counter) and the one it fired.
   rally.jutsuAnswer = rally.jutsu && rally.jutsu.by !== who ? rally.jutsu : null;
   rally.jutsu = rally.pendingJutsu;

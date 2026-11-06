@@ -3,3 +3,4 @@ sim/_baseline/
 node_modules/
 sim/out/
 logs/
+sim/_matrix/

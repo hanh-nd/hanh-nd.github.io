@@ -173,7 +173,8 @@ export const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruth
  *  take: when it meets the ball — 'top' of the bounce, on the 'rise', or as it 'drop's ·
  *  spinErr: × the errors your spin forces (SPIN_D) — a blocker's quick hands soak it up ·
  *  weak: × the effect of each of your combos on it (COMBO) · smashSave: share of its reaction time it
- *  saves against your smash (> 0: it retrieves smashes from deep; < 0: they catch it out) ·
+ *  saves against a smash (> 0: it retrieves smashes from deep; < 0: they catch it out) — and, when
+ *  > 0, the share of the smash's pressure on its stroke it shrugs off ·
  *  punishSoft: pace it adds to its return of a soft ball of yours · weakTo / punishes: the rival
  *  card's lines (shown before the match). */
 export const AI_STYLES = {
@@ -297,7 +298,7 @@ export const SLOT_LABEL = { block: 'JUTSU 1', drive: 'JUTSU 2', smash: 'JUTSU 3'
  *  the net post) · stop: time stops as it crosses the net (STOP), then it flies off to the corner
  *  away from the receiver · at its bounce on the receiver's half — rollback: it hops back toward
  *  the net (a second bounce unless met early) · answer: the stroke that returns it ('block':
- *  anything but a drive or a smash flies long) · flash: Black Flash — lands only off the racket's
+ *  a still racket — a drive, smash, push or brush flies long) · flash: Black Flash — lands only off the racket's
  *  center (contact off-center below this; a CPU: JUTSU_AI.flash), else it fizzles into a normal
  *  stroke · self (no shot of its own) — 'copy' (with an incoming jutsu: cancels it and fires it
  *  back), 'warp' (the rest of the point your racket blinks to the ball: HIRAISHIN), 'hand' (the

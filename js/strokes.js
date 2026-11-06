@@ -1,7 +1,7 @@
 // Your strokes: contact, which stroke a swipe makes (drive, block, chop, sidespin, smash) and where it goes.
 import { clamp, rand } from './util.js';
 import { AIM, BLOCK, CHOP, COMBO, JUTSU, PHYS, PLAYER_CFG, SIGNATURES, SMASH, SPIN } from './config.js';
-import { HALF_L, HALF_W, TABLE_TOP, carriedSpin, handPlay, landingOf, solveShot, strokeError } from './physics.js';
+import { HALF_L, HALF_W, TABLE_TOP, carriedSpin, handPlay, landingOf, reachableShort, solveShot, strokeError } from './physics.js';
 import { player } from './render/racket.js';
 import { ball, ballPrev, setSpinShotAt, spinShotAt } from './render/ball.js';
 import { input, smashIntent, swing } from './input.js';
@@ -171,6 +171,13 @@ export function playerHit(contactDist) {
   // Mild assist: if the planned stroke would find the net, take a little pace off.
   for (let i = 0; sigMiss !== 'net' && i < 3 && shot.land && shot.land.net; i++) {
     vh *= 0.88;
+    shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
+  }
+  // A touch drops short, but never past their reach: one they couldn't meet before its second
+  // bounce lands a little deeper (the CPU's own drops play by the same rule: opponentCanReach).
+  // It draws them in — not a free point.
+  for (let i = 0; touch && i < 8 && shot.land && shot.land.table && !shot.land.net && shot.land.z < 0 && !reachableShort(ball.p, shot, -1); i++) {
+    tz -= 0.06; vh = Math.hypot(tx - ball.p.x, tz - ball.p.z) / PLAYER_CFG.touch.time;
     shot = solveShot(ball.p, { x: tx, z: tz }, vh, top, side);
   }
   // A block or a chop stays low: one that would float over its arc is played a little firmer.

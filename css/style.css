@@ -360,6 +360,7 @@
   .sb-orbs i.on { background: var(--c); border-color: var(--c); box-shadow: 0 0 7px var(--c); }
   .sb-orbs i.new { animation: orbnew .18s 4 alternate; }
   .sb-orbs.full i:last-child { animation: orbfull .45s infinite alternate; }
+  .sb-orbs.spent i.on { opacity: .4; box-shadow: none; }   /* fired this point: kept, not usable till the next */
   .sb-orbs i.armed { background: #fff; border-color: #fff; box-shadow: 0 0 10px #fff, 0 0 4px var(--c); }
   @keyframes orbnew { to { transform: scale(1.7); box-shadow: 0 0 14px var(--c), 0 0 4px #fff; } }
   @keyframes orbfull { to { transform: scale(1.35); background: #fff; box-shadow: 0 0 12px var(--c), 0 0 4px #fff; } }

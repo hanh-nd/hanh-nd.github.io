@@ -114,7 +114,15 @@ racket to the ball and jumps ~8 m/s to get near it), a smash flick that peaks ju
 mostly cross-court and very sideways (8 fwd / 12 side m/s), a follow-through, touch sensitivity 2×.
 Policies `you` (your normal game: smash anything not short, else drive or sidespin) and `youBlock`.
 `sim/human.sh [LEVEL] [MATCHES] [POLICIES]` runs them (`SIM_URL=…/sim/_baseline/index.html` for the live
-version). Hard vs All-rounders, live version:
+version; `POOL='["defender"]'` for one style, `OPP='"Joo\u0020Se-hyuk"'` for one player — `\u0020` for a
+space). `sim/matrix.sh [LEVEL] [MATCHES]` plays every roster player against all four policies and prints
+the table (hardest player last); raw output in `sim/_matrix/` (ignored). Use it to spot a player or a way
+of playing that is out of line — it is how a free point off the short touch was found (11-06: the CPU
+could not reach a low touch, so pure "block and touch" won 0.6–0.7 against wizards and blockers).
+The bot is a fixed human: as you improve, real play pulls ahead of it (11-06: you 0.46 at Hard, the bot
+~0.3) — compare strokes, styles and players with it, don't re-fit it to the newest log.
+
+Hard vs All-rounders, live version (older numbers):
 
 | | real (points won) | bot |
 |---|---|---|

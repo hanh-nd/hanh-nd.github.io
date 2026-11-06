@@ -1,7 +1,7 @@
 // The CPU players: reading your shot, moving to it, choosing and playing their strokes, adapting.
 import { clamp, rand, randn } from './util.js';
 import { ADAPT, AIM, AI_COMMON, COMBO, AI_LEVELS, AI_STYLES, FLOW, GAME, HIRAISHIN, JUTSU, JUTSU_AI, META_STEADY, MIRROR, PLAYER_CFG, POSSESSION, REACH, SHORT_PLAY, SIGNATURES, SIGNATURE_OF, SIG_INTENT, SLOTS, SLOT_COST, SMART, SMART_J, SMASH, SMASH_D, SPIN_D, STYLE_PATTERNS, VOID } from './config.js';
-import { HALF_L, HALF_W, TABLE_TOP, handPlay, moveBody, predictIntercept, racketMinY, simulate, solveShot, strokeError } from './physics.js';
+import { HALF_L, HALF_W, TABLE_TOP, handPlay, moveBody, predictIntercept, racketMinY, reachableShort, simulate, solveShot, strokeError } from './physics.js';
 import { ai2Body, ai2Racket, aiBody, aiRacket, allyBody, allyRacket, player, playerBody } from './render/racket.js';
 import { ball, decoys } from './render/ball.js';
 import { DEBUG, TLOG, lr } from './log.js';
@@ -464,7 +464,9 @@ export function aiHit(c) {
     }
   }
   if (sig === 'phantom-chop') { top = -rand(0.92, 1) * (300 + 60 * cfg.spin); vh = rand(6.2, 6.8); maxArc = 0.3; }   // low, deep, dead
-  if (sig === 'chorei-counter') { top = rand(90, 120); vh = rand(13, 14.5); }
+  // Chorei: your pace, countered hard to the open side — fast, but a racket that reads the tell can
+  // still get there (13+ m/s into the very corner: 14 of 14 lost, real play 11-06).
+  if (sig === 'chorei-counter') { top = rand(90, 120); vh = rand(11.5, 12.5); tx *= 0.7; }
   if (sig === 'dragon-loop') { top = rand(250, 290); vh = rand(10.5, 11.5); tz = rand(1.12, 1.25); }
   if (sig === 'hayabusa') { top = rand(30, 50); vh = rand(13.5, 15); }
   if (sig === 'pimple-reversal') { top = clamp(-(c.plan ? c.plan.topIn : -100) * 1.15, 110, 220); vh = rand(6.5, 7.2); }   // your backspin, turned
@@ -480,8 +482,8 @@ export function aiHit(c) {
     }
   }
 
-  if (spun && c.owner === 'ai') match.stats.spinWins++;
-  if (spun && !match.watch && c.owner === 'ai') showMessage('Spin!', spun === 'net' ? 'it dragged your backspin into the net' : spun === 'long' ? 'your topspin kicked it long' : 'your sidespin pulled it wide', 'good', 0.9);
+  if (spun && c.owner === 'ai' && rally.byYou) match.stats.spinWins++;   // (your spin, not your ally's)
+  if (spun && !match.watch && c.owner === 'ai' && rally.byYou) showMessage('Spin!', spun === 'net' ? 'it dragged your backspin into the net' : spun === 'long' ? 'your topspin kicked it long' : 'your sidespin pulled it wide', 'good', 0.9);
   const kind = spun ? spun : mistake ? (Math.random() < 0.4 ? 'long' : Math.random() < 0.5 ? 'wide' : 'net') : null;
   if (kind === 'long') tz = HALF_L + rand(0.08, 0.38);
   if (kind === 'wide') tx = sideSign * (HALF_W + rand(0.08, 0.28));
@@ -598,8 +600,7 @@ function aiBodyX(c) {
 function opponentCanReach(c, shot) {
   const toward = -c.s;
   if (!shot.land || shot.land.net) return false;
-  const meet = landsFor(c, shot) && predictIntercept({ p: { ...ball.p }, v: shot.v, w: shot.w }, toward, 2.5, PLAYER_CFG.minZ);
-  return !!meet && toward * meet.z >= PLAYER_CFG.minZ - 0.02;
+  return landsFor(c, shot) && reachableShort(ball.p, shot, toward);   // the same rule as your touch
 }
 
 /** Highest point of a shot above the table before its first bounce (m). */
@@ -703,9 +704,9 @@ function aiSmash(c, speedIn, errK = 1) {
   c.racket.tilt = 0.6;
   c.racket.swing = 1;
   c.recoverUntil = simTime + AI_COMMON.recovery * 1.5;
-  match.stats[c.owner === 'ai' ? 'cpuSmashes' : 'smashes']++;
+  if (c.owner === 'ai') match.stats.cpuSmashes++; else if (match.watch) match.stats.smashes++;   // (your ally's isn't yours)
   const kmh = match.watch ? trackFastest(shot) : Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
-  showMessage('SMASH!', `${match.watch ? nameOf(c.owner) + ' · ' : ''}${Math.round(kmh)} km/h`, match.watch ? 'warn' : 'bad', 0.9, 2);
+  showMessage('SMASH!', `${match.watch ? nameOf(c.owner) + ' · ' : ''}${Math.round(kmh)} km/h`, match.watch ? 'warn' : c.owner === 'ai' ? 'bad' : 'good', 0.9, 2);
   Sound.smash();
   rally.smashH = ball.p.y - TABLE_TOP;
   registerHit(c.owner, 1.2, true);
