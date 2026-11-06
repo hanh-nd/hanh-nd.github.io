@@ -13,11 +13,14 @@ sim/baseline.sh [commit]                      # optional: a before-version to co
 sim/compare.sh hard 51                        # three bots vs the baseline and the current game
 sim/sig.sh hard 48                            # signature strength vs signature owners
 node sim/smoke.mjs                            # watch mode, 2v2 and quick match run to the end without page errors
+node sim/fingerprint.mjs > a.txt              # seeded replay of 8 fixed scenarios, hashed every physics step (see below)
 sim/jutsu.sh medium 24 samehada,possession,rasengan:1 clone,mirror,rasengan:2   # you + a jutsu vs the CPU
 sim/duel.sh medium 400 6                      # CPU vs CPU jutsu duel: win rate of the points each jutsu was fired in (FOE=true: both sides have seals)
 sim/iq.sh medium 600 4                        # smart vs plain CPU (iq 1 vs 0, ends swapped): the smart side's point and game share (BY=1: per jutsu)
 node sim/run.mjs '{"policy":"mixed","matches":17,"level":"hard","tune":{"SMASH_D":{"react":0.3}}}'
 ```
+
+**Refactors:** `fingerprint.mjs` seeds `Math.random`, turns off the page's frame loop and plays a fixed set of matches (the human-like bot in three styles, the mixed bot, a jutsu kit, 2v2, CPU vs CPU, the play log), hashing the ball and the players every step. A change that leaves the game's behaviour alone prints the same lines: run it before and after (or against `SIM_URL=…/sim/_baseline/index.html`) and `diff`. Any difference, even one step, shows up.
 
 `tune` deep-merges overrides into the game's config before a run (`SMASH_D`, `ADAPT`, `AI_LEVELS`, `SIGNATURES`, `SIG_POWER`, ...). Use it to sweep values without editing the game. Opponents rotate through the roster (or `owners` / `pool` / `opp`), so runs compare like for like.
 
@@ -77,7 +80,7 @@ The styles:
 - `spin`: mixes chop, topspin drive and sidespin brush at random.
 - `drive`: drives everything.
 
-The non-smash bots smash only a real sitter (above 0.5 m). `SIM_URL=…/sim/_baseline.html` runs the same bots on an older build. Two microbenches: `node sim/bench/stroke.mjs` shows where your stroke goes from set contacts and how high it bounces on the far side (`STROKE=block|drive|push`), and `node sim/bench/spinprobe.mjs POLICY` shows the spin that reaches the CPU.
+The non-smash bots smash only a real sitter (above 0.5 m). `SIM_URL=…/sim/_baseline/index.html` runs the same bots on an older build. Two microbenches: `node sim/bench/stroke.mjs` shows where your stroke goes from set contacts and how high it bounces on the far side (`STROKE=block|drive|push`), and `node sim/bench/spinprobe.mjs POLICY` shows the spin that reaches the CPU.
 
 What changed:
 - **Block** (`BLOCK`): a still racket at the table sends back 60% of the incoming pace, 75% when taken on the rise, flat and low. Before, every block left at ~5 m/s, so a block from mid-table floated into the smash zone.
@@ -100,14 +103,14 @@ The before chop is a bot with a home at 1.85 m; it gets 0.25–0.33. A chopper w
 CPU against CPU, each style vs the All-rounder on Hard (`duel.mjs` with `styles`, both ends): Wizard 0.37 → ~0.50, Attacker 0.64 → ~0.58, Defender ~0.47, Blocker ~0.44 → ~0.45.
 
 ## Human-like bot (Nov 2026)
-Real play is logged with `?log` (see the play log in index.html); `sim/bench/logstats.py LOG [matches]`
+Real play is logged with `?log` (see the play log, js/log.js); `sim/bench/logstats.py LOG [matches]`
 and `sim/bench/smashcmp.py` summarize a log, and `sim/bench/botlog.mjs` makes the bot play with the log
 on, so bot and human go through the same analysis. `bot.js` `human.real` plays like the logged iPhone
 player: reaction 0.22 s, a rough first read that sharpens, a finger that never stops (it drags the
 racket to the ball and jumps ~8 m/s to get near it), a smash flick that peaks just after contact,
 mostly cross-court and very sideways (8 fwd / 12 side m/s), a follow-through, touch sensitivity 2×.
 Policies `you` (your normal game: smash anything not short, else drive or sidespin) and `youBlock`.
-`sim/human.sh [LEVEL] [MATCHES] [POLICIES]` runs them (`SIM_URL=…/sim/_baseline.html` for the live
+`sim/human.sh [LEVEL] [MATCHES] [POLICIES]` runs them (`SIM_URL=…/sim/_baseline/index.html` for the live
 version). Hard vs All-rounders, live version:
 
 | | real (points won) | bot |
