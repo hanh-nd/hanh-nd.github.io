@@ -116,6 +116,16 @@
     border-radius: 10px; padding: 8px 12px;
   }
   #hint b { color: var(--text); }
+  /* Play log (?log): your stroke, named for a moment; Share / Copy in the pause and end menus. */
+  #tlog-hud { position: fixed; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
+    max-width: calc(100vw - 32px); pointer-events: none; font-size: 12px; line-height: 1.4; color: var(--text); text-align: center;
+    background: rgba(10, 13, 20, 0.8); border: 1px solid var(--border); border-radius: 10px; padding: 5px 10px; }
+  #tlog-hud b { color: var(--gold); text-transform: uppercase; letter-spacing: .05em; }
+  #tlog-hud small { color: var(--muted); font-size: 10px; }
+  .tlog-tools { margin: 14px 0 4px; padding-top: 12px; border-top: 1px solid var(--border); text-align: center; }
+  .tlog-tools .sub { margin: 0 0 8px; font-size: 12px; }
+  .tlog-tools select { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,.08); color: var(--text); border: 1px solid var(--border); }
+  .tlog-tools .btn { padding: 9px 14px; font-size: 14px; }
 
   /* ---------- Menus ---------- */
   .menu {
@@ -624,6 +634,7 @@
     <button class="btn" id="btn-resume">Resume</button>
     <button class="btn alt" id="btn-restart">Restart Match</button>
     <button class="btn alt" id="btn-quit">Main Menu</button>
+    <div class="tlog-tools hidden"></div>
   </div>
 </div>
 
@@ -640,9 +651,11 @@
     <button class="btn" id="btn-next">Next Level</button>
     <button class="btn alt hidden" id="btn-rival">Change Rival</button>
     <button class="btn alt" id="btn-menu">Main Menu</button>
+    <div class="tlog-tools hidden"></div>
   </div>
 </div>
 <div id="confetti"></div>
+<div id="tlog-hud" class="hidden"></div>
 
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -2869,10 +2882,166 @@ function trackSwing(r, dt) {
     swing.sl = sl; swing.sf = sf; swing.strokeMag = mag; swing.strokeAt = simTime;
   }
   swing.path.push({ x: r.pos.x, y: r.pos.y, t: simTime });
+  TLOG.step(r, ts);
   if (swing.path.length > Math.round(SMASH.sweepTime / PHYS.dt)) swing.path.shift();
 }
 /** Optional diagnostics (enable from the console: PingPong.debug.on = true). */
 const DEBUG = { on: false, log: [] };
+
+/** Play log, for tuning the game from real play (off unless the game is opened with ?log; ?log=off
+ *  turns it off again). Every stroke — yours and the CPU's — with the swipe that made it (the
+ *  finger's path around contact), the ball it met, what the stroke became and how near it came to
+ *  another stroke, and every point's end, including how close your racket came to a ball you
+ *  missed. Kept in the browser (the last LOG_MATCHES matches), exported from the pause and end
+ *  menus (Share / Copy). In log mode each of your strokes is named on screen for a moment. */
+const LOG_MATCHES = 8;
+const TLOG = (() => {
+  const ls = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+  };
+  let on = false;
+  try {
+    const q = new URLSearchParams(location.search).get('log');
+    if (q != null) ls.set('pp3d.logOn', !(q === 'off' || q === '0'));
+    on = ls.get('pp3d.logOn', false) === true;
+  } catch { /* off */ }
+  const r2 = v => (typeof v === 'number' && isFinite(v) ? Math.round(v * 100) / 100 : v);
+  const v3 = v => [r2(v.x), r2(v.y), r2(v.z)];
+  const L = { on, data: null, cur: null, pt: null, ctx: null, last: null, trace: [], after: null, miss: null, trying: 'normal' };
+  const load = () => {
+    L.data = ls.get('pp3d.log', null);
+    if (!L.data || L.data.v !== 1) L.data = { v: 1, matches: [] };
+    L.trying = ls.get('pp3d.logTrying', 'normal');
+  };
+  const save = () => {
+    const d = L.data;
+    d.device = { ua: navigator.userAgent, w: innerWidth, h: innerHeight, dpr: devicePixelRatio, touch: input.touch, sens: r2(touchSens.mult) };
+    d.cfg = { driveFwd: PLAYER_CFG.driveFwd, pushMin: PLAYER_CFG.pushMin, touchMaxFwd: PLAYER_CFG.touchMaxFwd, touchZ: PLAYER_CFG.touchZ,
+      strokeWindow: PLAYER_CFG.strokeWindow, smashMin: SMASH.minSwing, smashWindow: SMASH.window, sideMin: SPIN.minSwing, touchSmash: PLAYER_CFG.touchSmash,
+      blockZ: r2(HALF_L + BLOCK.table), BLOCK, CHOP };
+    d.saved = new Date().toISOString();
+    while (d.matches.length > LOG_MATCHES) d.matches.shift();
+    while (!ls.set('pp3d.log', d) && d.matches.length > 1) d.matches.shift();   // storage full: drop the oldest
+  };
+  if (on) load();
+  const live = () => L.on && !match.watch && L.cur;
+  L.json = () => JSON.stringify(L.data);
+  L.count = () => (L.data ? L.data.matches.reduce((n, m) => n + m.points.length, 0) : 0);
+  L.setTrying = t => { L.trying = t; ls.set('pp3d.logTrying', t); if (L.pt) L.pt.trying = t; };
+  L.clear = () => { L.data = { v: 1, matches: [] }; if (L.cur) { L.cur.points = []; L.data.matches.push(L.cur); } save(); };
+  L.setOn = v => { L.on = v; ls.set('pp3d.logOn', v); if (v && !L.data) load(); };
+
+  L.matchStart = () => {
+    L.cur = null; L.pt = null;
+    if (!L.on || match.watch) return;
+    L.cur = { at: new Date().toISOString(), mode: match.mode, level: match.levelKey, style: match.styleKey, doubles: !!match.doubles,
+      speed: match.speedKey, points: [] };
+    L.data.matches.push(L.cur);
+  };
+  L.pointStart = () => {
+    if (!live()) return;
+    L.pt = { n: L.cur.points.length + 1, score: [...match.points], games: [...match.games], server: match.server === 'player' ? 'you' : 'cpu',
+      trying: L.trying, t0: simTime, hits: [] };
+    L.miss = null; L.last = null;
+  };
+  /** Every sim step of yours (from trackSwing): the finger's path, and how near your racket comes
+   *  to a ball you have to play. */
+  L.step = (r, ts) => {
+    if (!L.on) return;
+    L.trace.push([simTime, input.target.x, input.target.z, swing.tvx * ts, -swing.tvz * ts, r.vel.x * ts, -r.vel.z * ts, touchLast ? 1 : 0]);
+    while (L.trace.length && simTime - L.trace[0][0] > 0.6) L.trace.shift();
+    if (L.after && simTime - L.after.t >= 0.2) { L.after.rec.after = L.path(L.after.t, L.after.t + 0.2, L.after.t); L.after = null; }
+    if (live() && L.pt && canHit('player')) {
+      const dx = ball.p.x - r.pos.x, dy = (ball.p.y - r.pos.y) * PLAYER_CFG.yWeight, dz = ball.p.z - r.pos.z, d = Math.hypot(dx, dy, dz);
+      if (!L.miss || d < L.miss.d) L.miss = { d: r2(d), dx: r2(dx), dy: r2(ball.p.y - r.pos.y), dz: r2(dz), ball: v3(ball.p), racket: v3(r.pos),
+        body: [r2(playerBody.x), r2(playerBody.z)], reach: r2(yourReach()), finger: touchLast ? 1 : 0, t: r2(simTime - L.pt.t0) };
+    }
+  };
+  /** The finger's path, sim s from..to, every ~1/40 s: [s from t0, x, z, finger sideways, forward, racket sideways, forward (real m/s), finger down]. */
+  L.path = (from, to, t0) => {
+    const out = []; let next = -Infinity;
+    for (const s of L.trace) if (s[0] >= from && s[0] <= to + 1e-9 && s[0] >= next) { out.push([r2(s[0] - t0), ...s.slice(1, 7).map(r2), s[7]]); next = s[0] + 0.025; }
+    return out;
+  };
+  /** The ball as `who` meets it, before the stroke changes it. */
+  L.contact = who => {
+    if (!live()) return;
+    const w = unreadSpin();
+    L.ctx = { who: who === 'player' ? 'you' : 'cpu', t: simTime, pos: v3(ball.p), h: r2(ball.p.y - TABLE_TOP), vin: v3(ball.v),
+      speedIn: r2(Math.hypot(ball.v.x, ball.v.y, ball.v.z)), rising: ball.v.y > 0 ? 1 : 0, topIn: Math.round(topspinOf(w, ball.v)),
+      sideIn: Math.round(w.y * Math.sign(ball.v.z || 1)), ts: r2(timeScale()) };
+    if (who === 'player') {
+      const ts = timeScale();
+      Object.assign(L.ctx, { racket: v3(player.pos), body: [r2(playerBody.x), r2(playerBody.z)], bodyV: [r2(playerBody.vx * ts), r2(playerBody.vz * ts)],
+        finger: touchLast ? 1 : 0, before: L.path(simTime - 0.4, simTime, simTime) });
+    }
+  };
+  L.note = o => { if (L.ctx) Object.assign(L.ctx, o); };
+  /** The stroke is played (registerHit): what came of it, as the ball leaves. */
+  L.hit = who => {
+    const me = who === 'player' ? 'you' : 'cpu';
+    if (!live() || !L.pt) { L.ctx = null; return; }
+    const c = L.ctx && L.ctx.who === me ? L.ctx : { who: me, serve: 1, t: simTime, pos: v3(ball.p) };
+    L.ctx = null;
+    c.t = r2(c.t - L.pt.t0); c.n = match.rallyCount;
+    L.outcome(c);
+    if (rally.jutsu && rally.jutsu.by === who) c.jutsu = rally.jutsu.id;
+    L.pt.hits.push(c);
+    L.last = c; L.miss = null;
+    if (me === 'you' && !c.serve) { L.after = { t: simTime, rec: c }; L.show(c); }
+  };
+  L.outcome = c => {
+    const land = landingOf({ p: { ...ball.p }, v: { ...ball.v }, w: { ...ball.w } }, false);
+    c.vout = v3(ball.v); c.wout = v3(ball.w);
+    c.speedOut = r2(Math.hypot(ball.v.x, ball.v.y, ball.v.z));
+    c.topOut = Math.round(topspinOf(ball.w, ball.v));
+    c.apex = r2(arcOf({ v: ball.v, w: ball.w }));   // highest over the table before it lands
+    c.land = land ? { x: r2(land.x), z: r2(land.z), table: land.table ? 1 : 0, net: land.net ? 1 : 0 } : null;
+  };
+  /** Your stroke changed after contact (a smash or a sidespin upgrade). */
+  L.amend = o => {
+    const c = L.last;
+    if (!live() || !c || c.who !== 'you') return;
+    Object.assign(c, o);
+    L.outcome(c);
+    L.show(c);
+  };
+  L.pointEnd = (winner, why, kind) => {
+    if (!live() || !L.pt) return;
+    const p = L.pt;
+    p.end = { winner: winner === 'player' ? 'you' : 'cpu', why, kind, rally: match.rallyCount, t: r2(simTime - p.t0) };
+    if (winner !== 'player' && kind === 'miss' && L.miss) p.end.yourMiss = L.miss;   // the ball you didn't reach
+    delete p.t0;
+    L.cur.points.push(p);
+    L.pt = null; L.miss = null; L.ctx = null;
+    save();
+  };
+  L.matchEnd = () => {
+    if (!live()) return;
+    L.cur.games = [...match.games]; L.cur.gameScores = [...match.gameScores]; L.cur.stats = match.stats;
+    save();
+  };
+  /** On screen: the stroke you just played, and how far it was from the others. */
+  let hudT = 0;
+  L.show = c => {
+    const el = document.getElementById('tlog-hud');
+    if (!el) return;
+    const bits = [`<b>${c.stroke || '?'}</b>`];
+    if (c.fwd != null) bits.push(`fwd ${c.fwd} <small>(drive ≥${PLAYER_CFG.driveFwd})</small>`);
+    if (c.sf != null && c.sf < 0) bits.push(`pull ${r2(-c.sf)} <small>(push ≥${PLAYER_CFG.pushMin})</small>`);
+    if (c.flick != null) bits.push(`flick ${c.flick}<small>/${SMASH.minSwing}</small>`);
+    if (c.sideFlick) bits.push(`side ${c.sideFlick}<small>/${SPIN.minSwing}</small>`);
+    bits.push(`z ${c.pos[2]}${c.stroke === 'push' ? ` <small>(chop ≥${CHOP.z})</small>` : c.stroke === 'drive' || c.stroke === 'block' ? ` <small>(block ≤${r2(HALF_L + BLOCK.table)})</small>` : ''}`,
+      `h ${c.h}`, `→ apex ${c.apex}`);
+    el.innerHTML = bits.join(' · ');
+    el.classList.remove('hidden');
+    clearTimeout(hudT); hudT = setTimeout(() => el.classList.add('hidden'), 2500);
+  };
+  L.r2 = r2;
+  return L;
+})();
+const lr = TLOG.r2;   // (log rounding)
 const recentSwing = () => (simTime - swing.peakAt <= SMASH.window ? swing.peak : 0);
 const recentSide = () => (simTime - swing.sideAt <= SPIN.window ? swing.sidePeak : 0);
 
@@ -2932,8 +3101,8 @@ function playerHit(contactDist) {
   const r = player;
   // Your Yata Mirror, primed: whatever the stroke, it reflects. Bound by a Shadow Possession: the
   // stroke is theirs, unless it fires a jutsu (chakra breaks the shadow).
-  if (rally.mirror.player === 'primed') return mirrorReflect('player');
-  if (rally.bind === 'player' && !yourJutsu()) return possessedStroke('player');
+  if (rally.mirror.player === 'primed') { TLOG.note({ stroke: 'mirror' }); return mirrorReflect('player'); }
+  if (rally.bind === 'player' && !yourJutsu()) { TLOG.note({ stroke: 'possessed' }); return possessedStroke('player'); }
   const { sl, sf } = strokeSwipe();
   const contact = contactOf(contactDist);
   // Only forward-pointing flicks count; one that peaked a moment ago still does.
@@ -2991,6 +3160,14 @@ function playerHit(contactDist) {
     tx *= 0.8; top = t.top + tilt * 40;                     // an open face (wheel) adds backspin
     vh = Math.hypot(tx - ball.p.x, tz - ball.p.z) / t.time;
   }
+  if (TLOG.on) {
+    const ts = timeScale();
+    TLOG.note({ stroke: spin ? 'sidespin' : chop ? 'chop' : push ? 'push' : touch ? 'touch' : drive ? 'drive' : block ? 'block' : 'soft',
+      sf: lr(sf), sl: lr(sl), fwd: lr(fwd), flick: lr(swingSpeed), sideFlick: lr(recentSide()), swipeAge: lr(simTime - swing.strokeAt),
+      fingerV: [lr(swing.tvx * ts), lr(-swing.tvz * ts)], racketV: [lr(r.vel.x * ts), lr(-r.vel.z * ts)], off: lr(contact.off), offX: lr(contact.offX),
+      tilt: lr(tilt), misread: Math.round(misread), depthShift: lr(depthShift), aim: [lr(tx), lr(tz)], vh: lr(vh), arcCap: arc < Infinity ? lr(arc) : null,
+      sig: sig || null, sigMiss, jutsu: jid || null });
+  }
   // Mozart Serve, Chiquita: the sidespin carries your return toward the side it curved to, unless
   // you swipe sideways against it.
   if (bs && bs.lean && (sig === 'mozart-serve' || sig === 'chiquita')) {
@@ -3024,6 +3201,7 @@ function playerHit(contactDist) {
   if (js && js.shot) shot = js.shot;
   const err = jid ? NO_ERROR : strokeError(AIM.stroke * yourSteady() * (chop ? CHOP.err : 1), contact.speedIn, contact.h, contact.off);
   shot = handPlay(ball.p, shot, err, brush ? 0 : AIM.rescues);
+  TLOG.note({ edge: edge ? 1 : 0, err: lr(err.pitch), errBias: lr(err.bias), brush: brush ? lr(swing.sideVx) : 0 });
   if (sigMiss === 'net') intoNet(shot);   // the spin drags it down into the net
   if (sigMiss === 'long') {  // the spin kicks it off the end: it carries until it misses the table
     for (let i = 0, land; i < 25 && (land = landingOf({ p: { ...ball.p }, v: { ...shot.v }, w: { ...shot.w } }, false)) && land.table && land.z < 0; i++) {
@@ -3126,6 +3304,8 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   spinShotAt = -1;
   cameraShake = SMASH.shake * (jid ? 2 : 1);
   const miss = smashMissReason(shot, contact, err);
+  const smashLog = { stroke: upgrade ? 'smash(late)' : 'smash', flick: lr(swing), smashSl: lr(sl), err: lr(err.pitch), errBias: lr(err.bias), smashMiss: miss || null, jutsu: jid || null };
+  if (upgrade) TLOG.amend(smashLog); else TLOG.note(smashLog);
   if (DEBUG.on) DEBUG.log.push({ stroke: jid || 'smash', sig: rally.botShot && rally.botShot.sig, miss, h: +contact.h.toFixed(2) });
   if (jid) {
     fireJutsu('player', jid, 0, js && js.fizzle);
@@ -3176,6 +3356,7 @@ function playerSpinUpgrade(u) {
   ball.v.x += brush.push; ball.w.y += brush.spin;
   rally.shotW = { ...ball.w };   // the brush is part of the stroke's spin
   spinShotAt = u.hitTime;
+  if (TLOG.last) TLOG.amend({ stroke: TLOG.last.stroke + '+side', brush: lr(swing.sideVx), sideFlick: lr(recentSide()) });
   const c = turnBot('ai');
   if (c) aiOnOpponentHit(c);   // same stroke, new trajectory: the CPU has to re-read it
 }
@@ -3576,12 +3757,13 @@ function aiHit(c) {
   if (it.jutsu) it = { ...it, jutsu: null };              // the contact changed: it keeps its chakra
   // Their Yata Mirror: it went for the bait (smashes it), or it read it (nothing hard at it).
   const mir = c.plan && c.plan.mirror, hBall = ball.p.y - TABLE_TOP;
-  if (mir === 'bait' && !mistake && hBall > 0.22 && Math.random() < MIRROR.fall) return aiSmash(c, speedIn);
+  if (mir === 'bait' && !mistake && hBall > 0.22 && Math.random() < MIRROR.fall) { TLOG.note({ why: 'mirror-bait' }); return aiSmash(c, speedIn); }
   // Its Shadow Possession floated this one up: the combo.
   if (rally.combo === c.owner && hBall > 0.25 && Math.random() < POSSESSION.combo[c.level]) return aiSmash(c, speedIn, POSSESSION.aim);
   if (mir === 'read' && (it.sig === 'chorei-counter' || it.sig === 'hayabusa')) it = { ...it, sig: null };
   // A ball that sits up (high and slow) invites a smash; the higher, the more likely.
   const sitsUp = clamp((ball.p.y - TABLE_TOP - AI_COMMON.smashHeight) / AI_COMMON.smashFull, 0, 1);
+  TLOG.note({ sitsUp: lr(sitsUp), smashChance: speedIn < AI_COMMON.smashSlow ? lr(Math.min(1, cfg.smash * st.smash) * sitsUp) : 0 });
   if (!mistake && mir !== 'read' && speedIn < AI_COMMON.smashSlow && Math.random() < Math.min(1, cfg.smash * st.smash) * sitsUp) return aiSmash(c, speedIn);
   const when = it.sig && SIGNATURES[it.sig].when;
   if (when && when !== 'high' && (when === 'short') !== overTable) it = { ...it, sig: null };   // the contact changed
@@ -3630,6 +3812,7 @@ function aiHit(c) {
   if (!mistake && !sig && (it.depth === 'short' || (!it.depth && Math.random() < st.short + SMASH_D.short * anti + dropBias(c)))) {
     const drop = solveShot(ball.p, { x: tx * 0.7, z: toward * rand(0.5, 0.7) }, vh * 0.6, top * 0.5, side);
     if (opponentCanReach(c, drop)) {
+      TLOG.note({ kind: 'drop', stretch: lr(stretch) });
       aiPlay(c, drop, it.spin === 'float' ? shownTop * 0.5 : top * 0.5, 0.3);
       return noteAIShot(c, it, tx * 0.7, top * 0.5, true);
     }
@@ -3640,6 +3823,9 @@ function aiHit(c) {
   const kind = spun ? spun : mistake ? (Math.random() < 0.4 ? 'long' : Math.random() < 0.5 ? 'wide' : 'net') : null;
   if (kind === 'long') tz = HALF_L + rand(0.08, 0.38);
   if (kind === 'wide') tx = sideSign * (HALF_W + rand(0.08, 0.28));
+  TLOG.note({ kind: chop ? 'chop' : 'drive', err: kind, spinErr: spun, mistake: mistake ? 1 : 0, reads: sr.offTop === 0 && sr.offSide === 0 ? 1 : 0,
+    offTop: Math.round(sr.offTop), offSide: Math.round(sr.offSide), lift: lr(lift), stretch: lr(stretch), pressure: lr(pressure), sig: sig || null,
+    plan: it.depth || it.spin || it.side ? [it.depth || '', it.spin || '', it.side || ''].join('/') : null });
   const target = { x: tx, z: toward * tz };   // (a mistake is played as it comes: long, wide or netted)
   const shot = kind ? solveShot(ball.p, target, vh, top, side) : aimAI(c, target, vh, top, side, maxArc, !!sig);
   if (kind === 'net') intoNet(shot);
@@ -3681,6 +3867,7 @@ function aiCounterBlock(c, speedIn, it) {
   const tz = toward * rand(0.95, 1.2);
   const top = rand(...B.top);
   const shot = aimAI(c, { x: tx, z: tz }, clamp(speedIn * B.pace, B.min, B.max), top, 0, AI_COMMON.maxArc - SMASH_D.lowArc, true);
+  TLOG.note({ kind: 'counterblock' });
   aiPlay(c, shot, top, 0.8);
   noteAIShot(c, { ...it, sig: null }, tx, top, false);
 }
@@ -3699,6 +3886,7 @@ function aiAnswerJutsu(c, need, k = 1) {
   } else {
     shot = solveShot(ball.p, { x: tx, z: toward * (HALF_L + rand(0.15, 0.45)) }, 9, 70, 0);
   }
+  TLOG.note({ kind: 'answer-' + need, ok: ok ? 1 : 0 });
   aiPlay(c, shot, ok && need === 'push' ? -110 : 0, 0.5);
   noteAIShot(c, null, tx, 20, false);
 }
@@ -3715,6 +3903,7 @@ function aiJutsu(c, it) {
   }
   if (j.speed && j.speed[0] > 14 && !fizzle) cameraShake = SMASH.shake * 1.5;
   fireJutsu(c.owner, id, it.lean || 0, fizzle);
+  TLOG.note({ kind: 'jutsu', jutsu: id });
   aiPlay(c, js.shot, js.top, 1.2);
   noteAIShot(c, { ...it, sig: null }, js.tx, js.top, false);
 }
@@ -3820,6 +4009,7 @@ function aiShortBall(c, it, mistake) {
   if (kind === 'drop' && !miss && !opponentCanReach(c, shot)) return aiShortBall(c, { ...it, depth: 'long' }, false);
   if (miss === 'net') intoNet(shot);
   const shown = it.spin === 'float' ? -rand(0.55, 1) * 100 : top;
+  TLOG.note({ kind: 'short-' + kind, err: miss, mistake: mistake ? 1 : 0 });
   aiPlay(c, shot, shown, sig ? 1 : kind === 'flick' ? 0.6 : 0.3);
   noteAIShot(c, { ...it, sig, lean }, tx, top, kind === 'drop');
 }
@@ -3853,6 +4043,7 @@ function aiSmash(c, speedIn, errK = 1) {
   const sr = spinRead(c), spinLift = sr.offTop + sr.top * 0.3;   // spin it misread (and some of any heavy spin) lifts / drags it
   const err = strokeError(AIM.smash * cfg.smashError * errK, speedIn, ball.p.y - TABLE_TOP, 0, spinLift, AIM.smashLow);
   shot = handPlay(ball.p, shot, err);
+  TLOG.note({ kind: 'smash', err: lr(err.pitch), errBias: lr(err.bias), offTop: Math.round(sr.offTop) });
   applyShot(shot);
   c.racket.tilt = 0.6;
   c.racket.swing = 1;
@@ -4514,6 +4705,7 @@ function startMatch() {
   placeBody(aiBody, AI_COMMON.home.x, AI_COMMON.home.z);
   placeBody(allyBody, -0.5, 2.2); placeBody(ai2Body, 0.5, -2.2);
   input.target.x = player.pos.x; input.target.z = 1.8;
+  TLOG.matchStart();
   setupServe(true);
   const tag = p => (p.flag ? p.flag + ' ' : '') + p.short.toUpperCase();
   $('opp-name').textContent = d ? 'CPU ×2' : tag(opp);
@@ -4564,6 +4756,7 @@ function setupServe(first = false) {
   match.server = currentServer();
   match.state = 'serve';
   match.rallyCount = 0;
+  TLOG.pointStart();
   Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0, botShot: null, answering: null,
     turn: { [match.server]: match.serverIdx, [other(match.server)]: match.receiverIdx }, jutsu: null, pendingJutsu: null, jutsuAnswer: null, cloneRevealAt: Infinity, fired: { player: false, ai: false }, slow: false, zone: null, warp: { player: false, ai: false }, hand: { player: false, ai: false }, void: null, hidden: false, snake: null, stop: null,
     mirror: { player: 0, ai: 0 }, bind: null, held: null, combo: null, shark: null,
@@ -4618,6 +4811,7 @@ function registerHit(who, intensity, smash = false) {
   rally.bounceCount = 0;
   rally.netTouched = false;
   rally.lastHitTime = simTime;
+  TLOG.hit(who);
   if (rally.mirror[other(who)] === 'up') mirrorCheck(other(who));   // their Yata Mirror: primed or shattered
   if (rally.combo === who) rally.combo = null;
   rally.shotW = { ...ball.w };
@@ -4708,6 +4902,7 @@ const say = (who, what) => `${nameOf(who)} · ${what}`;
 function endPoint(winner, why, kind) {
   if (!rally.live) return;
   if (kind !== 'fault' && rally.hand[other(winner)]) return godHandSave(other(winner));
+  TLOG.pointEnd(winner, why, kind);
   rally.live = false;
   for (const c of BOTS) c.plan = null;
   clearDecoys();
@@ -4804,6 +4999,7 @@ function afterPoint() {
 
 function endMatch(winner) {
   match.state = 'matchOver';
+  TLOG.matchEnd();
   armed = 0;
   syncChakra();
   match.rankMove = match.watch ? null : moveRank(winner === 'player');
@@ -5297,7 +5493,43 @@ function togglePause() {
   $('btn-quit').textContent = match.mode === 'tour' ? 'Leave Match' : match.mode === 'practice' ? 'End Practice' : 'Main Menu';
   $('menu-pause').classList.toggle('hidden', !match.paused);
   syncPauseButton();
+  syncLogTools();
 }
+/** The play log's tools (?log): what you're trying this match, and Share / Copy / Clear. */
+const LOG_TRY = [['normal', 'Just playing'], ['smash', 'Smashing'], ['block', 'Blocking'], ['chop', 'Chopping'], ['spin', 'Spin'], ['mixed', 'Mixing it up']];
+function syncLogTools() {
+  for (const el of document.querySelectorAll('.tlog-tools')) {
+    el.classList.toggle('hidden', !TLOG.on);
+    if (!TLOG.on) continue;
+    const n = TLOG.count(), kb = Math.round(TLOG.json().length / 1024);
+    el.innerHTML = `<p class="sub">Play log · ${n} point${n === 1 ? '' : 's'} · ${kb} KB</p>
+      <p class="sub">I'm trying: <select data-log="try">${LOG_TRY.map(([k, t]) => `<option value="${k}"${k === TLOG.trying ? ' selected' : ''}>${t}</option>`).join('')}</select></p>
+      <button class="btn" data-log="share">Share log</button><button class="btn alt" data-log="copy">Copy</button><button class="btn alt" data-log="clear">Clear</button>`;
+  }
+}
+async function logAction(what, btn) {
+  const text = TLOG.json(), name = `pingpong-log-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
+  const say = t => { btn.textContent = t; setTimeout(syncLogTools, 1600); };
+  try {
+    if (what === 'share') {
+      const file = new File([text], name, { type: 'application/json' }), txt = new File([text], name.replace('.json', '.txt'), { type: 'text/plain' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Ping pong log' });
+      else if (navigator.canShare && navigator.canShare({ files: [txt] })) await navigator.share({ files: [txt], title: 'Ping pong log' });
+      else {   // no share sheet (desktop): download it
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      }
+      say('Shared ✓');
+    } else if (what === 'copy') {
+      await navigator.clipboard.writeText(text);
+      say('Copied ✓');
+    } else if (what === 'clear') {
+      if (btn.dataset.sure) { TLOG.clear(); say('Cleared'); } else { btn.dataset.sure = 1; btn.textContent = 'Sure? Tap again'; }
+    }
+  } catch (e) { if (e && e.name !== 'AbortError') say('Failed: ' + (e && e.message || e)); }
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-log]'); if (b && b.tagName === 'BUTTON') logAction(b.dataset.log, b); });
+document.addEventListener('change', e => { const t = e.target.closest('[data-log="try"]'); if (t) TLOG.setTrying(t.value); });
 function syncFastForward() { $('btn-ff').textContent = `${watchSpeed}×`; }
 function cycleFastForward() {
   watchSpeed = WATCH_SPEEDS[(WATCH_SPEEDS.indexOf(watchSpeed) + 1) % WATCH_SPEEDS.length];
@@ -5313,6 +5545,7 @@ function syncPauseButton() {
 }
 
 function showEndMenu(winner) {
+  syncLogTools();
   const s = match.stats, lvl = LEVEL_ORDER.indexOf(match.levelKey), o = match.doubles ? 'CPU' : opp.short, won = winner === 'player';
   const games = `${match.games[0]} – ${match.games[1]}`, detail = match.gameScores.join(', ');
   const tourMode = match.mode === 'tour';
@@ -5813,18 +6046,18 @@ function stepLiveBall(dt) {
   const botYWeight = Math.abs(ball.p.z) < HALF_L ? PLAYER_CFG.yWeight : 1;
   // A primed Yata Mirror catches the ball itself as it rises off the bounce — no racket needed.
   for (const side of ['player', 'ai']) {
-    if (rally.mirror[side] === 'primed' && canHit(side) && (ball.v.y < 0 || ball.p.y - TABLE_TOP > MIRROR.catchH || Math.abs(ball.p.z) > HALF_L)) return mirrorReflect(side, turnBot(side));
+    if (rally.mirror[side] === 'primed' && canHit(side) && (ball.v.y < 0 || ball.p.y - TABLE_TOP > MIRROR.catchH || Math.abs(ball.p.z) > HALF_L)) { TLOG.contact(side); TLOG.note({ stroke: 'mirror', kind: 'mirror' }); return mirrorReflect(side, turnBot(side)); }
   }
   const near = turnBot('player');   // 2v2: only the partner whose turn it is can meet the ball
   if (near) {
-    if (canHit('player') && racketContact(near.racket, botReach('player'), botYWeight, false) >= 0) return aiHit(near);
+    if (canHit('player') && racketContact(near.racket, botReach('player'), botYWeight, false) >= 0) { TLOG.contact('player'); return aiHit(near); }
   } else if (canHit('player') || (DEBUG.on && rally.lastHitter === 'ai')) {   // debug also logs pre-bounce crossings
     const d = racketContact(player, yourReach(), PLAYER_CFG.yWeight);
-    if (d >= 0 && canHit('player')) return playerHit(d);
+    if (d >= 0 && canHit('player')) { TLOG.contact('player'); return playerHit(d); }
   }
   if (canHit('ai')) {
     const far = turnBot('ai');
-    if (racketContact(far.racket, botReach('ai'), botYWeight) >= 0) return aiHit(far);
+    if (racketContact(far.racket, botReach('ai'), botYWeight) >= 0) { TLOG.contact('ai'); return aiHit(far); }
   }
   if (simTime - rally.lastHitTime > GAME.rallyTimeout) onFloor();   // safety net
 }
@@ -5950,7 +6183,7 @@ window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiR
   playerBody, aiBody, togglePause, updateHUD, endMatch, showTourHub, Sound, ai, nearAI, scout, watchTourMatch, newTournament, playTourMatch,
   get tour() { return tour; }, get simTime() { return simTime; },
   // Headless balance runs (a script steps the game and drives input.target like a finger).
-  test: { fixedUpdate, simulate, playerHit, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
+  test: { TLOG, fixedUpdate, simulate, playerHit, beginToss, setOpponent, setHome, ROSTER, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
     JUTSU, JUTSU_AI, STYLE_KIT, SAMEHADA, SMART, SMART_J, VOID, BLOCK, CHOP, SPIN_D, sealsOf, get kit() { return yourKit; }, setKit: k => { yourKit = [...k]; } } };
 
 showStartMenu();
