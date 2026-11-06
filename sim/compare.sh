@@ -1,8 +1,8 @@
 #!/bin/sh
-# Same bots vs the baseline (sim/_baseline.html) and the current game. Usage: sim/compare.sh LEVEL MATCHES
+# Same bots vs the baseline (sim/_baseline/index.html) and the current game. Usage: sim/compare.sh LEVEL MATCHES
 L=${1:-hard}; N=${2:-10}
 SK='"reaction":0.15,"posErr":0.025,"timeErr":0.012,"smashV":16,"smashSl":[4,9],"takeDepth":1.7'
-for url in ${URLS:-http://localhost:8765/sim/_baseline.html http://localhost:8765/index.html}; do
+for url in ${URLS:-http://localhost:8765/sim/_baseline/index.html http://localhost:8765/index.html}; do
   SIM_URL=$url node sim/run.mjs \
     "{\"tune\":${TUNE:-null},\"name\":\"smash-all\",\"policy\":\"smash\",\"smashMinH\":0.12,\"matches\":$N,\"level\":\"$L\",\"human\":{$SK}}" \
     "{\"tune\":${TUNE:-null},\"name\":\"smasher\",\"policy\":\"smash\",\"smashMinH\":0.2,\"matches\":$N,\"level\":\"$L\",\"human\":{$SK}}" \

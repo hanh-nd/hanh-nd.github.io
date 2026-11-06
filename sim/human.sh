@@ -3,7 +3,7 @@
 # play, against every CPU style in turn (POOL='["allround"]' for one). Point share and how points end,
 # in the terms of sim/bench/logstats.py.
 #   sim/human.sh [LEVEL] [MATCHES] [POLICIES]      POLICIES: you youSpin youBlock (default: all three)
-#   SIM_URL=http://localhost:8765/sim/_baseline.html sim/human.sh ...   (the live version: sim/baseline.sh)
+#   SIM_URL=http://localhost:8765/sim/_baseline/index.html sim/human.sh ...   (the live version: sim/baseline.sh)
 L=${1:-hard}; N=${2:-20}; S=${3:-"you youSpin youBlock"}
 # The finger, as logged (iPhone, sensitivity 2×): see README "Human-like bot".
 F='"real":true,"sens":2,"reaction":0.22,"posErr":0.055,"timeErr":0.015,"smashV":8,"smashSl":[8,15],"smashDur":0.25,"smashZ":1.6,"sideSl":[10,15],"sideV":[2,5],"sideDur":0.15,"driveV":[3,7]'
