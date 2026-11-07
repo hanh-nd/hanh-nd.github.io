@@ -13,8 +13,8 @@ import { simTime } from './loop.js';
 /** Optional diagnostics (enable from the console: PingPong.debug.on = true). */
 export const DEBUG = { on: false, log: [] };
 
-/** Play log, for tuning the game from real play (off unless the game is opened with ?log; ?log=off
- *  turns it off again). Every stroke — yours and the CPU's — with the swipe that made it (the
+/** Play log, for tuning the game from real play (on only while the URL has ?log: its tools in the
+ *  pause and end menus show only then; the recorded matches stay saved for the next ?log visit). Every stroke — yours and the CPU's — with the swipe that made it (the
  *  finger's path around contact), the ball it met, what the stroke became and how near it came to
  *  another stroke, and every point's end, including how close your racket came to a ball you
  *  missed. Kept in the browser (the last LOG_MATCHES matches), exported from the pause and end
@@ -28,8 +28,8 @@ export const TLOG = (() => {
   let on = false;
   try {
     const q = new URLSearchParams(location.search).get('log');
-    if (q != null) ls.set('pp3d.logOn', !(q === 'off' || q === '0'));
-    on = ls.get('pp3d.logOn', false) === true;
+    on = q != null && q !== 'off' && q !== '0';
+    localStorage.removeItem('pp3d.logOn');   // (it used to stay on once set)
   } catch { /* off */ }
   const r2 = v => (typeof v === 'number' && isFinite(v) ? Math.round(v * 100) / 100 : v);
   const v3 = v => [r2(v.x), r2(v.y), r2(v.z)];
@@ -55,7 +55,6 @@ export const TLOG = (() => {
   L.count = () => (L.data ? L.data.matches.reduce((n, m) => n + m.points.length, 0) : 0);
   L.setTrying = t => { L.trying = t; ls.set('pp3d.logTrying', t); if (L.pt) L.pt.trying = t; };
   L.clear = () => { L.data = { v: 1, matches: [] }; if (L.cur) { L.cur.points = []; L.data.matches.push(L.cur); } save(); };
-  L.setOn = v => { L.on = v; ls.set('pp3d.logOn', v); if (v && !L.data) load(); };
 
   L.matchStart = () => {
     L.cur = null; L.pt = null;

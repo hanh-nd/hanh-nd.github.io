@@ -31,22 +31,6 @@ const setupOf = mode => (mode === 'practice' ? practice : quick);
 const MODE_LABEL = { practice: 'Practice', quick: '1v1', duo: '2v2', tour: 'Tournament' };
 const saveSetup = () => store.set('pp3d.setup', { quick, practice, duo: { level: duo.level, ally: duo.ally }, tier: selTier });
 
-/** A row of choice buttons (one selected). */
-function buildChoices(wrapId, keys, render, isSel, onPick) {
-  const wrap = $(wrapId);
-  wrap.innerHTML = '';
-  for (const key of keys) {
-    const b = document.createElement('button');
-    b.className = 'level-btn' + (isSel(key) ? ' sel' : '');
-    b.dataset.key = key;
-    b.innerHTML = render(key);
-    b.addEventListener('click', () => {
-      onPick(key);
-      wrap.querySelectorAll('.level-btn').forEach(x => x.classList.toggle('sel', x === b));
-    });
-    wrap.appendChild(b);
-  }
-}
 /** A segmented toggle (one selected); rebuilding it replaces its handler. */
 function buildSeg(wrapId, keys, render, sel, onPick) {
   const wrap = $(wrapId);
@@ -315,11 +299,23 @@ $('ready-extra').addEventListener('click', e => {
 });
 $('btn-go').addEventListener('click', () => (uiMode === 'practice' ? startPractice() : uiMode === 'duo' ? startDuo() : startQuick()));
 
-/** Tournament: choose an event (a run in progress skips this: its tile opens the hub). */
+/** Tournament: choose an event (a run in progress skips this: its tile opens the hub): three
+ *  tiles like Home's, each with its levels (TIERS.pool), crowd and your titles there. */
+const TIER_KANJI = { club: '町', pro: '旅', world: '世' };
+$('tiers').addEventListener('click', e => {
+  const b = e.target.closest('[data-tier]');
+  if (!b) return;
+  selTier = b.dataset.tier;
+  saveSetup();
+  menuVenue(VENUE_OF_TIER[selTier], TIERS[selTier].label);
+  for (const x of $('tiers').children) { x.classList.toggle('sel', x === b); x.setAttribute('aria-pressed', String(x === b)); }
+});
 export function showEvent() {
   const titles = store.get('pp3d.titles', {}), live = tour && !tour.done;
-  buildChoices('tiers', TIER_ORDER, k => `<b>${TIERS[k].label}</b><small>${TIERS[k].blurb} · ${TIERS[k].fans.toLocaleString()} fans${titles[k] ? ` · ${titles[k]} title${titles[k] > 1 ? 's' : ''}` : ''}</small>`,
-    k => k === selTier, k => { selTier = k; saveSetup(); menuVenue(VENUE_OF_TIER[k], TIERS[k].label); });
+  $('tiers').innerHTML = TIER_ORDER.map(k => { const t = TIERS[k], lv = Object.keys(t.pool).map(l => AI_LEVELS[l].label);
+    return `<button class="mode tier${k === selTier ? ' sel' : ''}" data-tier="${k}" aria-pressed="${k === selTier}"><span class="mode-k" aria-hidden="true">${TIER_KANJI[k]}</span>`
+      + `${titles[k] ? `<span class="tier-won" title="Titles won">🏆${titles[k] > 1 ? ` ×${titles[k]}` : ''}</span>` : ''}`
+      + `<b>${t.label}</b><small>${t.blurb}</small><small class="tier-meta">${lv[0]}${lv.length > 1 ? `–${lv[lv.length - 1]}` : ''}<br>${t.fans.toLocaleString()} fans</small></button>`; }).join('');
   menuVenue(VENUE_OF_TIER[selTier], TIERS[selTier].label);
   $('tour-saved').classList.toggle('hidden', !live);
   if (live) $('tour-saved').innerHTML = `Entering a new one ends your <b>${TIERS[tour.tier].label}</b> run.`;

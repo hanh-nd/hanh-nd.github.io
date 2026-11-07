@@ -288,8 +288,15 @@
   .sheet-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 -20px 12px; padding: 14px 20px 10px; background: rgb(18, 22, 32); border-bottom: 1px solid var(--border); }
   .sheet-head h3 { margin: 0; font-size: 20px; }
   @keyframes sheetin { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
-  .tiers-list { display: grid; gap: 8px; margin-bottom: 12px; }
-  .tiers-list .level-btn { text-align: left; padding: 12px 14px; }
+  /* Tournament events: Home's tiles, three across; the picked one stays lit. */
+  .modes.tiers { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .tier { padding: 12px; min-height: 148px; }
+  .tier b { font-size: 16px; line-height: 1.15; }
+  .tier small { font-size: 11.5px; }
+  .tier .tier-meta { margin-top: 2px; font-size: 10.5px; font-weight: 700; color: var(--muted); opacity: .85; }
+  .tier .tier-won { position: absolute; top: 8px; right: 10px; font-size: 12px; font-weight: 800; color: var(--gold); }
+  .tier.sel { border-color: var(--gold); background: rgba(255,210,63,.1); box-shadow: inset 0 0 0 1px var(--gold); }
+  .tier.sel .mode-k { color: rgba(255,210,63,.2); }
   .chip.sig { background: rgba(255,210,63,.16); color: var(--gold); }
   .saved {
     margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45;
