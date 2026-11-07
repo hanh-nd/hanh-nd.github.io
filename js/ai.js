@@ -1,7 +1,7 @@
 // The CPU players: reading your shot, moving to it, choosing and playing their strokes, adapting.
 import { clamp, rand, randn } from './util.js';
 import { ADAPT, AIM, AI_COMMON, COMBO, AI_LEVELS, AI_STYLES, FLOW, GAME, HIRAISHIN, JUTSU, JUTSU_AI, META_STEADY, MIRROR, PLAYER_CFG, POSSESSION, REACH, SHORT_PLAY, SIGNATURES, SIGNATURE_OF, SIG_INTENT, SLOTS, SLOT_COST, SMART, SMART_J, SMASH, SMASH_D, SPIN_D, SPIRIT, STYLE_PATTERNS, VOID } from './config.js';
-import { HALF_L, HALF_W, TABLE_TOP, handPlay, moveBody, predictIntercept, racketMinY, reachableShort, simulate, solveShot, strokeError } from './physics.js';
+import { HALF_L, HALF_W, TABLE_TOP, handPlay, keepReachable, moveBody, predictIntercept, racketMinY, reachableShort, simulate, solveShot, strokeError } from './physics.js';
 import { ai2Body, ai2Racket, aiBody, aiRacket, allyBody, allyRacket, player, playerBody } from './render/racket.js';
 import { ball, decoys } from './render/ball.js';
 import { DEBUG, TLOG, lr } from './log.js';
@@ -674,6 +674,8 @@ function aiShortBall(c, it, mistake) {
   noteAIShot(c, { ...it, sig, lean }, tx, top, kind === 'drop');
 }
 export function aiPlay(c, shot, top, intensity) {
+  // Every stroke but a jutsu: never a ball the opponent couldn't reach (REACH.playable).
+  if (!(rally.pendingJutsu && rally.pendingJutsu.by === c.owner)) shot = keepReachable(ball.p, shot, -c.s);
   applyShot(shot);
   c.racket.tilt = clamp(top / 140, -1, 1);
   c.racket.swing = 1;
@@ -704,6 +706,7 @@ function aiSmash(c, speedIn, errK = 1) {
   const err = strokeError(AIM.smash * cfg.smashError * errK, speedIn, ball.p.y - TABLE_TOP, 0, spinLift, AIM.smashLow);
   shot = handPlay(ball.p, shot, err);
   TLOG.note({ kind: 'smash', err: lr(err.pitch), errBias: lr(err.bias), offTop: Math.round(sr.offTop) });
+  shot = keepReachable(ball.p, shot, toward);
   applyShot(shot);
   c.racket.tilt = 0.6;
   c.racket.swing = 1;

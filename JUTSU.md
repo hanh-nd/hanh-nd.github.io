@@ -92,6 +92,12 @@ That's about +0.1 to +0.15 points per seal whichever you pick. In CPU-vs-CPU due
 - **Fans** sit on seats, stand and jump to cheer, raise their arms or clap, and follow the ball with their heads. Your fans wear your colour and the rival's fans wear theirs; some wave flags, and the banners on the stands name the players. Phone flashes go off after big points. Attendance grows round by round in a tournament.
 - Around the court: a coach for each player (they cheer their player's points) and towel boxes.
 
+## Overdrive rally
+- A long rally **heats up**. From the 3rd stroke of a point, every 2 strokes add a level, up to 4 (at the 9th stroke). Each stroke then lands with a camera shake and a clang that climb with the level, plus a spark at the racket. The rally also runs a little faster: up to +10% at level 4, when **Overdrive!** flashes.
+- Any stroke builds it: drive, push, block, chop, sidespin. **A smash cashes it in** with a big shake and a deep thump, and the heat starts over. From level 2 up, the world also holds still for a moment (70–90 ms) as the smash lands: the finishing blow. A smash early in a rally is just a smash.
+- Only the cash-in freezes. A freeze on every stroke broke the rally's rhythm and parted the racket from your finger.
+- It changes how the game feels, not the shots. Physics, aim and the CPU are as before. It's off while you watch a CPU match. Tuning: `HEAT` in `config.js`.
+
 ## FLOW, Ego rank
 - **FLOW:** 3 points in a row. Until you lose a point: hand error ×0.6 (steadier aim) and chakra gain ×1.6. It does not slow time (that is Meta Vision). A CPU in FLOW makes 40% fewer mistakes. Awakening's **deep FLOW** is stronger (hand error ×0.4, a CPU 65% fewer mistakes, reach ×1.3) and survives one lost point.
 - **Ego rank:** starts at #300, climbs with wins (more against Hard, ×1.2 in 2v2, ×1.5 in the tournament), slips 4 on a loss. Each match ends with an S–D grade.

@@ -133,6 +133,10 @@ export const Sound = {
   /** Any other jutsu: a whoosh and a rising tone. */
   jutsu() { this.click(500, 0.3, 0.5); [330, 495, 660].forEach((f, k) => this.tone(f, f * 1.5, 0.15, 'triangle', 0.12, k * 0.04)); },
   poof() { this.click(1200, 0.18, 0.5); },
+  /** Overdrive rally (HEAT): a clang that climbs with the heat level (1–4)... */
+  heat(level) { const f = 1100 + 260 * level; this.tone(f, f * 1.25, 0.07, 'square', 0.03 + 0.012 * level); this.click(5200, 0.04, 0.12 + 0.07 * level); },
+  /** ...and a smash that cashes it in: a deep thump under a bright ring. */
+  overdrive(level) { this.tone(110, 45, 0.3, 'sawtooth', 0.12 + 0.04 * level); [1568, 2349].forEach((f, k) => this.tone(f, f * 0.98, 0.25, 'triangle', 0.05 + 0.02 * level, k * 0.03)); this.click(3800, 0.1, 0.4 + 0.1 * level); },
   counter() { [523, 784, 1047].forEach((f, k) => this.tone(f, f, 0.12, 'square', 0.1, k * 0.05)); this.click(3000, 0.06, 0.5); },
   flow() { [392, 494, 587, 784].forEach((f, k) => this.tone(f, f * 1.01, 0.25, 'triangle', 0.18, k * 0.08)); },
   smash() {

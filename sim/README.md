@@ -146,3 +146,19 @@ turned into a 16 m/s drive), a brush stays low (SPIN.arc), a high ball smashes w
 
 (youBlock reads ~0.1 high against real blocking.) The sim only tunes what `PingPong.test` exposes —
 a TUNE key it doesn't know is silently ignored.
+
+## Playable balls (Nov 2026)
+
+A racket reaches 0.45 m over the table (`REACH.overTable`). A low backspin push or block could land short and bounce twice before it got there, and the CPU just watched it. Only the touch and the CPU's drop shot were checked for this. On Hard, those dead balls were **60% of the points** the drive and smash bots won (150 of 248, 134 of 254).
+
+Now `keepReachable` (physics.js) checks the final ball of every stroke, on both sides, after hand error. A ball that lands but would die out of reach gets the least extra pace that makes it playable (`REACH.playable`, `paceStep`, `paceSteps`). Its height and spin stay the same, it never goes long, and jutsu and deliberate misses are left alone. It changes about 3% of shots, 1–2 steps of 3% each. Short balls that can still be reached are untouched.
+
+| Bot vs Hard | before | after |
+|---|---|---|
+| smasher | 0.31 | 0.17–0.20 |
+| drive | 0.30–0.33 | 0.20 |
+| mixed | 0.34 | 0.21–0.27 |
+| block | 0.43 | 0.32–0.35 |
+| chop | 0.50 | 0.45–0.47 |
+
+Against Medium the drop is smaller (smasher 0.43 → 0.33, the rest within about 0.03). Signatures win as often as before. The guard on the CPU's own shots changes nothing measurable for you. `REACH.playable` 0.03 still let a few balls that only just crept into reach go unanswered; 0.06 left none.

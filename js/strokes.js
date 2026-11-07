@@ -1,7 +1,7 @@
 // Your strokes: contact, which stroke a swipe makes (drive, block, chop, sidespin, smash) and where it goes.
 import { clamp, rand } from './util.js';
 import { AIM, BLOCK, CHOP, COMBO, JUTSU, PHYS, PLAYER_CFG, SIGNATURES, SMASH, SPIN } from './config.js';
-import { HALF_L, HALF_W, TABLE_TOP, carriedSpin, handPlay, landingOf, reachableShort, solveShot, strokeError } from './physics.js';
+import { HALF_L, HALF_W, TABLE_TOP, carriedSpin, handPlay, keepReachable, landingOf, reachableShort, solveShot, strokeError } from './physics.js';
 import { player } from './render/racket.js';
 import { ball, ballPrev, setSpinShotAt, spinShotAt } from './render/ball.js';
 import { input, smashIntent, swing } from './input.js';
@@ -204,6 +204,7 @@ export function playerHit(contactDist) {
       shot.v.x *= 1.06; shot.v.z *= 1.06; shot.v.y += 0.06;
     }
   }
+  if (!jid) shot = keepReachable(ball.p, shot, -1);   // every stroke: never a ball they couldn't reach (REACH.playable)
   applyShot(shot);
   r.swing = 1;
   const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;
@@ -298,6 +299,7 @@ function playerSmash(swingSpeed, sl, contact, upgrade = false) {
   const miss0 = answerMiss(J, { still: false, push: false });
   if (miss0 === 'long') { shot.v.x *= 1.25; shot.v.z *= 1.25; shot.v.y += 0.8; }
   if (miss0 === 'net') intoNet(shot);
+  if (!jid) shot = keepReachable(ball.p, shot, -1);
   applyShot(shot);
   player.swing = 1;
   const kmh = Math.hypot(shot.v.x, shot.v.y, shot.v.z) * 3.6;

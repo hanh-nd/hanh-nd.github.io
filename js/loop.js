@@ -137,6 +137,9 @@ export function fixedUpdate(dt) {
 
 const _camTarget = new THREE.Vector3(), _lookTarget = new THREE.Vector3();
 export let cameraShake = 0;
+/** Real seconds the world holds still after a stroke in a heated rally (HEAT). The headless sim
+ *  steps fixedUpdate itself, so it never waits on it. */
+export let hitStop = 0;
 function updateCamera(dt) {
   if (match.state === 'menu') {   // slow orbit behind the menu
     const t = performance.now() / 1000 * 0.12;
@@ -166,14 +169,19 @@ export function frame(now) {
   const running = !match.paused && match.state !== 'matchOver';
   if (running) {
     updateMouseTarget();
-    accumulator += dt * timeScale();
-    let steps = 0;
-    while (accumulator >= PHYS.dt && steps < PHYS.maxSubSteps) {
-      fixedUpdate(PHYS.dt);
-      accumulator -= PHYS.dt;
-      steps++;
+    if (hitStop > 0) {   // hit-stop (HEAT): the world holds still; the camera, shake and sparks go on
+      hitStop -= dt;
+      accumulator = 0;
+    } else {
+      accumulator += dt * timeScale();
+      let steps = 0;
+      while (accumulator >= PHYS.dt && steps < PHYS.maxSubSteps && hitStop <= 0) {
+        fixedUpdate(PHYS.dt);
+        accumulator -= PHYS.dt;
+        steps++;
+      }
+      if (steps === PHYS.maxSubSteps || hitStop > 0) accumulator = 0;   // avoid a spiral of death after a stall; a hit-stop starts clean
     }
-    if (steps === PHYS.maxSubSteps) accumulator = 0;   // avoid a spiral of death after a stall
   }
 
   const alpha = running ? accumulator / PHYS.dt : 1;
@@ -196,3 +204,4 @@ export function frame(now) {
 
 // Setters for the bindings other modules assign (an imported binding is read-only).
 export function setCameraShake(v) { return (cameraShake = v); }
+export function setHitStop(v) { return (hitStop = Math.max(hitStop, v)); }

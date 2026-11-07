@@ -46,6 +46,12 @@ export const REACH = {
   bodyBehind: 0.1,        // the body stays at least this far behind the end line
   armX: 0.6,              // racket reach to either side of the body (m)
   armZ: 0.55,             // racket reach in front of / behind the body (m)
+  // Every stroke's final ball (after hand error, either side) must be playable: one that lands
+  // but would bounce twice before it gets within reach (overTable) is a point nobody could play.
+  // keepReachable gives such a ball a little more pace, in `paceStep` steps (at most `paceSteps`),
+  // until it is still `playable` m over the table as it gets there. Never past the end or into the
+  // net; jutsu and deliberate misses are left alone. (A touch or a drop aims by a stricter margin.)
+  playable: 0.06, paceStep: 1.03, paceSteps: 8,
 };
 
 /** Smash: a quick FORWARD flick of the racket at contact (finger/mouse moving up the screen —
@@ -606,6 +612,23 @@ export const AIM = {
 
 /** Meta Vision: the other side's balls in slow motion, at this speed. */
 export const META_SLOW = 0.5;
+
+/** Overdrive rally (specs/DECISIONS.md): a long rally heats up. From the `from`-th stroke of a
+ *  point (the serve is the 1st), every `every` strokes add a heat level, up to `max`. Each
+ *  stroke then lands with a camera shake and a clang that rise with the level, and the rally
+ *  runs a little faster in real time (timeScale × 1 + pace·level/max). A smash cashes the heat
+ *  in: a big shake and thump, then the heat starts over. Only a cash-in at level `freezeFrom` or
+ *  more gets a hit-stop (the world holds still for freeze + freezePer·level real seconds): a
+ *  freeze on every stroke broke the rally's rhythm and parted the racket from your finger.
+ *  Feel and real-time pace only: the physics, the shots and the CPU (all in sim time) are
+ *  untouched. Off while watching CPU vs CPU. */
+export const HEAT = {
+  from: 3, every: 2, max: 4,
+  freezeFrom: 2, freeze: 0.05, freezePer: 0.01,
+  pace: 0.1,
+  shake: 0.006,           // camera shake per level (m); a cash-in: SMASH.shake × (1 + level/2)
+  color: 0xffb347,        // the spark at the racket
+};
 
 /** Touch drags the racket relative to where the finger lands (like a trackpad): racket travel per
  *  finger travel, times the sensitivity setting. */

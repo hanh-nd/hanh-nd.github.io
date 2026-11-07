@@ -228,6 +228,23 @@ export function reachableShort(p, shot, sideSign, up = 0.1) {
     return Math.abs(b.p.z) > HALF_L + 0.06 || b.p.y - TABLE_TOP >= up ? true : undefined;
   });
 }
+/** The receiver's guard on any stroke (REACH.playable): a ball from `p` that lands on side
+ *  `sideSign`'s half but would die before it gets within their reach gets a little more pace —
+ *  the least that makes it playable — and keeps its height and spin. It never goes long, and a
+ *  ball that's playable (or doesn't land on their half: a miss) comes back unchanged. */
+export function keepReachable(p, shot, sideSign) {
+  const land = s => landingOf({ p: { ...p }, v: { ...s.v }, w: { ...s.w } }, false);
+  const playable = l => !l || !l.table || Math.sign(l.z) !== sideSign || reachableShort(p, shot, sideSign, REACH.playable);   // (over off the net tape is still in play)
+  let l = land(shot);
+  for (let i = 0; i < REACH.paceSteps && !playable(l); i++) {
+    const v = { ...shot.v, x: shot.v.x * REACH.paceStep, z: shot.v.z * REACH.paceStep };
+    const nl = land({ v, w: shot.w });
+    if (!nl || !nl.table || Math.sign(nl.z) !== sideSign) break;
+    shot = { ...shot, v, land: { ...shot.land, ...nl } };
+    l = nl;
+  }
+  return shot;
+}
 export function predictIntercept(b0, sideSign, maxDepth, minDepth = 0, bounced = false) {
   return simulate(b0, 3, (b, ev, t) => {
     if (ev.floor) return null;
