@@ -1,6 +1,6 @@
 // Menu screens and overlays: home, rival pick, ready, pause, settings, end of match.
 import { rand } from '../util.js';
-import { AI_LEVELS, AI_STYLES, COLORS, COMBO_NAMES, FINAL, GAME, JUTSU, JUTSU_ANGLE, JUTSU_POOL, JUTSU_TIP, LEVEL_BLURB, LEVEL_ORDER, ROSTER, ROUND_NAMES, SIGNATURES, SIGNATURE_OF, SLOTS, SLOT_COST, SLOT_LABEL, STYLE_KIT, STYLE_ORDER, TIERS, TIER_ORDER, YOU } from '../config.js';
+import { AI_LEVELS, AI_STYLES, COLORS, COMBO_NAMES, DRILLS, FINAL, GAME, JUTSU, JUTSU_ANGLE, JUTSU_POOL, JUTSU_TIP, LEVEL_BLURB, LEVEL_ORDER, ROSTER, ROUND_NAMES, SIGNATURES, SIGNATURE_OF, SLOTS, SLOT_COST, SLOT_LABEL, STYLE_KIT, STYLE_ORDER, TIERS, TIER_ORDER, YOU } from '../config.js';
 import { isDesktop } from '../render/scene.js';
 import { setBoardText } from '../render/table.js';
 import { VENUE_OF_TIER, drawBanners, drawScreens, setAttendance, setVenue } from '../render/venues.js';
@@ -27,6 +27,8 @@ export const duo = { level: 'easy', opps: null, ally: 'Sun Yingsha', venue: 'are
 export let selTier = 'pro', uiMode = 'quick';
 let rival = null;   // the roster entry you face in 1v1 / Practice (shown on Ready)
 export const rosterBy = name => ROSTER.find(e => e.name === name) || null;
+/** A roster player or, in Practice, a drill partner (DRILLS). */
+const partnerBy = (name, mode) => rosterBy(name) || (mode === 'practice' && DRILLS.find(e => e.name === name)) || null;
 const sigOf = e => (SIGNATURE_OF[e.name] ? SIGNATURES[SIGNATURE_OF[e.name]] : null);
 const setupOf = mode => (mode === 'practice' ? practice : quick);
 const MODE_LABEL = { practice: 'Practice', quick: '1v1', duo: '2v2', tour: 'Tournament' };
@@ -98,7 +100,7 @@ document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click'
 function lastSetup() {
   const l = store.get('pp3d.last', null);
   if (!l || !['practice', 'quick', 'duo'].includes(l.mode) || !LEVEL_ORDER.includes(l.level)) return null;
-  const e = l.mode === 'duo' ? null : rosterBy(l.opp);
+  const e = l.mode === 'duo' ? null : partnerBy(l.opp, l.mode);
   if (l.mode !== 'duo' && !e) return null;
   const a = l.mode === 'duo' && rosterBy(duo.ally);
   return { ...l, e, text: [MODE_LABEL[l.mode], e ? `${e.flag} ${e.short}` : a ? `with ${a.flag} ${a.short}` : 'vs 2 CPUs', AI_LEVELS[l.level].label].join(' · ') };
@@ -163,7 +165,7 @@ export function oppCard(e, eyebrow, bars = true, mate = false) {   // mate: your
     <div class="eyebrow">${eyebrow}</div>
     <div class="opp-name">${e.name} <i>“${e.nick}”</i></div>
     <span class="chip style">${st.label}</span>${sg ? `<span class="chip sig">★ ${sg.name}</span>` : ''}${mate ? '' : `<span class="chip">${JUTSU[STYLE_KIT[e.style][2]].name}</span>`}<span class="chip">${AI_LEVELS[e.level].label}</span>
-    ${mate ? `<p>${st.blurb}</p>` : `<p><b>Weak to:</b> ${st.weakTo} · <b>Punishes:</b> ${st.punishes}</p>${sg ? `<p><b>★ ${sg.name}:</b> ${sg.counter.toLowerCase()}.</p>` : ''}`}
+    ${mate ? `<p>${st.blurb}</p>` : st.drill ? `<p>${st.blurb}</p><p><b>Tip:</b> ${st.tip}</p>` : `<p><b>Weak to:</b> ${st.weakTo} · <b>Punishes:</b> ${st.punishes}</p>${sg ? `<p><b>★ ${sg.name}:</b> ${sg.counter.toLowerCase()}.</p>` : ''}`}
     ${bars ? `<div class="attrs">${attrBars(e)}</div>` : ''}</div></div>`;
 }
 
@@ -194,9 +196,12 @@ $('sheet').addEventListener('click', e => {
 
 /** The roster by style (★ = a signature shot): `sel` highlighted, Random first if `random`, and
  *  `taken` (name → who) tagged: in 2v2, taking a player already on the table swaps them. */
-function openRoster(title, sel, onPick, { random = false, taken = {} } = {}) {
+function openRoster(title, sel, onPick, { random = false, taken = {}, drills = false } = {}) {
   const tile = (key, inner, cls = '', color = '') => `<button class="rtile${cls}${sel === key ? ' sel' : ''}" data-key="${key}"${color ? ` style="--tc:${color}"` : ''}>${inner}</button>`;
-  openSheet(title, (random ? tile('random', '<span class="nm">🎲 Random rival</span>', ' rand') : '')
+  const drillRow = drills ? `<div class="rgroup"><div class="row-label"><span>Drills</span><em>Practise one side of your game</em></div><div class="rgrid">`
+    + DRILLS.map(e => tile(e.name, `<span class="fl">${e.flag}</span><span class="nm">${e.short}</span><span class="drill">${AI_STYLES[e.style].drill === 'attack' ? 'you attack' : 'you defend'}</span>`, '', hex(e.color))).join('')
+    + '</div></div>' : '';
+  openSheet(title, (random ? tile('random', '<span class="nm">🎲 Random rival</span>', ' rand') : '') + drillRow
     + STYLE_ORDER.map(st => `<div class="rgroup"><div class="row-label"><span>${AI_STYLES[st].label}</span><em>${AI_STYLES[st].tag}</em></div><div class="rgrid">`
       + ROSTER.filter(e => e.style === st).map(e => tile(e.name,
         `<span class="fl">${e.flag}</span><span class="nm">${e.short}</span>${sigOf(e) ? '<span class="star" title="Signature shot">★</span>' : ''}`
@@ -206,7 +211,7 @@ function openRoster(title, sel, onPick, { random = false, taken = {} } = {}) {
 }
 const openRival = () => {
   const s = setupOf(uiMode);
-  openRoster(uiMode === 'practice' ? 'Choose your partner' : 'Choose your rival', s.opp, key => { s.opp = key; saveSetup(); rollRival(); }, { random: true });
+  openRoster(uiMode === 'practice' ? 'Choose your partner' : 'Choose your rival', s.opp, key => { s.opp = key; saveSetup(); rollRival(); }, { random: true, drills: uiMode === 'practice' });
 };
 /** 2v2: slot 0 is your ally, 1 and 2 the CPUs. */
 const duoSlots = () => [duo.ally, ...duo.opps];
@@ -230,7 +235,7 @@ export function showRivalPicker() {
 
 const rollRival = () => {
   const s = setupOf(uiMode);
-  rival = (s.opp !== 'random' && rosterBy(s.opp)) || ROSTER[Math.floor(Math.random() * ROSTER.length)];
+  rival = (s.opp !== 'random' && partnerBy(s.opp, uiMode)) || ROSTER[Math.floor(Math.random() * ROSTER.length)];   // (Random: never a drill)
 };
 /** Two roster players for the CPU side: not your ally, and of different styles. */
 function rollOpps() {
@@ -376,7 +381,7 @@ export function startQuick() {
  *  every point (practice.refill) and the CPU's jutsu can be turned off (practice.cpuJutsu). */
 function startPractice() {
   Sound.init();
-  if (!rival) rival = rosterBy(practice.opp) || ROSTER[0];
+  if (!rival) rival = partnerBy(practice.opp, 'practice') || ROSTER[0];
   match.mode = 'practice';
   match.venue = practice.venue;
   match.watch = null;

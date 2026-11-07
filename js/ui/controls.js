@@ -1,6 +1,6 @@
 // Start-up wiring: saved settings and every button.
 import { clamp } from '../util.js';
-import { GAME, LEVEL_ORDER, ROSTER, TIER_ORDER } from '../config.js';
+import { DRILLS, GAME, LEVEL_ORDER, ROSTER, TIER_ORDER } from '../config.js';
 import { touchSens } from '../input.js';
 import { armJutsu, autoJutsu, setAutoJutsu, syncChakra } from '../jutsu.js';
 import { WATCH_SPEEDS, match, setWatchSpeed, startMatch, watchSpeed } from '../rules.js';
@@ -18,7 +18,7 @@ import { Sound } from '../audio.js';
       if (!v || typeof v !== 'object') continue;
       if (LEVEL_ORDER.includes(v.level)) o.level = v.level;
       if (o === duo) { const a = rosterBy(v.ally) || ROSTER.find(e => e.style === v.ally); if (a) duo.ally = a.name; }   // (saved before 2v2 had names: a style)
-      if ('opp' in o && (v.opp === 'random' || rosterBy(v.opp))) o.opp = v.opp;
+      if ('opp' in o && (v.opp === 'random' || rosterBy(v.opp) || (o === practice && DRILLS.some(e => e.name === v.opp)))) o.opp = v.opp;
       if (VENUE_PICKS.includes(v.venue)) o.venue = v.venue;
       if (o === practice) { practice.refill = v.refill !== false; practice.cpuJutsu = v.cpuJutsu !== false; }
     }

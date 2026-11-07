@@ -206,7 +206,13 @@ export const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruth
  *  saves against a smash (> 0: it retrieves smashes from deep; < 0: they catch it out) — and, when
  *  > 0, the share of the smash's pressure on its stroke it shrugs off ·
  *  punishSoft: pace it adds to its return of a soft ball of yours · weakTo / punishes: the rival
- *  card's lines (shown before the match). */
+ *  card's lines (shown before the match).
+ *  Optional (default 1 / 0): speed: × its feet's speed · tactics: × how much it plays the situation
+ *  (open side, drop vs a deep opponent, aiming where you miss) · pressureErr: how much pressure on
+ *  its stroke (pace, spin, being stretched) adds to its error chance (default 1.5) · calm: the
+ *  pressure it shrugs off (only what's above it counts; a normal rally ball is ~0.4) · smashLow: m
+ *  lower than AI_COMMON.smashHeight it starts to smash · counter: × its counter-block of a smash ·
+ *  drill: a Practice-only drill partner (DRILLS), never in the tournament, 1v1 or 2v2. */
 export const AI_STYLES = {
   allround: { label: 'All-rounder', tag: 'Balanced', blurb: 'No obvious weakness: steady drives with the odd chop.', tip: 'Be patient. Move it around.',
     chop: 0.2, chopSpin: 1, top: 1, side: 1, power: 1, smash: 1, mistake: 1, depth: 0, wide: 1, short: 0.06, flick: 0.3, serveBack: 0.5, reaction: 1, take: 'top', spinErr: 1,
@@ -224,7 +230,26 @@ export const AI_STYLES = {
     chop: 0.35, chopSpin: 1.3, top: 1.15, side: 2.3, power: 0.9, smash: 0.8, mistake: 1.1, depth: 0.1, wide: 1, short: 0.22, flick: 0.35, serveBack: 0.5, reaction: 1, take: 'top', spinErr: 0.7,
     weak: { changeUp: 1.5 }, smashSave: 0, punishSoft: 0, weakTo: 'Change Up · flat pace', punishes: 'Drives into its spin' },
 };
+/** Practice drill partners (DRILLS): one side of the game each, pushed to the top, the other
+ *  side left out on purpose. The Wall gets nearly everything back and never attacks (no smash, no
+ *  open side, no drop, no counter, plays to the middle): you practise attacking, and only real
+ *  pace and placement beat it. The Hammer attacks every ball (heavy, fast topspin to the corners, a
+ *  smash for anything slightly high, flicks every short ball), but is lost on defence: pressure
+ *  makes it miss, your smash catches it, spin fools it. You practise defending: block and chop it
+ *  back until it misses, or counter when it's stretched. */
+const DRILL_STYLES = {
+  wall: { label: 'Wall', tag: 'Defence drill', blurb: 'Gets almost everything back, never attacks. Practise breaking it down.', tip: 'Pace and placement.', drill: 'attack',
+    chop: 0.45, chopSpin: 0.9, top: 0.6, side: 0.4, power: 0.75, smash: 0, mistake: 0.1, depth: 0.45, wide: 0.55, short: 0, flick: 0, serveBack: 0.5, reaction: 0.85, take: 'drop', spinErr: 0.25,
+    weak: {}, smashSave: 0, punishSoft: 0, tactics: 0, calm: 0.6, pressureErr: 25, counter: 0,
+    weakTo: 'Pace and placement — nothing else gets past it', punishes: 'Nothing: it never attacks' },
+  hammer: { label: 'Hammer', tag: 'Attack drill', blurb: 'Attacks every ball, can\'t defend. Practise getting it back.', tip: 'Block low. Counter when it\'s stretched.', drill: 'defend',
+    chop: 0, chopSpin: 1, top: 1.5, side: 0.6, power: 1.2, smash: 2.5, mistake: 1.3, depth: 0.1, wide: 1.15, short: 0.02, flick: 0.9, serveBack: 0.25, reaction: 1.1, take: 'top', spinErr: 1.5,
+    weak: {}, smashSave: -0.4, punishSoft: 0.25, speed: 0.9, tactics: 1.3, pressureErr: 5, smashLow: 0.1, counter: 0,
+    weakTo: 'Any counter-attack · your smash · spin', punishes: 'Every ball that isn\'t low' },
+};
+Object.assign(AI_STYLES, DRILL_STYLES);
 export const STYLE_ORDER = ['allround', 'attacker', 'defender', 'blocker', 'wizard'];
+export const DRILL_ORDER = Object.keys(DRILL_STYLES);
 
 /** Tactical patterns, two per style: small multi-shot plans a CPU picks at the start of a point
  *  (c.pattern) and plays hit by hit, so its habits can be learned — and broken. The key shot is
@@ -270,6 +295,13 @@ export const STYLE_PATTERNS = {
       serve: { back: true }, steps: [{ side: 'bh', spin: 'top', pace: 1.15, key: true }], needsServe: true },
   ],
 };
+STYLE_PATTERNS.wall = [];   // the Wall has no plan: it just gets it back
+STYLE_PATTERNS.hammer = [
+  { id: 'hammer-pound', name: 'Pound the backhand, then the forehand', counter: 'Block the backhand ones low — when the racket winds up, the big one goes to your forehand.',
+    steps: [{ side: 'bh', spin: 'top' }, { side: 'bh', spin: 'top', pace: 1.1 }, { side: 'fh', spin: 'top', pace: 1.3, key: true }], loop: true },
+  { id: 'hammer-body', name: 'Wide, then at your body', counter: 'After a wide loop, step back to the middle — the next one comes straight at you.',
+    steps: [{ side: 'open', spin: 'top', pace: 1.15 }, { side: 'mid', spin: 'top', pace: 1.3, key: true }], loop: true },
+];
 const PATTERN_BY_ID = Object.fromEntries(Object.values(STYLE_PATTERNS).flat().map(p => [p.id, p]));
 
 /** Signature shots of headline players: a tell (the racket glows in the signature's color, the
@@ -410,14 +442,16 @@ export const VOID = { delay: 0.35, speed: 0.55, err: 0.22, you: 0.45 };
  *  corner away from the receiver (x `wide`). A bot that reads the gathering hits harder (pace×)
  *  to end the point first. */
 export const SPIRIT = { need: 2, speed: [13.5, 14.5], top: 90, wide: [0.48, 0.62], pace: 1.08 };
-/** Jutsu kits — jutsu 1 / 2 / 3. Each CPU style has one (Black Flash and Flying Thunder God are
- *  yours only); you pick yours (JUTSU_POOL). */
+/** Jutsu kits — jutsu 1 / 2 / 3. Each CPU style has one (Black Flash is yours only; Flying Thunder
+ *  God is yours and the Wall's, the drill partner that gets everything back); you pick yours (JUTSU_POOL). */
 export const STYLE_KIT = {
   allround: ['clone', 'snake', 'rasengan'],
   blocker:  ['sharingan', 'mirror', 'godhand'],
   defender: ['metavision', 'timestop', 'void'],
   wizard:   ['zeroshiki', 'misdirect', 'awaken'],
   attacker: ['samehada', 'possession', 'rasengan'],
+  wall:     ['metavision', 'hiraishin', 'godhand'],   // drills: it keeps the ball in play...
+  hammer:   ['spiritbomb', 'timestop', 'rasengan'],   // ...or it finishes the point
 };
 /** Your jutsu (start menu): one per cost, picked from that cost's pool; kept in storage. */
 export const JUTSU_POOL = {
@@ -572,6 +606,12 @@ export const ROSTER = [
   { name: 'Felix Lebrun', short: 'Lebrun', nick: 'The Kid', flag: '🇫🇷', style: 'blocker', color: 0x3d8bff },
   { name: 'Joo Se-hyuk', short: 'Joo', nick: 'The Chopper', flag: '🇰🇷', style: 'defender', color: 0x8c8c99 },
   { name: 'Kim Kyung-ah', short: 'Kim', nick: 'Chop Queen', flag: '🇰🇷', style: 'defender', color: 0x7f8c8d },
+];
+
+/** Practice-only drill partners (DRILL_STYLES): never drawn for the tournament, 1v1 or 2v2. */
+export const DRILLS = [
+  { name: 'The Wall', short: 'Wall', nick: 'Gets everything back', flag: '🧱', style: 'wall', color: 0x9aa5b1 },
+  { name: 'The Hammer', short: 'Hammer', nick: 'Attacks everything', flag: '🔨', style: 'hammer', color: 0x5c7cfa },
 ];
 
 /** Events: a weighted pool of levels each entrant's level is drawn from (so any round can bring

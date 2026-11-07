@@ -67,6 +67,8 @@ export const activeBots = () => match.doubles ? [ai, ai2, ally] : match.watch ? 
 const botFor = who => turnBot(who);
 export const levelCfg = c => AI_LEVELS[c.level];
 const iqOf = c => c.iq ?? levelCfg(c).iq;
+/** How much c plays the situation (open side, drop shots, your weak zone): its iq × its style's tactics. */
+const tacticsOf = c => iqOf(c) * (styleCfg(c).tactics ?? 1);
 /** Does bot c read jutsu `id` (JUTSU_AI.see × the jutsu's readK: how readable it is, default 1)? */
 export const seesJutsu = (c, id) => Math.random() < JUTSU_AI[c.level].see * (JUTSU[id].readK ?? 1);
 export const styleCfg = c => AI_STYLES[c.style];
@@ -190,6 +192,7 @@ function smartJutsu(c, kit, high, seals) {
 function pickPattern(c, serving) {
   if (Math.random() >= levelCfg(c).pattern) return null;
   const pats = STYLE_PATTERNS[c.style].filter(p => serving || !p.needsServe);
+  if (!pats.length) return null;   // (the Wall: no plan)
   const weights = pats.map(p => (serving && p.needsServe ? 1.5 : 1));
   let r = Math.random() * weights.reduce((a, b) => a + b, 0);
   const def = pats.find((p, i) => (r -= weights[i]) < 0) || pats[0];
@@ -224,7 +227,7 @@ function decideIntent(c) {
     intent = { ...p.def.steps[p.step % p.def.steps.length], pattern: p.def.id };
   }
   const a = c.adapt;
-  if (adapting(c) && a.target && Math.random() < levelCfg(c).adapt) {
+  if (adapting(c) && a.target && Math.random() < levelCfg(c).adapt * (styleCfg(c).tactics ?? 1)) {
     const [side, kind] = a.target.split('-');
     intent = { ...(intent || {}), side, adapt: true };
     if (kind === 'short') { intent.depth = 'short'; }
@@ -355,7 +358,8 @@ export function updateAI(c, dt) {
   const voided = (rally.live && rally.void && rally.void !== c.owner ? VOID.speed : 1)   // inside the other side's Infinite Void
     * (rally.live && rally.warp[c.owner] ? HIRAISHIN.speed : 1)                           // Flying Thunder God
     * (c.plan && c.plan.combo && c.plan.combo.drawDrive ? Math.max(0.4, 1 - COMBO.drawDrive.slow * c.plan.combo.drawDrive) : 1);   // caught in (Draw & Drive)
-  moveBody(body, recovering ? body.x : goal.x, bodyZ, cfg.speed * voided, cfg.accel * voided, dt);
+  const feet = styleCfg(c).speed ?? 1;   // (a drill partner's feet)
+  moveBody(body, recovering ? body.x : goal.x, bodyZ, cfg.speed * feet * voided, cfg.accel * feet * voided, dt);
   const ax = clamp(goal.x, body.x - REACH.armX, body.x + REACH.armX) - r.pos.x;
   const az = clamp(goal.z, body.z - REACH.armZ, body.z + REACH.armZ) - r.pos.z, d = Math.hypot(ax, az);
   if (d > 1e-4 && !(match.state === 'toss' && serverBot() === c)) {
@@ -399,7 +403,7 @@ export function aiHit(c) {
   const calm = flow[c.owner] ? (flow.deep[c.owner] ? FLOW.deep.mistake : FLOW.mistake) : 1;
   const steady = rally.zone === c.owner ? META_STEADY : 1;   // Meta Vision: fewer errors this point
   const voidErr = rally.void && rally.void !== c.owner ? VOID.err : 0;   // inside their Infinite Void: lost
-  const mistake = Math.random() < (cfg.mistakeRate * st.mistake * (1 + pressure * 1.5) * calm + (jIn && !copy ? ja.rattle : 0) + voidErr
+  const mistake = Math.random() < (cfg.mistakeRate * st.mistake * (1 + Math.max(0, pressure - (st.calm || 0)) * (st.pressureErr ?? 1.5)) * calm + (jIn && !copy ? ja.rattle : 0) + voidErr
     + (cb.changeUp || 0) * COMBO.changeUp.mistake) * steady;   // Change Up: off its timing
   // Its plan for this stroke (pattern step, signature, jutsu, adaptive bias — see decideIntent).
   let it = c.intent || {};
@@ -415,7 +419,7 @@ export function aiHit(c) {
   if (rally.combo === c.owner && hBall > 0.25 && Math.random() < POSSESSION.combo[c.level]) return aiSmash(c, speedIn, POSSESSION.aim);
   if (mir === 'read' && (it.sig === 'chorei-counter' || it.sig === 'hayabusa')) it = { ...it, sig: null };
   // A ball that sits up (high and slow) invites a smash; the higher, the more likely.
-  const sitsUp = clamp((ball.p.y - TABLE_TOP - AI_COMMON.smashHeight) / AI_COMMON.smashFull, 0, 1);
+  const sitsUp = clamp((ball.p.y - TABLE_TOP - AI_COMMON.smashHeight + (st.smashLow || 0)) / AI_COMMON.smashFull, 0, 1);
   TLOG.note({ sitsUp: lr(sitsUp), smashChance: speedIn < AI_COMMON.smashSlow ? lr(Math.min(1, cfg.smash * st.smash) * sitsUp) : 0 });
   if (!mistake && mir !== 'read' && speedIn < AI_COMMON.smashSlow && Math.random() < Math.min(1, cfg.smash * st.smash) * sitsUp) return aiSmash(c, speedIn);
   const when = it.sig && SIGNATURES[it.sig].when;
@@ -423,7 +427,7 @@ export function aiHit(c) {
   if (overTable && it.sig !== 'hayabusa') return aiShortBall(c, it, mistake);   // (a ball high over the table can be hit)
   // Your smash: once it has adapted to you, it may meet it with a counter-block.
   const anti = antiSmash(c);
-  if (rally.smashed && !mistake && !it.sig && mir !== 'read' && Math.random() < cfg.counter * anti * smashRead()) return aiCounterBlock(c, speedIn, it);
+  if (rally.smashed && !mistake && !it.sig && mir !== 'read' && Math.random() < cfg.counter * (st.counter ?? 1) * anti * smashRead()) return aiCounterBlock(c, speedIn, it);
   const pace = it.pace || 1;
   const power = cfg.power * st.power;
   const sideSign = aiSide(c, it);
@@ -579,7 +583,7 @@ function aiJutsu(c, it) {
 /** Which side c aims at: its plan's choice (the opponent's backhand is on c.s's side), else a coin flip. */
 function aiSide(c, it) {
   const oppRacket = turnRacket(other(c.owner));   // whoever plays the next ball over there
-  if (!it.side && Math.random() < SMART.open * iqOf(c)) {   // no plan: it plays the situation (SMART)
+  if (!it.side && Math.random() < SMART.open * tacticsOf(c)) {   // no plan: it plays the situation (SMART)
     const run = turnBody(other(c.owner)).vx;
     if (Math.abs(run) > SMART.wrongFoot) return -Math.sign(run);           // wrong-foot: back where they came from
     if (Math.abs(oppRacket.pos.x) > 0.1) return -Math.sign(oppRacket.pos.x);   // the open side
@@ -593,7 +597,7 @@ function aiSide(c, it) {
  *  less when they're up at the table. */
 function dropBias(c) {
   const back = Math.abs(turnBody(other(c.owner)).z) - HALF_L;
-  return SMART.drop * iqOf(c) * clamp((back - SMART.deep) / SMART.span, -1, 1);
+  return SMART.drop * tacticsOf(c) * clamp((back - SMART.deep) / SMART.span, -1, 1);
 }
 /** Aim straight at the opponent's body (hard to get out of the way of). */
 function aiBodyX(c) {

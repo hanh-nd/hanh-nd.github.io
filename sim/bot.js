@@ -220,12 +220,12 @@ window.runSim = function (opts) {
 
   for (let m = 0; m < opts.matches; m++) {
     const pool = opts.owners ? T.ROSTER.filter(r => opts.owners.includes(r.name)) : opts.pool ? T.ROSTER.filter(r => opts.pool.includes(r.style)) : T.ROSTER;
-    const e = opts.opp ? T.ROSTER.find(r => r.name === opts.opp) : pool[m % pool.length];   // every opponent in turn: runs compare like for like
+    const e = opts.opp ? [...T.ROSTER, ...(T.DRILLS || [])].find(r => r.name === opts.opp) : pool[m % pool.length];   // every opponent in turn: runs compare like for like
     match.mode = opts.doubles ? 'duo' : 'quick'; match.watch = null; match.doubles = !!opts.doubles;
     T.setHome(null);
     match.gamesToWin = opts.gamesToWin || 2;
     if (opts.doubles) {   // 2v2: you + an all-rounder ally vs two CPUs (styles in turn); iq overrides: allyIq, cpuIq
-      const S = Object.keys(T.AI_STYLES), lv = opts.level || 'hard';
+      const S = Object.keys(T.AI_STYLES).filter(k => !T.AI_STYLES[k].drill), lv = opts.level || 'hard';
       T.setOpponent({ name: 'CPU', short: 'CPU', color: 0x2f80ed, level: lv, style: S[m % S.length] });
       Object.assign(P.ai2, { level: lv, style: S[(m + 1 + Math.floor(m / S.length)) % S.length], name: '' });
       Object.assign(P.ally, { level: opts.allyLevel || lv, style: opts.allyStyle || 'allround', name: '' });

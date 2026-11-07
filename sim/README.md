@@ -190,3 +190,20 @@ Point share per style (30 matches, skilled finger):
 Medium is within ±0.04 of the arena for every style. Rally length and CPU misses are unchanged (a block-only bot: 0 CPU misses on every table). Signatures (`sig.sh hard 32`): 40–43% wins vs an unaware bot and 27–29% vs an aware one on all four tables. The jutsu duel's order and rates match the arena within noise; points without a jutsu stay at 0.52–0.54. 2v2 (medium, 16 matches): 0.35–0.40 on all tables.
 
 A first try with gentler numbers (club 0.84 / 0.42, pro 0.90 / 0.68) changed bounces by only 1–2 cm, too small to notice, so they were pushed to about ±30%.
+
+## Practice drills (Nov 2026)
+
+Two Practice-only partners (`DRILLS`, `AI_STYLES.wall` / `.hammer`), never in the tournament, 1v1 or 2v2. They're in the Practice partner picker under "Drills", and Random never picks one. Each pushes one side of the game to the top and leaves the other out on purpose.
+
+- **The Wall (you attack):** no smash, no drop shot, no flick, no counter-block, no open-side aim, no plan (`tactics: 0`). It plays slow chops and blocks to the middle. Its errors come only from pressure above `calm` (0.6; a normal rally ball is about 0.4) × `pressureErr` 25, so only pace and placement beat it. Kit: Meta Vision, Flying Thunder God, God Hand (it keeps the ball in play).
+- **The Hammer (you defend):** heavy, fast topspin to the corners, smashes balls 0.1 m lower than others do, flicks 90% of short balls, never chops, plays the situation 1.3× and punishes soft balls. Its defence is poor: `pressureErr` 5, your smash catches it (`smashSave` −0.4), spin fools it (`spinErr` 1.5), slower feet (`speed` 0.9). Kit: Spirit Bomb, Time Stop, Rasengan.
+
+Your point share by sim bot (5–6 matches each; Wall rallies are long by design: 60–130 hits):
+
+| Level | Wall: mixed | Wall: block | Hammer: mixed | Hammer: block |
+|---|---|---|---|---|
+| Easy | 0.64 | 0.72 | 0.85 | 0.73 |
+| Medium | 0.50 | 0.11 | 0.39 | 0.39 |
+| Hard | 0.27 | 0.11 | 0.11 | 0.19 |
+
+On Medium and Hard, blocking alone doesn't beat the Wall (a normal CPU loses 0.79 of points to the block bot). On Easy, its slow feet leave it stretched, so it's forgiving. The new style knobs (`speed`, `tactics`, `calm`, `pressureErr`, `smashLow`, `counter`) default to the old behaviour, and the fingerprint is unchanged.
