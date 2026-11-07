@@ -57,26 +57,14 @@
     <button class="again hidden" id="btn-again-last"><span class="again-k">Play again</span><span class="again-t" id="again-txt"></span></button>
     <div class="modes">
       <button class="mode" data-mode="practice"><span class="mode-k" aria-hidden="true">修</span><b>Practice</b><small>Endless rally · try your jutsu</small></button>
-      <button class="mode" data-mode="quick"><span class="mode-k" aria-hidden="true">対</span><b>1v1</b><small>Pick a rival</small></button>
+      <button class="mode" data-mode="quick"><span class="mode-k" aria-hidden="true">対</span><b>1v1</b><small>Face a rival</small></button>
       <button class="mode" data-mode="duo"><span class="mode-k" aria-hidden="true">組</span><b>2v2</b><small>You + ally vs 2 CPUs</small></button>
       <button class="mode" data-mode="tour"><span class="mode-k" aria-hidden="true">覇</span><b>Tournament</b><small id="tour-tile">16 players · knockout</small></button>
     </div>
   </div>
 </div>
 
-<!-- ===== Rival select (1v1, Practice): the roster by style, and the level ===== -->
-<div id="menu-pick" class="menu hidden">
-  <div class="card">
-    <div class="nav"><button class="back" data-back aria-label="Back">←</button><div><div class="eyebrow" id="pick-mode"></div><h2>Choose your rival</h2></div></div>
-    <div id="roster"></div>
-    <div class="foot">
-      <div class="seg" id="pick-levels"></div>
-      <button class="btn" id="btn-pick-next">Next</button>
-    </div>
-  </div>
-</div>
-
-<!-- ===== Ready (VS): you and your jutsu vs them; every mode but the tournament ends here ===== -->
+<!-- ===== Ready (VS): you and your jutsu vs them (tap them to change); every mode but the tournament ends here ===== -->
 <div id="menu-ready" class="menu hidden">
   <div class="card">
     <div class="nav"><button class="back" data-back aria-label="Back">←</button><div><div class="eyebrow" id="ready-mode"></div><h2>Ready?</h2></div></div>
@@ -86,6 +74,14 @@
     <div id="ready-extra"></div>
     <p class="rules" id="ready-rules"></p>
     <div class="foot"><button class="btn" id="btn-go">Start</button></div>
+  </div>
+</div>
+
+<!-- ===== Sheet over Ready: pick a rival (the roster) or a 2v2 style ===== -->
+<div id="sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="sheet-panel">
+    <div class="sheet-head"><h3 id="sheet-title"></h3><button class="back" id="sheet-close" aria-label="Close">✕</button></div>
+    <div id="sheet-body"></div>
   </div>
 </div>
 

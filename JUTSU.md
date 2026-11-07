@@ -77,11 +77,12 @@ That's about +0.1 to +0.15 points per seal whichever you pick. In CPU-vs-CPU due
 
 ## Menus
 - **Home** asks one thing: the mode (**Practice**, **1v1**, **2v2**, **Tournament**). ⚙ Settings and ? How to play are in its corner. **Play again** replays your last Practice, 1v1 or 2v2 setup in one tap.
-- **1v1 and Practice:** choose a rival from the roster, grouped by style (★ = a signature shot), or Random, and a level. Tap the picked player again, or Next, to go to **Ready**: you vs them, their style, top jutsu and signature counter, and your jutsu. Then Start.
-- **2v2:** straight to Ready: the two CPU styles (Re-roll) and the level.
+- **Ready** comes straight after the mode, filled in with last time's choices: who you face, the level, your jutsu, Start. To change who's in, tap their card (it says **Change ▾**) or their side of the VS banner: the roster opens in a sheet, grouped by style (★ = a signature shot), and one tap picks and closes it.
+- **1v1 and Practice:** the rival's card shows their style, top jutsu and signature counter. The roster sheet also has **Random** (a new rival each time you reach Ready). **Change Rival** at the end of a 1v1 opens Ready with the roster up.
+- **2v2:** three roster players: **your ally** and **Opponent 1 and 2**, each a card to tap. Picking someone already in swaps them; **Re-roll** draws two new opponents of different styles. Your ally is remembered.
 - **Tournament:** choose an event, then the hub. With a run in progress, the tile says who's next and opens the hub; **New Event** in the hub starts over.
 - **Practice:** a 1v1 that never ends (games roll on, no rank change, no grade). Two switches on Ready: **Seals refill every point** (on) and **CPU uses jutsu**. Leave from the pause menu.
-- **Game speed** is in Settings and applies straight away. Every choice (rival, level, event, speed, practice switches) is remembered.
+- **Game speed** is in Settings and applies straight away. Every choice (rival, 2v2 ally, level, event, speed, practice switches) is remembered.
 
 ## Venues
 - Each kind of match has its own venue, all built in code (no image files). The menus show the venue of what you are choosing (pick an event to preview its venue).
@@ -96,6 +97,7 @@ That's about +0.1 to +0.15 points per seal whichever you pick. In CPU-vs-CPU due
 - **Ego rank:** starts at #300, climbs with wins (more against Hard, ×1.2 in 2v2, ×1.5 in the tournament), slips 4 on a loss. Each match ends with an S–D grade.
 
 ## 2v2
-- You + a CPU ally vs 2 CPUs. Partners **alternate hits**; the racket whose turn it isn't fades out and can't touch the ball.
+- You + an ally vs 2 opponents, all from the roster at the level you pick. Partners **alternate hits**; the racket whose turn it isn't fades out and can't touch the ball.
 - The serve goes **diagonally**, right half to right half (the target half glows). It rotates A1→B1→A2→B2.
-- The team shares one chakra bar: your ally fills it, and only you spend it.
+- The team shares one chakra bar: your ally fills it, and only you spend it. The CPU pair shares theirs too; whichever of them is hitting fires from its own style's kit. One jutsu per team per point.
+- **Signatures** are on for all three (a player who owns one: ★). They cost no chakra, so your ally can play its signature even though it never fires a jutsu; it's announced as your ally's, with no counter.

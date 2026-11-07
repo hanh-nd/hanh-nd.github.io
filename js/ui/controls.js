@@ -1,11 +1,11 @@
 // Start-up wiring: saved settings and every button.
 import { clamp } from '../util.js';
-import { AI_STYLES, GAME, LEVEL_ORDER, TIER_ORDER } from '../config.js';
+import { GAME, LEVEL_ORDER, ROSTER, TIER_ORDER } from '../config.js';
 import { touchSens } from '../input.js';
 import { armJutsu, autoJutsu, setAutoJutsu, syncChakra } from '../jutsu.js';
 import { WATCH_SPEEDS, match, setWatchSpeed, startMatch, watchSpeed } from '../rules.js';
 import { $, store } from './hud.js';
-import { buildMenus, cycleFastForward, duo, hideOverlay, practice, quick, rosterBy, selTier, setSelTier, setUiMode, showOverlay, showPick, showStartMenu, startDuo, startQuick, syncSettings, togglePause, uiMode } from './menus.js';
+import { buildMenus, cycleFastForward, duo, hideOverlay, practice, quick, rosterBy, selTier, setSelTier, setUiMode, showOverlay, showRivalPicker, showStartMenu, startDuo, startQuick, syncSettings, togglePause, uiMode } from './menus.js';
 import { newTournament, showTourHub } from '../tournament.js';
 import { Sound } from '../audio.js';
 
@@ -17,7 +17,7 @@ import { Sound } from '../audio.js';
       const v = s[k];
       if (!v || typeof v !== 'object') continue;
       if (LEVEL_ORDER.includes(v.level)) o.level = v.level;
-      if (o === duo && v.ally in AI_STYLES) duo.ally = v.ally;
+      if (o === duo) { const a = rosterBy(v.ally) || ROSTER.find(e => e.style === v.ally); if (a) duo.ally = a.name; }   // (saved before 2v2 had names: a style)
       if ('opp' in o && (v.opp === 'random' || rosterBy(v.opp))) o.opp = v.opp;
       if (o === practice) { practice.refill = v.refill !== false; practice.cpuJutsu = v.cpuJutsu !== false; }
     }
@@ -63,4 +63,4 @@ $('btn-next').addEventListener('click', () => {
 });
 $('btn-continue').addEventListener('click', showTourHub);
 $('btn-menu').addEventListener('click', showStartMenu);
-$('btn-rival').addEventListener('click', () => { showStartMenu(); setUiMode('quick'); showPick(); });
+$('btn-rival').addEventListener('click', () => { showStartMenu(); setUiMode('quick'); showRivalPicker(); });

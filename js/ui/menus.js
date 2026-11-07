@@ -15,13 +15,14 @@ import { $, hideAllMenus, showMessage, store } from './hud.js';
 import { attrBars, hex, playerMatch, showTourHub, tour } from '../tournament.js';
 import { Sound } from '../audio.js';
 
-/* ---------- Menus: Home (mode) → Rival → Ready (VS) → match; Tournament: Event → hub ----------
-   One question per screen, and every answer is remembered (pp3d.setup), so a returning player
-   taps Play again on Home (pp3d.last) or goes straight through with last time's choices. */
+/* ---------- Menus: Home (mode) → Ready (VS) → match; Tournament: Event → hub ----------
+   Every answer is remembered (pp3d.setup), so Ready opens with last time's choices filled in:
+   tap who you face (the rival, your ally, a CPU) to change them in a sheet, or just Start.
+   A returning player can also tap Play again on Home (pp3d.last) and skip Ready. */
 /** Your setup per mode. opp: a roster name, or 'random' (rolled each time you reach Ready). */
 export const quick = { level: 'easy', opp: 'random' };
 export const practice = { level: 'easy', opp: 'random', refill: true, cpuJutsu: true };
-export const duo = { level: 'easy', styles: null, ally: 'blocker' };   // styles: the two CPUs, rolled on the Ready screen · ally: your partner's style
+export const duo = { level: 'easy', opps: null, ally: 'Sun Yingsha' };   // opps: the two you face (roster names), rolled on the Ready screen · ally: your partner (a roster name)
 export let selTier = 'pro', uiMode = 'quick';
 let rival = null;   // the roster entry you face in 1v1 / Practice (shown on Ready)
 export const rosterBy = name => ROSTER.find(e => e.name === name) || null;
@@ -86,8 +87,8 @@ export function buildMenus() {
     match.speedKey, k => { match.speedKey = k; store.set('pp3d.speed', k); });
 }
 
-/** The menu screens (one shows at a time) and Back: Ready → Rival → Home; Event → hub or Home. */
-const SCREENS = ['menu-start', 'menu-pick', 'menu-ready', 'menu-event'];
+/** The menu screens (one shows at a time) and Back: an open sheet closes; Ready → Home; Event → hub or Home. */
+const SCREENS = ['menu-start', 'menu-ready', 'menu-event'];
 export let screen = 'menu-start';
 function showScreen(id) {
   hideAllMenus();
@@ -96,7 +97,7 @@ function showScreen(id) {
   $(id).querySelector('.card').scrollTop = 0;
 }
 export function back() {
-  if (screen === 'menu-ready' && uiMode !== 'duo') return showPick();
+  if (sheetOpen()) return closeSheet();
   if (screen === 'menu-event' && tour && !tour.done) return showTourHub();
   showHome();
 }
@@ -108,12 +109,13 @@ function lastSetup() {
   if (!l || !['practice', 'quick', 'duo'].includes(l.mode) || !LEVEL_ORDER.includes(l.level)) return null;
   const e = l.mode === 'duo' ? null : rosterBy(l.opp);
   if (l.mode !== 'duo' && !e) return null;
-  return { ...l, e, text: [MODE_LABEL[l.mode], e ? `${e.flag} ${e.short}` : 'vs 2 CPUs', AI_LEVELS[l.level].label].join(' · ') };
+  const a = l.mode === 'duo' && rosterBy(duo.ally);
+  return { ...l, e, text: [MODE_LABEL[l.mode], e ? `${e.flag} ${e.short}` : a ? `with ${a.flag} ${a.short}` : 'vs 2 CPUs', AI_LEVELS[l.level].label].join(' · ') };
 }
 const rememberLast = (mode, e, level) => store.set('pp3d.last', { mode, opp: e ? e.name : null, level });
 
 function showHome() {
-  duo.styles = null;
+  duo.opps = null;
   menuVenue('arena');
   drawBanners();
   $('rank-badge').textContent = `EGO RANK #${rankNow()}`;
@@ -139,41 +141,8 @@ $('btn-again-last').addEventListener('click', () => {
 document.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => {
   uiMode = b.dataset.mode;
   if (uiMode === 'tour') return tour && !tour.done ? showTourHub() : showEvent();
-  if (uiMode === 'duo') return showReady();
-  showPick();
+  showReady();
 }));
-
-/** Rival: the roster by style (★ = a signature shot), Random, and the level. Tap a player to
- *  pick them; tap them again (or Next) to go on. */
-export function showPick() {
-  const s = setupOf(uiMode);
-  menuVenue(venueFor(uiMode), BOARD_OF_MODE[uiMode]);
-  $('pick-mode').textContent = MODE_LABEL[uiMode];
-  const tile = (key, inner, cls = '', color = '') => `<button class="rtile${cls}${s.opp === key ? ' sel' : ''}" data-opp="${key}"${color ? ` style="--tc:${color}"` : ''}>${inner}</button>`;
-  $('roster').innerHTML = tile('random', '<span class="nm">Random rival</span>', ' rand')
-    + STYLE_ORDER.map(st => `<div class="rgroup"><div class="row-label"><span>${AI_STYLES[st].label}</span><em>${AI_STYLES[st].tag}</em></div><div class="rgrid">`
-      + ROSTER.filter(e => e.style === st).map(e => tile(e.name,
-        `<span class="fl">${e.flag}</span><span class="nm">${e.short}</span>${sigOf(e) ? '<span class="star" title="Signature shot">★</span>' : ''}`, '', hex(e.color))).join('')
-      + '</div></div>').join('')
-    + '<p class="roster-note">★ has a signature shot</p>';
-  buildSeg('pick-levels', LEVEL_ORDER, k => `${AI_LEVELS[k].label}<small>${LEVEL_BLURB[k]}</small>`, s.level, k => { s.level = k; saveSetup(); });
-  syncPickNext();
-  showScreen('menu-pick');
-}
-function syncPickNext() {
-  const e = rosterBy(setupOf(uiMode).opp);
-  $('btn-pick-next').textContent = e ? `Next · ${e.flag} ${e.short}` : 'Next · Random';
-}
-$('roster').addEventListener('click', ev => {
-  const b = ev.target.closest('[data-opp]'), s = setupOf(uiMode);
-  if (!b) return;
-  if (s.opp === b.dataset.opp) return showReady();
-  s.opp = b.dataset.opp;
-  saveSetup();
-  $('roster').querySelectorAll('.rtile').forEach(x => x.classList.toggle('sel', x === b));
-  syncPickNext();
-});
-$('btn-pick-next').addEventListener('click', () => showReady());
 
 /** A player's card: flag, name, style, signature (and its counter), top jutsu, level, and
  *  (the tournament's) attribute bars. */
@@ -194,51 +163,144 @@ function playbookRow(c) {
     <span><b>${c.name}</b> · ${c.how}<br><small>${c.why}</small></span></div>`;
 }
 
-export function oppCard(e, eyebrow, bars = true) {
+export function oppCard(e, eyebrow, bars = true, mate = false) {   // mate: your 2v2 partner (what it does, not how to beat it; no jutsu: you spend the team's seals)
   const st = AI_STYLES[e.style], sg = sigOf(e);
   return `<div class="opp" style="--opp:${hex(e.color)}"><div class="opp-flag">${e.flag}</div><div style="min-width:0">
     <div class="eyebrow">${eyebrow}</div>
     <div class="opp-name">${e.name} <i>“${e.nick}”</i></div>
-    <span class="chip style">${st.label}</span>${sg ? `<span class="chip sig">★ ${sg.name}</span>` : ''}<span class="chip">${JUTSU[STYLE_KIT[e.style][2]].name}</span><span class="chip">${AI_LEVELS[e.level].label}</span>
-    <p><b>Weak to:</b> ${st.weakTo} · <b>Punishes:</b> ${st.punishes}</p>${sg ? `<p><b>★ ${sg.name}:</b> ${sg.counter.toLowerCase()}.</p>` : ''}
+    <span class="chip style">${st.label}</span>${sg ? `<span class="chip sig">★ ${sg.name}</span>` : ''}${mate ? '' : `<span class="chip">${JUTSU[STYLE_KIT[e.style][2]].name}</span>`}<span class="chip">${AI_LEVELS[e.level].label}</span>
+    ${mate ? `<p>${st.blurb}</p>` : `<p><b>Weak to:</b> ${st.weakTo} · <b>Punishes:</b> ${st.punishes}</p>${sg ? `<p><b>★ ${sg.name}:</b> ${sg.counter.toLowerCase()}.</p>` : ''}`}
     ${bars ? `<div class="attrs">${attrBars(e)}</div>` : ''}</div></div>`;
 }
 
-/** Ready (VS): you vs them, your jutsu (tap to swap), the mode's few options, Start. */
+/** A sheet over Ready: the roster, one tap picks and closes it (tap outside, ✕,
+ *  Back or Esc closes it without a change). */
+let sheetPick = null;
+export const sheetOpen = () => !$('sheet').classList.contains('hidden');
+function openSheet(title, html, onPick) {
+  $('sheet-title').textContent = title;
+  $('sheet-body').innerHTML = html;
+  sheetPick = onPick;
+  $('sheet').classList.remove('hidden');
+  $('sheet').querySelector('.sheet-panel').scrollTop = 0;
+  ($('sheet-body').querySelector('.sel') || $('sheet-close')).focus({ preventScroll: true });
+}
+export function closeSheet() {
+  $('sheet').classList.add('hidden');
+  sheetPick = null;
+}
+$('sheet').addEventListener('click', e => {
+  if (e.target === $('sheet') || e.target.closest('#sheet-close')) return closeSheet();
+  const b = e.target.closest('[data-key]'), pick = sheetPick;
+  if (!b || !pick) return;
+  closeSheet();
+  pick(b.dataset.key);
+  renderReady();
+});
+
+/** The roster by style (★ = a signature shot): `sel` highlighted, Random first if `random`, and
+ *  `taken` (name → who) tagged: in 2v2, taking a player already on the table swaps them. */
+function openRoster(title, sel, onPick, { random = false, taken = {} } = {}) {
+  const tile = (key, inner, cls = '', color = '') => `<button class="rtile${cls}${sel === key ? ' sel' : ''}" data-key="${key}"${color ? ` style="--tc:${color}"` : ''}>${inner}</button>`;
+  openSheet(title, (random ? tile('random', '<span class="nm">🎲 Random rival</span>', ' rand') : '')
+    + STYLE_ORDER.map(st => `<div class="rgroup"><div class="row-label"><span>${AI_STYLES[st].label}</span><em>${AI_STYLES[st].tag}</em></div><div class="rgrid">`
+      + ROSTER.filter(e => e.style === st).map(e => tile(e.name,
+        `<span class="fl">${e.flag}</span><span class="nm">${e.short}</span>${sigOf(e) ? '<span class="star" title="Signature shot">★</span>' : ''}`
+        + (taken[e.name] ? `<span class="taken">${taken[e.name]}</span>` : ''), '', hex(e.color))).join('')
+      + '</div></div>').join('')
+    + `<p class="roster-note">★ has a signature shot${Object.keys(taken).length ? ' · picking someone already in swaps them' : ''}</p>`, onPick);
+}
+const openRival = () => {
+  const s = setupOf(uiMode);
+  openRoster(uiMode === 'practice' ? 'Choose your partner' : 'Choose your rival', s.opp, key => { s.opp = key; saveSetup(); rollRival(); }, { random: true });
+};
+/** 2v2: slot 0 is your ally, 1 and 2 the CPUs. */
+const duoSlots = () => [duo.ally, ...duo.opps];
+const SLOT_TAG = ['Ally', 'CPU 1', 'CPU 2'];
+function openDuoSlot(i) {
+  const names = duoSlots(), taken = {};
+  names.forEach((n, j) => { if (j !== i) taken[n] = SLOT_TAG[j]; });
+  openRoster(i ? `Opponent ${i}` : 'Your ally', names[i], key => {
+    const j = names.indexOf(key);
+    if (j >= 0 && j !== i) names[j] = names[i];   // already on the table: swap
+    names[i] = key;
+    [duo.ally, duo.opps[0], duo.opps[1]] = names;
+    saveSetup();
+  }, { taken });
+}
+/** 1v1 / Practice from the end of a match: Ready with the roster open. */
+export function showRivalPicker() {
+  showReady();
+  openRival();
+}
+
+const rollRival = () => {
+  const s = setupOf(uiMode);
+  rival = (s.opp !== 'random' && rosterBy(s.opp)) || ROSTER[Math.floor(Math.random() * ROSTER.length)];
+};
+/** Two roster players for the CPU side: not your ally, and of different styles. */
+function rollOpps() {
+  const pool = ROSTER.filter(e => e.name !== duo.ally).sort(() => Math.random() - 0.5);
+  const b = pool.find(e => e.style !== pool[0].style) || pool[1];
+  return [pool[0].name, b.name];
+}
+
+/** Ready (VS): you vs them (tap them to change), the level, your jutsu (tap to swap), the mode's
+ *  few options, Start. */
 function showReady(roll = true) {
-  const mode = uiMode, d = mode === 'duo', s = d ? duo : setupOf(mode);
+  const mode = uiMode;
   menuVenue(venueFor(mode), BOARD_OF_MODE[mode]);
-  if (roll && !d) rival = (s.opp !== 'random' && rosterBy(s.opp)) || ROSTER[Math.floor(Math.random() * ROSTER.length)];
-  if (d && !duo.styles) duo.styles = [...STYLE_ORDER].sort(() => Math.random() - 0.5).slice(0, 2);
+  if (roll && mode !== 'duo') rollRival();
+  if (mode === 'duo' && !duo.opps) duo.opps = rollOpps();
   $('ready-mode').textContent = MODE_LABEL[mode];
-  const side = (cls, c, small, big) => `<div class="vs-side ${cls}" style="--c:${c}"><small>${small}</small><b>${big}</b></div>`;
-  $('ready-vs').innerHTML = side('you', hex(COLORS.player), `Ego #${rankNow()}`, d ? 'You + Ally' : 'YOU')
-    + '<div class="vs-mark">VS</div>'
-    + (d ? side('them', hex(COLORS.ai), AI_LEVELS[duo.level].label, 'CPU ×2')
-      : side('them', hex(rival.color), AI_LEVELS[s.level].label, `${rival.flag} ${rival.short}`));
-  if (d) {
-    $('ready-them').innerHTML = `<div class="row-label">Opponents</div><div class="duo-team">${duo.styles.map(st =>
-      `<span class="chip style">CPU · ${AI_STYLES[st].label}</span>`).join('')}<button class="btn alt reroll" id="btn-reroll">Re-roll</button></div>
-      <div class="row-label">Your ally</div><div class="seg ally-seg" id="duo-ally"></div><p class="ally-blurb" id="duo-ally-blurb"></p>
-      <div class="row-label">Level</div><div class="seg" id="duo-levels" style="margin-bottom:14px"></div>`;
-    const allyBlurb = () => { $('duo-ally-blurb').textContent = AI_STYLES[duo.ally].blurb; };
-    buildSeg('duo-ally', STYLE_ORDER, k => AI_STYLES[k].label, duo.ally, k => { duo.ally = k; saveSetup(); allyBlurb(); });
-    allyBlurb();
-    buildSeg('duo-levels', LEVEL_ORDER, k => `${AI_LEVELS[k].label}<small>${LEVEL_BLURB[k]}</small>`, duo.level, k => { duo.level = k; saveSetup(); showReady(false); });
-    $('btn-reroll').addEventListener('click', () => { duo.styles = null; showReady(false); });
-  } else {
-    $('ready-them').innerHTML = oppCard({ ...rival, level: s.level }, s.opp === 'random' ? 'Random rival' : mode === 'practice' ? 'Practice partner' : 'Your rival', false);
-  }
+  renderReady();
   $('ready-extra').innerHTML = mode !== 'practice' ? '' : `<div class="set-sec" style="margin:14px 0 4px">
     <div class="set-row"><span>Seals refill every point</span><button class="btn alt" data-pr="refill" aria-pressed="${practice.refill}">${practice.refill ? 'On' : 'Off'}</button></div>
     <div class="set-row" style="margin-top:8px"><span>CPU uses jutsu</span><button class="btn alt" data-pr="cpuJutsu" aria-pressed="${practice.cpuJutsu}">${practice.cpuJutsu ? 'On' : 'Off'}</button></div></div>`;
   $('ready-rules').textContent = mode === 'practice' ? 'No score limit · no rank change · leave from the pause menu'
-    : d ? 'Best of 3 · first to 11 · partners take turns, serve diagonal' : 'Best of 3 · first to 11, win by 2';
+    : mode === 'duo' ? 'Best of 3 · first to 11 · partners take turns, serve diagonal' : 'Best of 3 · first to 11, win by 2';
   $('btn-go').textContent = mode === 'practice' ? 'Start Practice' : 'Start Match';
   kitOpen = -1;
   showKit();
   $('ready-kit').appendChild($('kit-box'));
   showScreen('menu-ready');
+}
+/** The part of Ready a choice changes: the VS banner and the cards (both tap to change who's in), the level. */
+function renderReady() {
+  const d = uiMode === 'duo', s = d ? duo : setupOf(uiMode), caret = '<span class="caret" aria-hidden="true">▾</span>';
+  const side = (cls, c, small, big) => `<div class="vs-side ${cls}" style="--c:${c}"><small>${small}</small><b>${big}</b></div>`;
+  const pickSide = (cls, c, act, label, small, big) => `<button class="vs-side ${cls} pick" style="--c:${c}" data-act="${act}" aria-label="${label}"><small>${small}</small><b>${big} ${caret}</b></button>`;
+  const who = uiMode === 'practice' ? 'partner' : 'rival';
+  const [al, o1, o2] = d ? duoSlots().map(rosterBy) : [];
+  $('ready-vs').innerHTML = (d ? pickSide('you', hex(COLORS.player), 'ally', 'Change your ally', `Ego #${rankNow()}`, `You + ${al.short}`)
+    : side('you', hex(COLORS.player), `Ego #${rankNow()}`, 'YOU'))
+    + '<div class="vs-mark">VS</div>'
+    + (d ? side('them', hex(o1.color), AI_LEVELS[duo.level].label, `${o1.short} & ${o2.short}`)
+      : pickSide('them', hex(rival.color), 'rival', `Change ${who}`, AI_LEVELS[s.level].label, `${rival.flag} ${rival.short}`));
+  /** Who you face (or play with): their card, tap it to change them. */
+  const pickCard = (act, label, card, i = '') => `<div class="opp-pick" role="button" tabindex="0" data-act="${act}"${i !== '' ? ` data-i="${i}"` : ''} aria-label="${label}">`
+    + card + '<span class="opp-change">Change ▾</span></div>';
+  $('ready-them').innerHTML = (d
+    ? pickCard('ally', 'Change your ally', oppCard({ ...al, level: duo.level }, 'Your ally', false, true))
+      + `<div class="row-label row-flex"><span>Opponents</span><button class="reroll" data-act="reroll">🎲 Re-roll</button></div>`
+      + [o1, o2].map((e, i) => pickCard('cpu', `Change opponent ${i + 1}`, oppCard({ ...e, level: duo.level }, `Opponent ${i + 1}`, false), i + 1)).join('')
+    : pickCard('rival', `Change ${who}`, oppCard({ ...rival, level: s.level }, s.opp === 'random' ? 'Random rival' : uiMode === 'practice' ? 'Practice partner' : 'Your rival', false)))
+    + '<div class="row-label">Level</div><div class="seg" id="ready-levels"></div>';
+  buildSeg('ready-levels', LEVEL_ORDER, k => `${AI_LEVELS[k].label}<small>${LEVEL_BLURB[k]}</small>`, s.level, k => { s.level = k; saveSetup(); renderReady(); });
+}
+function readyAct(b) {
+  const act = b.dataset.act;
+  if (act === 'rival') return openRival();
+  if (act === 'ally') return openDuoSlot(0);
+  if (act === 'cpu') return openDuoSlot(+b.dataset.i);
+  if (act === 'reroll') { duo.opps = rollOpps(); renderReady(); }
+}
+for (const id of ['ready-vs', 'ready-them']) {
+  $(id).addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b) readyAct(b); });
+  $(id).addEventListener('keydown', e => {
+    const b = e.target.closest('[role=button][data-act]');
+    if (b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); readyAct(b); }
+  });
 }
 $('ready-extra').addEventListener('click', e => {
   const b = e.target.closest('[data-pr]');
@@ -316,7 +378,7 @@ function startPractice() {
   startMatch();
 }
 
-/** 2v2: you + a CPU ally (the style you picked) vs two CPUs of the chosen level with different styles. */
+/** 2v2: you + your ally vs two roster players, all at the chosen level. The far side's name is the pair. */
 export function startDuo() {
   Sound.init();
   match.mode = 'duo';
@@ -324,11 +386,14 @@ export function startDuo() {
   match.doubles = true;
   setHome(null);
   match.gamesToWin = 2;
-  const [s1, s2] = duo.styles || [...STYLE_ORDER].sort(() => Math.random() - 0.5);
-  setOpponent({ name: 'CPU', short: 'CPU', color: COLORS.ai, level: duo.level, style: s1 });
-  Object.assign(ai2, { level: duo.level, style: s2, name: '' });
-  Object.assign(ally, { level: duo.level, style: duo.ally, name: '' });
-  ai2Racket.setColor(COLORS.ai2);
+  if (!duo.opps) duo.opps = rollOpps();
+  const [a, o1, o2] = duoSlots().map(rosterBy);
+  setOpponent({ ...o1, level: duo.level });   // (ai.name stays o1's own: it carries the signature)
+  Object.assign(opp, { name: `${o1.short} & ${o2.short}`, short: `${o1.short} & ${o2.short}`, flag: '' });
+  Object.assign(ai2, { level: duo.level, style: o2.style, name: o2.name, short: o2.short });
+  Object.assign(ally, { level: duo.level, style: a.style, name: a.name, short: a.short });
+  ai2Racket.setColor(o2.color);
+  allyRacket.setColor(a.color);
   rememberLast('duo', null, duo.level);
   startMatch();
 }
@@ -371,7 +436,7 @@ export function togglePause() {
   if (openOverlay()) return hideOverlay();
   match.paused = !match.paused;
   input.charging = false;
-  const who = match.doubles ? 'CPU ×2' : `${opp.flag} ${opp.short}`.trim();
+  const who = `${opp.flag} ${opp.short}`.trim();
   $('pause-info').textContent = `${match.watch ? `${home.short} vs ` : 'vs '}${who} · Game ${match.games[0] + match.games[1] + 1} · ${match.points[0]}–${match.points[1]}`;
   $('btn-quit').textContent = match.mode === 'tour' ? 'Leave Match' : match.mode === 'practice' ? 'End Practice' : 'Main Menu';
   $('menu-pause').classList.toggle('hidden', !match.paused);
@@ -429,7 +494,7 @@ export function syncPauseButton() {
 
 export function showEndMenu(winner) {
   syncLogTools();
-  const s = match.stats, lvl = LEVEL_ORDER.indexOf(match.levelKey), o = match.doubles ? 'CPU' : opp.short, won = winner === 'player';
+  const s = match.stats, lvl = LEVEL_ORDER.indexOf(match.levelKey), o = opp.short, won = winner === 'player';
   const games = `${match.games[0]} – ${match.games[1]}`, detail = match.gameScores.join(', ');
   const tourMode = match.mode === 'tour';
   if (match.watch) {
@@ -453,8 +518,8 @@ export function showEndMenu(winner) {
     }
     $('end-sub').textContent = `vs ${opp.flag} ${opp.short} · ${detail}`;
   } else {
-    $('end-title').textContent = won ? '🏆 You win!' : match.doubles ? 'CPUs win' : `${opp.flag} ${opp.short} wins`;
-    $('end-sub').textContent = `${match.doubles ? '' : `vs ${opp.flag} ${opp.short} · `}${games} · ${detail}`;
+    $('end-title').textContent = won ? '🏆 You win!' : `${opp.flag} ${opp.short} win${match.doubles ? '' : 's'}`.trim();
+    $('end-sub').textContent = `vs ${`${opp.flag} ${opp.short}`.trim()} · ${games} · ${detail}`;
     if (won && match.levelKey === 'hard') confetti();
   }
   // Ego grade and rank (your matches only).

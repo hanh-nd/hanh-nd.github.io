@@ -2,7 +2,7 @@
 import { GAME, SIGNATURES } from '../config.js';
 import { drawScreens } from '../render/venues.js';
 import { currentCharge, input } from '../input.js';
-import { ai, youServe, yourTurn } from '../ai.js';
+import { youServe, yourTurn } from '../ai.js';
 import { idx, isPlaying, match, nameOf, other } from '../rules.js';
 import { Sound } from '../audio.js';
 
@@ -84,7 +84,7 @@ export function updateLiveHUD() {
 }
 
 export function hideAllMenus() {
-  for (const id of ['menu-start', 'menu-pick', 'menu-ready', 'menu-event', 'menu-pause', 'menu-end', 'menu-tour', 'menu-help', 'menu-settings']) $(id).classList.add('hidden');
+  for (const id of ['menu-start', 'menu-ready', 'sheet', 'menu-event', 'menu-pause', 'menu-end', 'menu-tour', 'menu-help', 'menu-settings']) $(id).classList.add('hidden');
 }
 
 /** localStorage, failing quietly (private windows, blocked storage). */
@@ -113,13 +113,14 @@ export function scoutPattern(c, def) {
   card.seen.push(def.id);
   saveScout();
 }
-/** c just played its signature: a chime and its name (with the counter the first time in a match);
- *  scout it the first time ever. */
+/** c just played its signature: a chime and its name (with the counter the first time in a match;
+ *  your 2v2 ally's just says so); scout it the first time ever. */
 export function scoutSignature(c, id) {
   const sg = SIGNATURES[id], card = playerCard(sg.owner), first = !card.seenSignature;
-  if (c === ai) match.stats.sigSeen++;
+  if (c.owner === 'ai') match.stats.sigSeen++;
   if (first) { card.seenSignature = true; saveScout(); }
   Sound.signature();
+  if (c.owner === 'player' && !match.watch) return showMessage(`★ ${sg.name}`, `${c.short || 'Your ally'}'s signature`, 'good', 1.2, 2);   // 2v2: your ally's (no counter to learn)
   if (c.sigShown) return showMessage(`★ ${sg.name}`, '', 'warn', 0.8, 2);   // later in the match: just the name
   c.sigShown = true;
   showMessage(`★ ${sg.name}`, sg.counter, 'warn', 2.2, 2);

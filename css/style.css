@@ -153,7 +153,6 @@
   /* A screen's main button: full width, pinned to the bottom of the card so it stays in thumb reach while the screen scrolls. */
   .foot { position: sticky; bottom: -26px; margin: 12px -30px -26px; padding: 10px 30px 18px; background: rgba(18, 22, 32, 0.97); border-top: 1px solid var(--border); }
   .foot .btn { display: block; width: 100%; margin: 0; padding: 14px 20px; font-size: 16px; }
-  .foot .seg { margin-bottom: 10px; }
   .btn:disabled { opacity: .35; cursor: default; }
   .btn:hover:not(:disabled) { filter: brightness(1.1); }
   .controls { font-size: 14px; color: var(--muted); line-height: 1.65; }
@@ -236,12 +235,9 @@
   .seg { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,.05); }
   .seg button { flex: 1; min-width: 0; border: 0; border-radius: 9px; padding: 8px 6px; cursor: pointer; font: inherit; font-weight: 800; font-size: 14px; color: var(--muted); background: transparent; }
   .seg button small { display: block; font-size: 10px; font-weight: 700; opacity: .8; }
-  .ally-seg { flex-wrap: wrap; }
-  .ally-seg button { flex: 1 1 30%; font-size: 13px; }   /* five styles: two rows on a phone */
-  .ally-blurb { margin: 6px 2px 12px; font-size: 12px; color: var(--muted); min-height: 2.4em; }
   .seg button.sel { background: rgba(255,210,63,.16); color: var(--gold); box-shadow: inset 0 0 0 1.5px var(--gold); }
 
-  /* ---------- Rival select: the roster, grouped by style ---------- */
+  /* ---------- Roster sheet: the roster, grouped by style ---------- */
   .rgroup { margin-bottom: 12px; }
   .rgroup .row-label { margin: 0 0 6px; display: flex; justify-content: space-between; gap: 8px; }
   .rgroup .row-label em { font-style: normal; text-transform: none; letter-spacing: 0; font-weight: 600; }
@@ -253,6 +249,7 @@
   .rtile .fl { flex: none; font-size: 15px; line-height: 1; }
   .rtile .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rtile .star { position: absolute; top: 1px; right: 4px; font-size: 9px; color: var(--gold); }
+  .rtile .taken { position: absolute; bottom: -7px; right: 4px; padding: 0 5px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .04em; color: #10131a; background: var(--muted); }
   .rtile:hover { background: rgba(255,255,255,.1); }
   .rtile.sel { border-color: var(--tc, var(--gold)); background: color-mix(in srgb, var(--tc, var(--gold)) 18%, transparent); }
   .rtile.rand { margin-bottom: 12px; width: 100%; justify-content: center; }
@@ -267,8 +264,30 @@
   .vs-mark { font-size: 22px; font-weight: 900; font-style: italic; color: var(--gold); text-shadow: 0 0 14px rgba(255,210,63,.5); }
   @keyframes vsin { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
   .rules { margin: 4px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
-  .duo-team { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; }
-  .reroll { margin-left: auto; }
+  /* Who you face is tappable: the VS side and the cards (rival, ally, each CPU) open a sheet. */
+  .caret { color: var(--gold); font-size: .75em; }
+  #ready-levels { margin-bottom: 16px; }
+  button.vs-side { font: inherit; color: var(--text); cursor: pointer; touch-action: manipulation; text-align: left; }
+  button.vs-side.them { text-align: right; }
+  .vs-side.pick:hover, .vs-side.pick:focus-visible { outline: none; background: color-mix(in srgb, var(--c) 30%, rgba(255,255,255,.05)); }
+  .opp-pick { position: relative; cursor: pointer; border-radius: 14px; margin-bottom: 14px; touch-action: manipulation; }
+  .opp-pick .opp { margin: 0; padding-top: 18px; transition: border-color .18s, background .18s; }
+  .opp-pick:hover .opp, .opp-pick:focus-visible .opp { border-color: rgba(255,210,63,.45); background: rgba(255,210,63,.05); }
+  .opp-pick:focus-visible { outline: none; }
+  .opp-change { position: absolute; top: 8px; right: 10px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); background: rgba(255,210,63,.12); }
+  .opp-pick + .opp-pick { margin-top: -6px; }
+  .row-flex { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .reroll { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,.06); color: var(--text); font: inherit; font-size: 11px; font-weight: 800; letter-spacing: .06em; cursor: pointer; touch-action: manipulation; }
+  .reroll:hover { background: rgba(255,255,255,.12); }
+  /* The sheet: centred on a wide screen, from the bottom on a phone. */
+  .sheet { position: fixed; inset: 0; z-index: 12; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.55); }
+  .sheet-panel {
+    width: 100%; max-width: 580px; max-height: min(80vh, 100%); overflow: auto; padding: 0 20px 18px;
+    background: rgb(18, 22, 32); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.6); animation: sheetin .2s ease-out;
+  }
+  .sheet-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 -20px 12px; padding: 14px 20px 10px; background: rgb(18, 22, 32); border-bottom: 1px solid var(--border); }
+  .sheet-head h3 { margin: 0; font-size: 20px; }
+  @keyframes sheetin { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
   .tiers-list { display: grid; gap: 8px; margin-bottom: 12px; }
   .tiers-list .level-btn { text-align: left; padding: 12px 14px; }
   .chip.sig { background: rgba(255,210,63,.16); color: var(--gold); }
@@ -335,6 +354,8 @@
     .foot { bottom: -20px; margin: 12px -18px -20px; padding: 10px 18px 16px; }
     .mode { min-height: 112px; }
     .mode-k { font-size: 74px; }
+    .sheet { align-items: flex-end; padding: 0; }
+    .sheet-panel { max-height: 85vh; border-radius: 18px 18px 0 0; border-bottom: 0; padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
   }
   table.stats { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 14px; }
   table.stats td { padding: 6px 4px; border-bottom: 1px solid var(--border); }

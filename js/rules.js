@@ -9,7 +9,7 @@ import { FX_TEX, ball, fxBurst, fxSprite, marker, serveZone, setBall } from './r
 import { input } from './input.js';
 import { TLOG } from './log.js';
 import { pendingUpgrade, setPendingUpgrade } from './strokes.js';
-import { BOTS, DOUBLES, activeBots, adapting, ai, aiOnOpponentHit, aiStartPoint, nearAI, newAdapt, serverBot, serverRacket, turnBot, turnRacket, yourTurn } from './ai.js';
+import { BOTS, DOUBLES, activeBots, adapting, ai, aiOnOpponentHit, ally, aiStartPoint, nearAI, newAdapt, serverBot, serverRacket, turnBot, turnRacket, yourTurn } from './ai.js';
 import { armed, chakra, clearDecoys, drainSeals, gainChakra, godHandSave, mirrorCheck, moveRank, resetJutsu, setArmed, startJutsu, strokeLanded, syncChakra, updateFlow } from './jutsu.js';
 import { $, beatSignature, hideAllMenus, pointSituation, showMessage, updateHUD } from './ui/hud.js';
 import { practice, showEndMenu, syncFastForward, syncPauseButton } from './ui/menus.js';
@@ -135,9 +135,9 @@ export function startMatch() {
   TLOG.matchStart();
   setupServe(true);
   const tag = p => (p.flag ? p.flag + ' ' : '') + p.short.toUpperCase();
-  $('opp-name').textContent = d ? 'CPU ×2' : tag(opp);
+  $('opp-name').textContent = tag(opp);
   $('cpu-level').textContent = `(${AI_LEVELS[levelKey].label.toLowerCase()})`;
-  $('you-name').textContent = d ? 'YOU + ALLY' : tag(home);
+  $('you-name').textContent = d ? `YOU + ${(ally.short || 'ally').toUpperCase()}` : tag(home);
   $('you-level').textContent = match.watch ? `(${AI_LEVELS[nearAI.level].label.toLowerCase()})` : '';
   $('btn-ff').classList.toggle('hidden', !match.watch);
   syncFastForward();
