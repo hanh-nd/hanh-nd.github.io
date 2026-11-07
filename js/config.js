@@ -240,7 +240,10 @@ export const AI_STYLES = {
 const DRILL_STYLES = {
   wall: { label: 'Wall', tag: 'Defence drill', blurb: 'Gets almost everything back, never attacks. Practise breaking it down.', tip: 'Pace and placement.', drill: 'attack',
     chop: 0.45, chopSpin: 0.9, top: 0.6, side: 0.4, power: 0.75, smash: 0, mistake: 0.1, depth: 0.45, wide: 0.55, short: 0, flick: 0, serveBack: 0.5, reaction: 0.85, take: 'drop', spinErr: 0.25,
-    weak: {}, smashSave: 0, punishSoft: 0, tactics: 0, calm: 0.6, pressureErr: 25, counter: 0,
+    // A retriever's feet and nerve: quicker to the wide ball and calm on the run, so only a ball that
+    // really stretches it makes it miss (real play 11-07: with normal feet it was on the run for 63%
+    // of its strokes and missed more than any other opponent).
+    weak: {}, smashSave: 0, punishSoft: 0, tactics: 0, speed: 1.15, calm: 0.9, pressureErr: 25, counter: 0,
     weakTo: 'Pace and placement — nothing else gets past it', punishes: 'Nothing: it never attacks' },
   hammer: { label: 'Hammer', tag: 'Attack drill', blurb: 'Attacks every ball, can\'t defend. Practise getting it back.', tip: 'Block low. Counter when it\'s stretched.', drill: 'defend',
     chop: 0, chopSpin: 1, top: 1.5, side: 0.6, power: 1.2, smash: 2.5, mistake: 1.3, depth: 0.1, wide: 1.15, short: 0.02, flick: 0.9, serveBack: 0.25, reaction: 1.1, take: 'top', spinErr: 1.5,

@@ -207,3 +207,28 @@ Your point share by sim bot (5–6 matches each; Wall rallies are long by design
 | Hard | 0.27 | 0.11 | 0.11 | 0.19 |
 
 On Medium and Hard, blocking alone doesn't beat the Wall (a normal CPU loses 0.79 of points to the block bot). On Easy, its slow feet leave it stretched, so it's forgiving. The new style knobs (`speed`, `tactics`, `calm`, `pressureErr`, `smashLow`, `counter`) default to the old behaviour, and the fingerprint is unchanged.
+
+## Low drop shots, a steadier Wall (Nov 2026)
+
+Real play 11-06/07 (`?log`): the wizards' rally drop shots peaked at ~0.6 m (drives: ~0.33 m) and half
+of the smashes off them were outright winners, so a smasher found wizards easy. From deep, a soft ball
+that has to land short loops up. Now a rally drop (`aiHit`) obeys the same ceiling as every other CPU
+stroke (`AI_COMMON.maxArc`, or `arcOver` above a ball met high): it's played quicker and flatter, or,
+if no low one lands short, it becomes the normal ball. The smash habit's extra drops (`SMASH_D.short`)
+scale with the style's `tactics`, so the Wall plays none.
+
+The Wall had normal feet: on the run for 63% of its strokes (real play), so placement alone broke it,
+and it missed more than any roster player. It now has `speed` 1.15 and `calm` 0.9.
+
+Human-like bot (`you` = smash habit, 16 matches vs wizards; the rest 12 per opponent, Hard):
+
+| | before | after |
+|---|---|---|
+| wizard drop: share of its strokes / apex median / p90 | 19% / 0.49 / 0.94 m | 19% / 0.34 / 0.38 m |
+| Wall vs `you`: your points / its smash returns / its errors per point | 0.30 / 0.88 / 0.20 | 0.20 / 0.95 / 0.17 |
+| Wall vs `youBlock` / `youSpin` | — | 0.07 / 0.32 (spin and placement still break it) |
+| Wall vs `mixer`, Easy / Medium / Hard | 0.72 / 0.57 / 0.34 | 0.78 / 0.46 / 0.25 |
+
+Per style (`human.sh` youBlock, 30 matches), allround, wizard and blocker moved by 0.01 or less.
+The Hammer was left alone. It's already the hardest attacker to keep out: vs `youBlock`, 25% of its rally
+balls beat you (Ma Long 6%, Ito 5%, Zhang Jike 14%), median pace 11.9 m/s, p90 15.6.

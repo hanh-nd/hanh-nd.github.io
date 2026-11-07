@@ -480,10 +480,16 @@ export function aiHit(c) {
   if (sig === 'pimple-reversal') { top = clamp(-(c.plan ? c.plan.topIn : -100) * 1.15, 110, 220); vh = rand(6.5, 7.2); }   // your backspin, turned
   if (sig === 'pimple-reversal' || it.spin === 'float') shownTop = -rand(0.55, 1) * (90 + 110 * cfg.spin) * st.chopSpin;
   else if (sig) shownTop = top;
-  // A short drop shot, just over the net (only if the opponent can reach it before its second bounce).
-  if (!mistake && !sig && (it.depth === 'short' || (!it.depth && Math.random() < st.short + SMASH_D.short * anti + dropBias(c)))) {
-    const drop = solveShot(ball.p, { x: tx * 0.7, z: toward * rand(0.5, 0.7) }, vh * 0.6, top * 0.5, side);
-    if (opponentCanReach(c, drop)) {
+  // A short drop shot, just over the net (only if the opponent can reach it before its second bounce,
+  // and only as low as its other strokes: from deep, a soft ball that has to carry to the net loops
+  // up — a lob, not a drop — so it plays it quicker and flatter, or, if no low one lands short, its
+  // normal ball. Real play 11-06/07: the wizards' drops peaked at ~0.6 m and half of the smashes off
+  // them were outright winners).
+  if (!mistake && !sig && (it.depth === 'short' || (!it.depth && Math.random() < st.short + SMASH_D.short * anti * (st.tactics ?? 1) + dropBias(c)))) {
+    const dz = toward * rand(0.5, 0.7), cap = Math.max(maxArc, ball.p.y - TABLE_TOP + AI_COMMON.arcOver);
+    let dv = vh * 0.6, drop = solveShot(ball.p, { x: tx * 0.7, z: dz }, dv, top * 0.5, side);
+    for (let i = 0; i < 6 && landsFor(c, drop) && arcOf(drop) > cap; i++) drop = solveShot(ball.p, { x: tx * 0.7, z: dz }, dv *= 1.12, top * 0.5, side);
+    if (opponentCanReach(c, drop) && arcOf(drop) <= cap) {
       TLOG.note({ kind: 'drop', stretch: lr(stretch) });
       aiPlay(c, drop, it.spin === 'float' ? shownTop * 0.5 : top * 0.5, 0.3);
       return noteAIShot(c, it, tx * 0.7, top * 0.5, true);
