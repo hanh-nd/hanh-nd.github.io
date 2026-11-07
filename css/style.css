@@ -301,6 +301,7 @@
   .tier.sel { border-color: var(--gold); background: rgba(255,210,63,.1); box-shadow: inset 0 0 0 1px var(--gold); }
   .tier.sel .mode-k { color: rgba(255,210,63,.2); }
   .chip.sig { background: rgba(255,210,63,.16); color: var(--gold); }
+  .chip.trait { background: rgba(120,200,255,.14); color: #9fd8ff; }
   .saved {
     margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45;
     background: rgba(255, 210, 63, .08); border: 1px solid rgba(255, 210, 63, .25);
@@ -503,3 +504,22 @@
   .pb-avoid .pb-head b { color: #ff8a95; }
   .pb-avoid .pb-then { margin-top: 4px; font-weight: 500; color: var(--muted); }
   .pb-avoid .pb-then::before { content: ''; }
+
+  /* ---------- Tournament screen: 1v1 · 2v2 · Ball Machine ---------- */
+  .seg.kinds { margin: 2px 0 12px; }
+  .saved-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .saved-row .btn { padding: 8px 14px; font-size: 13px; }
+  #event-extra .opp-pick { margin-bottom: 12px; }
+  .mach-card { margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
+  .mach-best { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  .mach-best small { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .mach-best b { font-size: 28px; font-weight: 900; color: var(--gold); }
+  .mach-waves { margin: 0; padding-left: 22px; display: grid; gap: 4px; font-size: 13px; }
+  .mach-waves li b { font-weight: 800; }
+  .mach-waves li small { color: var(--muted); margin-left: 6px; }
+  .mach-note { margin: 10px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+
+  /* Ball Machine in play: no chakra, no games, no serve dot — your score and the lives left */
+  #topbar.machine .sb-orbs, #topbar.machine .sb-ck { display: none; }
+  #topbar.machine .sb-games, #topbar.machine .sb-srv { visibility: hidden; }   /* (kept in place: the row keeps its layout) */
+  #topbar.machine #jutsu-menu { display: none; }

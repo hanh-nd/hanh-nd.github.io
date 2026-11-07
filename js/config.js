@@ -611,6 +611,52 @@ export const ROSTER = [
   { name: 'Kim Kyung-ah', short: 'Kim', nick: 'Chop Queen', flag: '🇰🇷', style: 'defender', color: 0x7f8c8d },
 ];
 
+/** Each rival's trait: what sets them apart from the rest of their style. `set` overrides a few of
+ *  the style's numbers (AI_STYLES, same meaning), kept within about ±25% so a player still plays
+ *  their style; every trait has a strength and a weakness you can use, and the rival card shows
+ *  both (`does`, `beat`). Loose caricatures of each player's game, like the styles. */
+export const TRAITS = {
+  'Ma Long':          { name: 'Complete', does: 'Steadier than any All-rounder and gets more of your smashes back.', beat: 'No single shot beats him: change the pace and spin.',
+    set: { mistake: 0.8, smashSave: 0.15, power: 1.08, weak: { changeUp: 1.3 } } },
+  'Chen Meng':        { name: 'Never Misses', does: 'Hardly ever misses.', beat: 'Her pace is gentle: attack first and hit winners.',
+    set: { mistake: 0.65, power: 0.9, top: 0.9 } },
+  'Timo Boll':        { name: 'Spin Reader', does: 'Reads your spin and loads his own with sidespin.', beat: 'Spin won\'t fool him: beat him with pace.',
+    set: { spinErr: 0.5, side: 1.5, power: 0.95 } },
+  'Fan Zhendong':     { name: 'Iron Backhand', does: 'An Attacker who defends: your smash doesn\'t catch him out.', beat: 'Change the pace — he still hates a Change Up.',
+    set: { smashSave: 0, mistake: 1.15 } },
+  'Wang Chuqin':      { name: 'Wide Angles', does: 'Aims nearer the side lines and flicks most short balls.', beat: 'Stay central and keep the ball long.',
+    set: { wide: 1.2, flick: 0.8 } },
+  'Zhang Jike':       { name: 'All or Nothing', does: 'Smashes more and hits harder than any Attacker.', beat: 'Keep it low and wait: he misses more too.',
+    set: { smash: 2, power: 1.22, mistake: 1.7 } },
+  'Wang Manyu':       { name: 'Heavy Loops', does: 'The heaviest topspin in the field.', beat: 'Block it wide: her feet are slower.',
+    set: { top: 1.55, power: 1.2, speed: 0.9 } },
+  'Hugo Calderano':   { name: 'Power from Deep', does: 'Stands far back and hits the hardest of all.', beat: 'Drop it short, then play long.',
+    set: { depth: 0.4, power: 1.28, short: 0.02, weak: { changeUp: 1.6, drawDrive: 1.5 } } },
+  'Sun Yingsha':      { name: 'Fastest Feet', does: 'Quicker to the ball than anyone.', beat: 'She\'s quick, not heavy: attack first.',
+    set: { speed: 1.12, reaction: 0.72, power: 1 } },
+  'Tomokazu Harimoto': { name: 'Counter-Puncher', does: 'Counter-blocks your smash more, and punishes soft balls.', beat: 'Don\'t smash low balls: wait for one that sits up.',
+    set: { counter: 1.3, punishSoft: 0.15, mistake: 0.95 } },
+  'Mima Ito':         { name: 'Early and Flat', does: 'Takes everything early and flat, and flicks short balls.', beat: 'A Change Up breaks her timing: soft, then fast.',
+    set: { flick: 0.55, side: 0.5, weak: { runAround: 1.6, changeUp: 1.6 } } },
+  'Felix Lebrun':     { name: 'Up at the Table', does: 'Stands even closer and aims even wider.', beat: 'Spin him: he reads it less than other Blockers.',
+    set: { depth: -0.22, wide: 1.2, spinErr: 0.35 } },
+  'Joo Se-hyuk':      { name: 'Chop and Strike', does: 'A Defender who attacks a high ball.', beat: 'Keep your pushes low.',
+    set: { smash: 0.75, power: 0.9 } },
+  'Kim Kyung-ah':     { name: 'Heaviest Chop', does: 'The heaviest chop, and almost no errors.', beat: 'Lift it, don\'t drive it flat — she hardly attacks.',
+    set: { chopSpin: 1.45, mistake: 0.55, smash: 0.25 } },
+  'Ding Ning':        { name: 'Short Game', does: 'More short balls and more sidespin than any Wizard.', beat: 'Wait for the ball: her tricks bring errors.',
+    set: { short: 0.28, side: 2.6, mistake: 1.2 } },
+  'Jan-Ove Waldner':  { name: 'Reads the Game', does: 'Plays the situation more and reads your spin better.', beat: 'Make him run: his feet are slower.',
+    set: { tactics: 1.35, spinErr: 0.5, speed: 0.92 } },
+  'Truls Möregårdh':  { name: 'Trick Shots', does: 'Flicks and smashes more than any Wizard.', beat: 'Stay in the rally: his tricks come with errors.',
+    set: { mistake: 1.35, smash: 1.2, flick: 0.6, power: 1 } },
+};
+/** A player's playing numbers: their style, with their trait (TRAITS) on top. */
+export const styleOf = (style, name) => {
+  const t = name && TRAITS[name];
+  return t ? { ...AI_STYLES[style], ...t.set } : AI_STYLES[style];
+};
+
 /** Practice-only drill partners (DRILL_STYLES): never drawn for the tournament, 1v1 or 2v2. */
 export const DRILLS = [
   { name: 'The Wall', short: 'Wall', nick: 'Gets everything back', flag: '🧱', style: 'wall', color: 0x9aa5b1 },
@@ -642,6 +688,35 @@ export const ROUND_BEST_OF = [3, 3, 3, 5];
 export const BRACKET_SEEDS = [1, 14, 8, 9, 4, 13, 5, 12, 2, 11, 6, 10, 3, 7, 15, 0];
 export const YOU = 15;
 export const FINAL = ROUND_NAMES.length - 1;
+/** The 2v2 tournament: 8 pairs (you + your ally, the last slot, and seven pairs from the roster),
+ *  so it starts at the quarterfinal; you meet seed 3 first, seed 2 in the semifinal. */
+export const DUO_ROUND_NAMES = ['Quarterfinal', 'Semifinal', 'Final'];
+export const DUO_BEST_OF = [3, 3, 5];
+export const DUO_SEEDS = [1, 6, 4, 5, 2, 7, 3, 0];
+
+/** Ball Machine: a robot at the far end feeds you ball after ball. Every ball you land on its half
+ *  scores 1, one in the lit target `target` (more); `lives` misses (no return, or a return that
+ *  doesn't land) and it's over. Waves in turn, each `n` balls: `speed` m/s, `top` topspin (< 0:
+ *  backspin), `side` sidespin (either way), where it lands on your half (`place`: mid · any · alt
+ *  side to side · shortLong · body), `gap` s between your return landing and the next ball, and
+ *  `mix`: each ball is one of these waves at random. After the last wave it repeats, `ramp` faster
+ *  each time round. `zone`: the target's size (m, across × along) and its centres on its half. */
+export const MACHINE = {
+  lives: 3, target: 3, ramp: 0.06,
+  zone: { w: 0.5, l: 0.42, xs: [-0.45, 0, 0.45], zs: [0.45, 0.95] },
+  mouth: { y: 0.3, z: 0.3 },   // the ball leaves it this high over the table, this far behind the end line
+  waves: [
+    { name: 'Warm-up', tip: 'Steady balls to the middle', n: 6, speed: [5.5, 6.5], top: [40, 80], side: 0, place: 'mid', gap: 1.1 },
+    { name: 'Topspin', tip: 'Heavier, faster, anywhere', n: 8, speed: [7, 8.5], top: [100, 160], side: 0, place: 'any', gap: 1 },
+    { name: 'Backspin', tip: 'Heavy chop: lift it', n: 8, speed: [5.5, 6.8], top: [-170, -110], side: 0, place: 'any', gap: 1.05 },
+    { name: 'Corners', tip: 'Side to side', n: 8, speed: [7, 8.5], top: [60, 120], side: 0, place: 'alt', gap: 0.95 },
+    { name: 'Short and Long', tip: 'One short, one deep', n: 8, speed: [5.5, 8], top: [-60, 100], side: 0, place: 'shortLong', gap: 1 },
+    { name: 'Sidespin', tip: 'It curves, both ways', n: 8, speed: [6.5, 8], top: [30, 80], side: [70, 120], place: 'any', gap: 1 },
+    { name: 'Fast and Flat', tip: 'Quick hands', n: 8, speed: [10, 12], top: [15, 40], side: 0, place: 'any', gap: 0.9 },
+    { name: 'At Your Body', tip: 'Get out of the way', n: 6, speed: [8, 10], top: [60, 110], side: 0, place: 'body', gap: 0.95 },
+    { name: 'Everything', tip: 'Any ball, any spin', n: 12, mix: true, gap: 0.85 },
+  ],
+};
 
 export const AI_COMMON = {
   hitRadius: 0.17, minX: -1.4, maxX: 1.4, minZ: -2.6, maxZ: -(TABLE.length / 2 - REACH.overTable), serveZ: -1.55,

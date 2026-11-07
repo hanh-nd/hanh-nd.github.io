@@ -1,6 +1,6 @@
 // Match state and the rules: serves, faults, lets, scoring, games; the time scale.
 import { clamp, rand } from './util.js';
-import { ADAPT, AI_COMMON, AI_LEVELS, AI_STYLES, CHAKRA, COLORS, GAME, HEAT, JUTSU, META_SLOW, PLAYER_CFG, SMASH, ROUND_NAMES, SIGNATURES, TIERS } from './config.js';
+import { ADAPT, AI_COMMON, AI_LEVELS, AI_STYLES, CHAKRA, COLORS, GAME, HEAT, JUTSU, META_SLOW, PLAYER_CFG, SMASH, SIGNATURES, TIERS } from './config.js';
 import { HALF_L, HALF_W, TABLE_TOP, predictBounce, predictIntercept } from './physics.js';
 import { setBoardText } from './render/table.js';
 import { VENUE_OF_TIER, crowdReact, drawBanners, drawScreens, setAttendance, setCrowdColors, setVenue, startWave, venueFor } from './render/venues.js';
@@ -14,8 +14,9 @@ import { BOTS, DOUBLES, activeBots, adapting, ai, aiOnOpponentHit, ally, aiStart
 import { armed, chakra, clearDecoys, drainSeals, gainChakra, godHandSave, mirrorCheck, moveRank, resetJutsu, setArmed, startJutsu, strokeLanded, syncChakra, updateFlow } from './jutsu.js';
 import { $, beatSignature, hideAllMenus, pointSituation, showMessage, updateHUD } from './ui/hud.js';
 import { practice, showEndMenu, syncFastForward, syncPauseButton } from './ui/menus.js';
-import { hex, tour, tourRecordResult, tourRecordWatched } from './tournament.js';
+import { hex, roundNames, tour, tourRecordResult, tourRecordWatched } from './tournament.js';
 import { Sound } from './audio.js';
+import { beginMachine, machineMiss, machineScored, showMachine } from './machine.js';
 import { cameraShake, setCameraShake, simTime } from './loop.js';
 
 /* =====================================================================
@@ -25,7 +26,7 @@ export const match = {
   levelKey: 'easy',
   styleKey: 'allround',
   speedKey: 'real',
-  mode: 'quick',          // quick | duo (2v2) | tour
+  mode: 'quick',          // quick | duo (2v2) | tour | practice | machine (Ball Machine)
   doubles: false,         // 2v2: two players a side, hitting in turn (see DOUBLES)
   serverIdx: 0, receiverIdx: 0,   // which member serves / receives (2v2; always 0 in 1v1)
   watch: null,            // { r, i } while watching tournament match i of round r (CPU vs CPU)
@@ -123,8 +124,10 @@ export function startMatch() {
   match.after = null; match.timer = 0;
   hideAllMenus();
   $('topbar').classList.remove('hidden');
-  const d = match.doubles;
+  const d = match.doubles, mach = match.mode === 'machine';
   allyRacket.mesh.visible = ai2Racket.mesh.visible = d;
+  showMachine(mach);
+  $('topbar').classList.toggle('machine', mach);
   for (const r of [player, aiRacket, allyRacket, ai2Racket]) r.setGhost(false);
   player.pos.set(d ? 0.35 : 0, PLAYER_CFG.restY, 1.8);
   aiRacket.pos.set(AI_COMMON.home.x, AI_COMMON.home.y, AI_COMMON.home.z);
@@ -140,6 +143,13 @@ export function startMatch() {
   setVenue(vk); setTableOfVenue(vk);
   setupServe(true);
   const tag = p => (p.flag ? p.flag + ' ' : '') + p.short.toUpperCase();
+  if (mach) {   // Ball Machine: your score, the lives left (machine.js)
+    $('opp-name').textContent = 'LIVES'; $('cpu-level').textContent = ''; $('you-name').textContent = 'SCORE'; $('you-level').textContent = '';
+    $('btn-ff').classList.add('hidden');
+    setAttendance(0.2); setBoardText('Ball Machine');
+    beginMachine();
+    return drawScreens();
+  }
   $('opp-name').textContent = tag(opp);
   $('cpu-level').textContent = `(${AI_LEVELS[levelKey].label.toLowerCase()})`;
   $('you-name').textContent = d ? `YOU + ${(ally.short || 'ally').toUpperCase()}` : tag(home);
@@ -148,7 +158,7 @@ export function startMatch() {
   syncFastForward();
   const bo = match.gamesToWin * 2 - 1, style = AI_STYLES[match.styleKey].label;
   if (match.mode === 'tour') {
-    const r = match.watch ? match.watch.r : tour.round, round = ROUND_NAMES[r], tier = TIERS[tour.tier];
+    const r = match.watch ? match.watch.r : tour.round, round = roundNames()[r], tier = TIERS[tour.tier];
     $('sb-head').textContent = `${match.watch ? '▶ ' : ''}${tier.label} · ${round}`;
     setAttendance(tier.crowd[r]);
     setBoardText(tier.label);
@@ -317,6 +327,7 @@ export function onTableBounce(side, x) {
   } else if (side === rally.lastHitter) {
     endPoint(other(side), rally.netTouched ? 'Net' : 'Own side', 'error');
   } else {
+    if (match.mode === 'machine' && side === 'ai') return machineScored(x);   // Ball Machine: your return landed
     rally.bounceCount++;
     if (rally.bounceCount === 1) strokeLanded(rally.lastHitter);
     if (rally.bounceCount === 1 && rally.answering) returnedClean(rally.answering);
@@ -363,6 +374,7 @@ const say = (who, what) => `${nameOf(who)} · ${what}`;
  *  kind: 'error' (loser hit out/net), 'miss' (loser failed to return), 'fault' (serve fault). */
 export function endPoint(winner, why, kind) {
   if (!rally.live) return;
+  if (match.mode === 'machine') return machineMiss(winner, why);   // Ball Machine: a life, not a point
   if (kind !== 'fault' && rally.hand[other(winner)]) return godHandSave(other(winner));
   TLOG.pointEnd(winner, why, kind);
   rally.live = false;
@@ -464,7 +476,7 @@ export function endMatch(winner) {
   TLOG.matchEnd();
   setArmed(0);
   syncChakra();
-  match.rankMove = match.watch ? null : moveRank(winner === 'player');
+  match.rankMove = match.watch || match.mode === 'machine' ? null : moveRank(winner === 'player');
   Sound.fanfare(winner === 'player');
   crowdReact(winner, 1);
   startWave();
@@ -473,7 +485,7 @@ export function endMatch(winner) {
   showEndMenu(winner);
 }
 
-function schedule(delay, fn) { match.timer = delay; match.after = fn; }
+export function schedule(delay, fn) { match.timer = delay; match.after = fn; }
 
 /** Simulation speed factor chosen in the menu. */
 export const timeScale = () => GAME.speeds[match.speedKey].scale * (match.watch ? watchSpeed : 1)

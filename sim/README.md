@@ -237,3 +237,50 @@ Hard's reaction time went from 140 ms to 160 ms (blockers ×0.8: 112 → 128 ms)
 a person reacts to what they see (~150 ms). Real play is ~0.22–0.27 s, so 160 is still quick, just not superhuman.
 Human-like bot, 40 matches, Hard: you 0.26 → 0.28 (it misses a few more smashes), youSpin 0.25 → 0.26,
 youBlock 0.31 → 0.30.
+
+## Rival traits (Nov 2026)
+
+Players of one style used to play exactly alike; only the signature set them apart. Each roster player
+now has a trait (`TRAITS`, config.js): a few of the style's numbers overridden by about ±25%, with a
+strength and a weakness that's really in the numbers (a `weak` combo, slower feet, more errors, less
+pace). `styleOf(style, name)` merges it, so `styleCfg` (the CPU), the tournament's attribute bars and the
+rival card see it. The card shows its name (◆ chip), what it does and how to beat it.
+
+`matrix.sh hard 8`: each player's point share for the human-like bot, the average of the four ways to play
+(before → after). Same-style players already differed by ±0.04 through noise.
+
+| Player | before → after | | Player | before → after |
+|---|---|---|---|---|
+| Chen Meng | 0.37 → 0.33 | | Hugo Calderano | 0.30 → 0.30 |
+| Timo Boll | 0.36 → 0.32 (spin bot 0.35 → 0.30) | | Kim Kyung-ah | 0.29 → 0.28 |
+| Fan Zhendong | 0.33 → 0.30 (smash bot 0.41 → 0.30) | | Jan-Ove Waldner | 0.29 → 0.28 |
+| Wang Chuqin | 0.32 → 0.32 | | Ma Long | 0.28 → 0.24 |
+| Zhang Jike | 0.32 → 0.29 | | Ding Ning | 0.23 → 0.28 |
+| Wang Manyu | 0.32 → 0.34 | | Sun Yingsha | 0.22 → 0.19 |
+| Truls Möregårdh | 0.31 → 0.30 | | Felix Lebrun | 0.21 → 0.23 (spin bot 0.23 → 0.30) |
+| Joo Se-hyuk | 0.20 → 0.21 | | Tomokazu Harimoto | 0.19 → 0.21 |
+| Mima Ito | 0.17 → 0.20 (12 matches; the combo bot 0.16 → 0.21) | | | |
+
+A first Ito (quicker reaction, a "slow it down" line with nothing behind it) went to 0.13, the hardest by far.
+Her weakness is now a real one: Change Up ×1.6.
+
+## Tournament: 1v1 · 2v2 · Ball Machine (Nov 2026)
+
+The Tournament screen has three tabs. 1v1 is the 16-player knockout. 2v2 is 8 pairs (you and your partner,
+from the 2v2 ally, and seven roster pairs), from the quarterfinal. Both have Club Open, Pro Tour and World
+Championship, and titles are counted per kind. CPU pairs are simulated, not watched.
+
+Ball Machine (`machine.js`, `MACHINE`) is survival: a robot at the far end feeds nine waves (warm-up,
+topspin, backspin, corners, short and long, sidespin, fast and flat, at your body, everything), then repeats
+them 6% faster each time round. A landed return scores 1, one in the lit target 3, and three misses end it.
+`run.mjs` with `"machine": true` plays runs instead of matches (`agg.machine`: score, wave, fed, returned,
+targets, faults). `smoke.mjs` runs one with a racket that tracks the ball perfectly (299 of 300 back).
+
+Human-like bot, 12 runs each (score min / median / max · wave reached, median and max), every fed ball landing (faults 0):
+
+| Bot | Score | Wave |
+|---|---|---|
+| youSpin | 10 / 40 / 59 | 5, 7 |
+| you (smash) | 10 / 36 / 67 | 5, 7 |
+| mixer | 14 / 36 / 78 | 4, 10 |
+| youBlock | 21 / 130 / 217 | 13, 23 |

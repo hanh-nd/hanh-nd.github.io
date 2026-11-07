@@ -30,6 +30,16 @@ const out = await page.evaluate(() => {
   P.startQuick(); P.match.paused = true;
   run(120);
   res.quick = { state: P.match.state, pts: [...P.match.stats.pointsWon] };
+  // Ball Machine: a racket that always gets to the ball (it blocks: no swing), through every wave
+  // and round again — every fed ball must land on your half (faults 0), and the run must end.
+  P.match.watch = null;
+  T.startMachine(); P.match.paused = true;
+  for (let i = 0; i < 240 * 600 && P.match.state !== 'matchOver'; i++) {
+    if (P.rally.live && P.rally.lastHitter === "ai") { P.input.target.x = P.ball.p.x; P.input.target.z = 1.7; }
+    T.fixedUpdate(dt);
+  }
+  const M = T.mach;
+  res.machine = { state: P.match.state, fed: M.fed, faults: M.faults, returned: M.returned, score: M.score, wave: M.cycle * 9 + M.wave + 1, lives: M.lives };
   return res;
 });
 console.log(JSON.stringify(out, null, 1));

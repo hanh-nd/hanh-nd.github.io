@@ -1,6 +1,6 @@
 // The CPU players: reading your shot, moving to it, choosing and playing their strokes, adapting.
 import { clamp, rand, randn } from './util.js';
-import { ADAPT, AIM, AI_COMMON, COMBO, AI_LEVELS, AI_STYLES, FLOW, GAME, HIRAISHIN, JUTSU, JUTSU_AI, META_STEADY, MIRROR, PLAYER_CFG, POSSESSION, REACH, SHORT_PLAY, SIGNATURES, SIGNATURE_OF, SIG_INTENT, SLOTS, SLOT_COST, SMART, SMART_J, SMASH, SMASH_D, SPIN_D, SPIRIT, STYLE_PATTERNS, VOID } from './config.js';
+import { styleOf, ADAPT, AIM, AI_COMMON, COMBO, AI_LEVELS, AI_STYLES, FLOW, GAME, HIRAISHIN, JUTSU, JUTSU_AI, META_STEADY, MIRROR, PLAYER_CFG, POSSESSION, REACH, SHORT_PLAY, SIGNATURES, SIGNATURE_OF, SIG_INTENT, SLOTS, SLOT_COST, SMART, SMART_J, SMASH, SMASH_D, SPIN_D, SPIRIT, STYLE_PATTERNS, VOID } from './config.js';
 import { HALF_L, HALF_W, TABLE_TOP, handPlay, keepReachable, moveBody, predictIntercept, racketMinY, reachableShort, simulate, solveShot, strokeError } from './physics.js';
 import { ai2Body, ai2Racket, aiBody, aiRacket, allyBody, allyRacket, player, playerBody } from './render/racket.js';
 import { ball, decoys } from './render/ball.js';
@@ -71,7 +71,7 @@ const iqOf = c => c.iq ?? levelCfg(c).iq;
 const tacticsOf = c => iqOf(c) * (styleCfg(c).tactics ?? 1);
 /** Does bot c read jutsu `id` (JUTSU_AI.see × the jutsu's readK: how readable it is, default 1)? */
 export const seesJutsu = (c, id) => Math.random() < JUTSU_AI[c.level].see * (JUTSU[id].readK ?? 1);
-export const styleCfg = c => AI_STYLES[c.style];
+export const styleCfg = c => styleOf(c.style, c.name);   // (its style, and its player's trait)
 /** Z of a point at `depth` on c's half, kept within the CPU's reach. */
 const reachZ = (c, depth) => c.s * clamp(depth, -AI_COMMON.maxZ, -AI_COMMON.minZ);
 const signatureOf = c => SIGNATURE_OF[c.name] || null;

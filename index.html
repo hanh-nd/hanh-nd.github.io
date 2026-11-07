@@ -59,7 +59,7 @@
       <button class="mode" data-mode="practice"><span class="mode-k" aria-hidden="true">修</span><b>Practice</b><small>Endless rally · try your jutsu</small></button>
       <button class="mode" data-mode="quick"><span class="mode-k" aria-hidden="true">対</span><b>1v1</b><small>Face a rival</small></button>
       <button class="mode" data-mode="duo"><span class="mode-k" aria-hidden="true">組</span><b>2v2</b><small>You + ally vs 2 CPUs</small></button>
-      <button class="mode" data-mode="tour"><span class="mode-k" aria-hidden="true">覇</span><b>Tournament</b><small id="tour-tile">16 players · knockout</small></button>
+      <button class="mode" data-mode="tour"><span class="mode-k" aria-hidden="true">覇</span><b>Tournament</b><small id="tour-tile">1v1 · 2v2 · Ball Machine</small></button>
     </div>
   </div>
 </div>
@@ -88,9 +88,11 @@
 <!-- ===== Tournament: choose an event ===== -->
 <div id="menu-event" class="menu hidden">
   <div class="card">
-    <div class="nav"><button class="back" data-back aria-label="Back">←</button><div><div class="eyebrow">Tournament</div><h2>Choose an event</h2></div></div>
-    <p class="sub">16 players · knockout · final: best of 5</p>
+    <div class="nav"><button class="back" data-back aria-label="Back">←</button><div><div class="eyebrow">Tournament</div><h2 id="event-title">Choose an event</h2></div></div>
+    <div class="seg kinds" id="event-kinds"></div>
+    <p class="sub" id="event-sub">16 players · knockout · final: best of 5</p>
     <div class="modes tiers" id="tiers"></div>
+    <div id="event-extra"></div>
     <div id="tour-saved" class="saved hidden"></div>
     <div class="foot"><button class="btn" id="btn-tour-new">Enter Tournament</button></div>
   </div>

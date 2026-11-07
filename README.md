@@ -8,7 +8,7 @@ A table tennis game in the browser (three.js, no build step): open `index.html` 
 
 | Module | What's in it |
 |---|---|
-| `config.js` | Every tuning number: physics constants, your strokes (smash, spin, block, chop), the racket and touch, CPU levels, styles and aim, jutsu, signatures, roster, tournament tiers |
+| `config.js` | Every tuning number: physics constants, your strokes (smash, spin, block, chop), the racket and touch, CPU levels, styles and aim, rival traits, jutsu, signatures, roster, tournament tiers, Ball Machine waves |
 | `util.js` | clamp, random helpers |
 | `physics.js` | Ball flight, bounces, the shot solver (pure functions, no Three.js) |
 | `input.js` | Mouse and touch: racket target, swipe tracking, stroke intent |
@@ -22,7 +22,9 @@ A table tennis game in the browser (three.js, no build step): open `index.html` 
 | `log.js` | The play log (`?log`) |
 | `render/` | Scene, table, venues and crowd, rackets, ball and effects |
 | `ui/` | HUD, menus, start-up wiring (`controls.js`) |
-| `tournament.js`, `audio.js` | The knockout tournament; synthesized sounds |
+| `tournament.js` | The knockout tournament: 1v1 (16 players) and 2v2 (8 pairs), three events each |
+| `machine.js` | Ball Machine: a robot feeds you waves of balls; land them to score, three misses and it's over |
+| `audio.js` | Synthesized sounds |
 
 Modules import exactly what they use. A `let` another module changes has a setter next to it (`setWatchSpeed`, `setCameraShake`, ...), because imported bindings are read-only. `window.PingPong` (set in `main.js`) is the console and sim hook.
 

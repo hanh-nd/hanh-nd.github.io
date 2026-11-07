@@ -232,7 +232,7 @@ window.runSim = function (opts) {
       P.ally.iq = opts.allyIq ?? undefined; P.ai.iq = P.ai2.iq = opts.cpuIq ?? undefined;
     } else T.setOpponent({ ...e, level: opts.level || 'hard' });
     if (J && J.kit) T.setKit(J.kit);
-    P.startMatch();
+    if (opts.machine) T.startMachine(); else P.startMatch();   // opts.machine: Ball Machine runs instead of matches
     match.paused = true;   // the page's own frame loop stays out of it
     input.touch = true; input.mouseActive = false;
     if (H.sens && T.touchSens) T.touchSens.value = 50 + 50 * Math.log2(H.sens);   // touch sensitivity (Settings): 2 = 2×
@@ -283,6 +283,7 @@ window.runSim = function (opts) {
       if (match.games[1] > match.games[0]) trail = true;
     }
     agg.matches++;
+    if (opts.machine) { const M = T.mach; (agg.machine ||= []).push({ score: M.score, wave: M.cycle * 9 + M.wave + 1, fed: M.fed, returned: M.returned, targets: M.targets, faults: M.faults }); continue; }
     const won = match.games[0] > match.games[1];
     if (won) agg.won++;
     if (trail) { agg.behind++; if (won) agg.comebacks++; }

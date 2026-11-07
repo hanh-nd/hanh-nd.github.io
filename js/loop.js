@@ -118,7 +118,7 @@ export function fixedUpdate(dt) {
   simTime += dt;
   if (match.state === 'menu') return menuStep(dt);
   if (match.watch) updateAI(nearAI, dt); else updatePlayer(dt);
-  updateAI(ai, dt);
+  if (match.mode !== 'machine') updateAI(ai, dt);   // (Ball Machine: no one on the far side)
   if (match.doubles) { updateAI(ally, dt); updateAI(ai2, dt); }
   if (match.state === 'serve') {
     holdBallForServe();

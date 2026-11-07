@@ -21,7 +21,7 @@ import './tournament.js';
 import './ui/controls.js';
 import './audio.js';
 import './loop.js';
-import { ADAPT, AIM, REACH, COMBO, AI_COMMON, AI_LEVELS, AI_STYLES, ARM, BLOCK, CHAKRA, CHOP, JUTSU, JUTSU_AI, JUTSU_POOL, PLAYER_CFG, ROSTER, DRILLS, SAMEHADA, SIGNATURES, SMART, SMART_J, SMASH, SMASH_D, SPIN, SPIN_D, STYLE_KIT, VOID } from './config.js';
+import { TRAITS, ADAPT, AIM, REACH, COMBO, AI_COMMON, AI_LEVELS, AI_STYLES, ARM, BLOCK, CHAKRA, CHOP, JUTSU, JUTSU_AI, JUTSU_POOL, PLAYER_CFG, ROSTER, DRILLS, SAMEHADA, SIGNATURES, SMART, SMART_J, SMASH, SMASH_D, SPIN, SPIN_D, STYLE_KIT, VOID } from './config.js';
 import { predictIntercept, simulate } from './physics.js';
 import { camera } from './render/scene.js';
 import { ai2Racket, aiBody, aiRacket, allyRacket, player, playerBody } from './render/racket.js';
@@ -37,6 +37,7 @@ import { scout, updateHUD } from './ui/hud.js';
 import { showStartMenu, startDuo, startQuick, togglePause } from './ui/menus.js';
 import { newTournament, playTourMatch, showTourHub, tour, watchTourMatch } from './tournament.js';
 import { Sound } from './audio.js';
+import { mach, startMachine } from './machine.js';
 import { fixedUpdate, frame, simTime } from './loop.js';
 
 // Debug/console hook (handy for tuning; not used by the game itself).
@@ -45,7 +46,7 @@ window.PingPong = { debug: DEBUG, swing, camera, match, rally, ball, player, aiR
   playerBody, aiBody, togglePause, updateHUD, endMatch, showTourHub, Sound, ai, nearAI, scout, watchTourMatch, newTournament, playTourMatch,
   get tour() { return tour; }, get simTime() { return simTime; },
   // Headless balance runs (a script steps the game and drives input.target like a finger).
-  test: { TLOG, AIM, ARM, REACH, COMBO, touchSens, PLAYER_CFG, SPIN, SMASH, fixedUpdate, simulate, playerHit, beginToss, setOpponent, setHome, ROSTER, DRILLS, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
+  test: { mach, startMachine, TRAITS, TLOG, AIM, ARM, REACH, COMBO, touchSens, PLAYER_CFG, SPIN, SMASH, fixedUpdate, simulate, playerHit, beginToss, setOpponent, setHome, ROSTER, DRILLS, ADAPT, AI_COMMON, AI_STYLES, AI_LEVELS, SIGNATURES, SMASH_D, yourTurn, youServe, canHit, chakra,
     JUTSU, JUTSU_AI, STYLE_KIT, SAMEHADA, SMART, SMART_J, VOID, BLOCK, CHOP, SPIN_D, sealsOf, get kit() { return yourKit; }, setKit: k => { setYourKit([...k]); } } };
 
 showStartMenu();

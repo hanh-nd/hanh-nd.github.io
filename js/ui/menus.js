@@ -1,6 +1,6 @@
 // Menu screens and overlays: home, rival pick, ready, pause, settings, end of match.
 import { rand } from '../util.js';
-import { AI_LEVELS, AI_STYLES, COLORS, COMBO_NAMES, DRILLS, FINAL, GAME, JUTSU, JUTSU_ANGLE, JUTSU_POOL, JUTSU_TIP, LEVEL_BLURB, LEVEL_ORDER, ROSTER, ROUND_NAMES, SIGNATURES, SIGNATURE_OF, SLOTS, SLOT_COST, SLOT_LABEL, STYLE_KIT, STYLE_ORDER, TIERS, TIER_ORDER, YOU } from '../config.js';
+import { AI_LEVELS, AI_STYLES, COLORS, COMBO_NAMES, DRILLS, GAME, JUTSU, JUTSU_ANGLE, JUTSU_POOL, JUTSU_TIP, LEVEL_BLURB, LEVEL_ORDER, ROSTER, SIGNATURES, SIGNATURE_OF, SLOTS, SLOT_COST, SLOT_LABEL, STYLE_KIT, STYLE_ORDER, TIERS, TIER_ORDER, TRAITS, MACHINE } from '../config.js';
 import { isDesktop } from '../render/scene.js';
 import { setBoardText } from '../render/table.js';
 import { VENUE_OF_TIER, drawBanners, drawScreens, setAttendance, setVenue } from '../render/venues.js';
@@ -13,8 +13,9 @@ import { ai2, ally } from '../ai.js';
 import { autoJutsu, egoGrade, kitJutsu, rankNow, resetJutsu, setYourKit, yourKit } from '../jutsu.js';
 import { WATCH_SPEEDS, home, isPlaying, match, opp, rally, setHome, setOpponent, setWatchSpeed, startMatch, watchSpeed } from '../rules.js';
 import { $, hideAllMenus, showMessage, store } from './hud.js';
-import { attrBars, hex, playerMatch, showTourHub, tour } from '../tournament.js';
+import { attrBars, finalRound, hex, isDuoTour, nextRival, roundNames, showTourHub, titleKey, tour } from '../tournament.js';
 import { Sound } from '../audio.js';
+import { mach, showMachine } from '../machine.js';
 
 /* ---------- Menus: Home (mode) → Ready (VS) → match; Tournament: Event → hub ----------
    Every answer is remembered (pp3d.setup), so Ready opens with last time's choices filled in:
@@ -24,7 +25,7 @@ import { Sound } from '../audio.js';
 export const quick = { level: 'easy', opp: 'random', venue: 'arena' };
 export const practice = { level: 'easy', opp: 'random', refill: true, cpuJutsu: true, venue: 'arena' };
 export const duo = { level: 'easy', opps: null, ally: 'Sun Yingsha', venue: 'arena' };   // opps: the two you face (roster names), rolled on the Ready screen · ally: your partner (a roster name)
-export let selTier = 'pro', uiMode = 'quick';
+export let selTier = 'pro', uiMode = 'quick', selKind = 'single';   // selKind: the Tournament screen's 1v1 · 2v2 · Ball Machine
 let rival = null;   // the roster entry you face in 1v1 / Practice (shown on Ready)
 export const rosterBy = name => ROSTER.find(e => e.name === name) || null;
 /** A roster player or, in Practice, a drill partner (DRILLS). */
@@ -32,7 +33,7 @@ const partnerBy = (name, mode) => rosterBy(name) || (mode === 'practice' && DRIL
 const sigOf = e => (SIGNATURE_OF[e.name] ? SIGNATURES[SIGNATURE_OF[e.name]] : null);
 const setupOf = mode => (mode === 'practice' ? practice : quick);
 const MODE_LABEL = { practice: 'Practice', quick: '1v1', duo: '2v2', tour: 'Tournament' };
-const saveSetup = () => store.set('pp3d.setup', { quick, practice, duo: { level: duo.level, ally: duo.ally, venue: duo.venue }, tier: selTier });
+const saveSetup = () => store.set('pp3d.setup', { quick, practice, duo: { level: duo.level, ally: duo.ally, venue: duo.venue }, tier: selTier, kind: selKind });
 /** Where a 1v1, 2v2 or Practice is played: the venue brings its table (TABLES). Practice starts on
  *  the standard table, so it plays like a quick match until you pick another (to learn the wind,
  *  say). The tournament's venue comes with its event. */
@@ -91,7 +92,6 @@ function showScreen(id) {
 }
 export function back() {
   if (sheetOpen()) return closeSheet();
-  if (screen === 'menu-event' && tour && !tour.done) return showTourHub();
   showHome();
 }
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', back));
@@ -116,9 +116,9 @@ function showHome() {
   $('btn-again-last').classList.toggle('hidden', !last);
   if (last) $('again-txt').textContent = last.text;
   const live = tour && !tour.done;
-  let t = '16 players · knockout';
-  if (live && tour.lostIn != null) t = `You're out · watch the ${ROUND_NAMES[tour.round]}`;
-  else if (live) { const m = playerMatch(), e = tour.entrants[m.a === YOU ? m.b : m.a]; t = `Continue · ${ROUND_NAMES[tour.round]} vs ${e.flag} ${e.short}`; }
+  let t = '1v1 · 2v2 · Ball Machine';
+  if (live && tour.lostIn != null) t = `You're out · ${isDuoTour() ? 'skip to the end' : `watch the ${roundNames()[tour.round]}`}`;
+  else if (live) { const e = nextRival(); t = `Continue · ${roundNames()[tour.round]} vs ${e.flag} ${e.short}`; }
   $('tour-tile').textContent = t;
   showScreen('menu-start');
 }
@@ -133,7 +133,7 @@ $('btn-again-last').addEventListener('click', () => {
 });
 document.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => {
   uiMode = b.dataset.mode;
-  if (uiMode === 'tour') return tour && !tour.done ? showTourHub() : showEvent();
+  if (uiMode === 'tour') return showEvent();
   showReady();
 }));
 
@@ -160,12 +160,12 @@ const playbookHtml = () => '<p class="pb-intro">Two of your shots in a row, in t
 /** A player's card: flag, name, style, signature (and its counter), top jutsu, level, and
  *  (the tournament's) attribute bars. */
 export function oppCard(e, eyebrow, bars = true, mate = false) {   // mate: your 2v2 partner (what it does, not how to beat it; no jutsu: you spend the team's seals)
-  const st = AI_STYLES[e.style], sg = sigOf(e);
+  const st = AI_STYLES[e.style], sg = sigOf(e), tr = TRAITS[e.name];
   return `<div class="opp" style="--opp:${hex(e.color)}"><div class="opp-flag">${e.flag}</div><div style="min-width:0">
     <div class="eyebrow">${eyebrow}</div>
     <div class="opp-name">${e.name} <i>“${e.nick}”</i></div>
-    <span class="chip style">${st.label}</span>${sg ? `<span class="chip sig">★ ${sg.name}</span>` : ''}${mate ? '' : `<span class="chip">${JUTSU[STYLE_KIT[e.style][2]].name}</span>`}<span class="chip">${AI_LEVELS[e.level].label}</span>
-    ${mate ? `<p>${st.blurb}</p>` : st.drill ? `<p>${st.blurb}</p><p><b>Tip:</b> ${st.tip}</p>` : `<p><b>Weak to:</b> ${st.weakTo} · <b>Punishes:</b> ${st.punishes}</p>${sg ? `<p><b>★ ${sg.name}:</b> ${sg.counter.toLowerCase()}.</p>` : ''}`}
+    <span class="chip style">${st.label}</span>${tr ? `<span class="chip trait">◆ ${tr.name}</span>` : ''}${sg ? `<span class="chip sig">★ ${sg.name}</span>` : ''}${mate ? '' : `<span class="chip">${JUTSU[STYLE_KIT[e.style][2]].name}</span>`}<span class="chip">${AI_LEVELS[e.level].label}</span>
+    ${mate ? `<p>${st.blurb}</p>` : st.drill ? `<p>${st.blurb}</p><p><b>Tip:</b> ${st.tip}</p>` : `<p><b>Weak to:</b> ${st.weakTo} · <b>Punishes:</b> ${st.punishes}</p>${tr ? `<p><b>◆ ${tr.name}:</b> ${tr.does} ${tr.beat}</p>` : ''}${sg ? `<p><b>★ ${sg.name}:</b> ${sg.counter.toLowerCase()}.</p>` : ''}`}
     ${bars ? `<div class="attrs">${attrBars(e)}</div>` : ''}</div></div>`;
 }
 
@@ -313,8 +313,11 @@ $('ready-extra').addEventListener('click', e => {
 });
 $('btn-go').addEventListener('click', () => (uiMode === 'practice' ? startPractice() : uiMode === 'duo' ? startDuo() : startQuick()));
 
-/** Tournament: choose an event (a run in progress skips this: its tile opens the hub): three
- *  tiles like Home's, each with its levels (TIERS.pool), crowd and your titles there. */
+/** Tournament: 1v1, 2v2 or Ball Machine on top; for 1v1 and 2v2 choose an event (a run in progress
+ *  skips this: its tile opens the hub): three tiles like Home's, each with its levels (TIERS.pool),
+ *  crowd and your titles there (per kind); 2v2 also shows your partner (tap to change). Ball Machine
+ *  has no levels: its waves, your best score, Start. */
+const EVENT_KINDS = { single: ['1v1', '16 players'], double: ['2v2', '8 pairs'], machine: ['Ball Machine', 'Survival'] };
 const TIER_KANJI = { club: '町', pro: '旅', world: '世' };
 $('tiers').addEventListener('click', e => {
   const b = e.target.closest('[data-tier]');
@@ -325,17 +328,44 @@ $('tiers').addEventListener('click', e => {
   for (const x of $('tiers').children) { x.classList.toggle('sel', x === b); x.setAttribute('aria-pressed', String(x === b)); }
 });
 export function showEvent() {
-  const titles = store.get('pp3d.titles', {}), live = tour && !tour.done;
-  $('tiers').innerHTML = TIER_ORDER.map(k => { const t = TIERS[k], lv = Object.keys(t.pool).map(l => AI_LEVELS[l].label);
-    return `<button class="mode tier${k === selTier ? ' sel' : ''}" data-tier="${k}" aria-pressed="${k === selTier}"><span class="mode-k" aria-hidden="true">${TIER_KANJI[k]}</span>`
-      + `${titles[k] ? `<span class="tier-won" title="Titles won">🏆${titles[k] > 1 ? ` ×${titles[k]}` : ''}</span>` : ''}`
-      + `<b>${t.label}</b><small>${t.blurb}</small><small class="tier-meta">${lv[0]}${lv.length > 1 ? `–${lv[lv.length - 1]}` : ''}<br>${t.fans.toLocaleString()} fans</small></button>`; }).join('');
-  menuVenue(VENUE_OF_TIER[selTier], TIERS[selTier].label);
-  $('tour-saved').classList.toggle('hidden', !live);
-  if (live) $('tour-saved').innerHTML = `Entering a new one ends your <b>${TIERS[tour.tier].label}</b> run.`;
-  $('btn-tour-new').textContent = live ? 'Start a New Tournament' : 'Enter Tournament';
+  buildSeg('event-kinds', Object.keys(EVENT_KINDS), k => `${EVENT_KINDS[k][0]}<small>${EVENT_KINDS[k][1]}</small>`, selKind,
+    k => { selKind = k; saveSetup(); renderEvent(); });
+  renderEvent();
   showScreen('menu-event');
 }
+function renderEvent() {
+  const titles = store.get('pp3d.titles', {}), live = tour && !tour.done, mach = selKind === 'machine';
+  $('event-title').textContent = mach ? 'Ball Machine' : 'Choose an event';
+  $('event-sub').textContent = mach ? 'Wave after wave · every ball you land scores · 3 misses and it\'s over'
+    : selKind === 'double' ? '8 pairs · you + your partner · knockout · final: best of 5' : '16 players · knockout · final: best of 5';
+  $('tiers').classList.toggle('hidden', mach);
+  $('tiers').innerHTML = mach ? '' : TIER_ORDER.map(k => { const t = TIERS[k], lv = Object.keys(t.pool).map(l => AI_LEVELS[l].label), won = titles[titleKey(selKind, k)];
+    return `<button class="mode tier${k === selTier ? ' sel' : ''}" data-tier="${k}" aria-pressed="${k === selTier}"><span class="mode-k" aria-hidden="true">${TIER_KANJI[k]}</span>`
+      + `${won ? `<span class="tier-won" title="Titles won">🏆${won > 1 ? ` ×${won}` : ''}</span>` : ''}`
+      + `<b>${t.label}</b><small>${t.blurb}</small><small class="tier-meta">${lv[0]}${lv.length > 1 ? `–${lv[lv.length - 1]}` : ''}<br>${t.fans.toLocaleString()} fans</small></button>`; }).join('');
+  const mate = rosterBy(duo.ally);
+  $('event-extra').innerHTML = mach ? machineCard()
+    : selKind === 'double' ? '<div class="row-label">Your partner</div><div class="opp-pick" role="button" tabindex="0" data-act="partner" aria-label="Change your partner">'
+      + oppCard({ ...mate, level: 'hard' }, 'Partner', false, true) + '<span class="opp-change">Change ▾</span></div>' : '';
+  menuVenue(mach ? 'gym' : VENUE_OF_TIER[selTier], mach ? 'Ball Machine' : TIERS[selTier].label);
+  $('tour-saved').classList.toggle('hidden', !live);
+  if (live) $('tour-saved').innerHTML = `<div class="saved-row"><span>Your <b>${isDuoTour() ? '2v2' : '1v1'} ${TIERS[tour.tier].label}</b> run is on${mach ? '' : ' · entering a new one ends it'}.</span>`
+    + '<button class="btn alt" id="btn-tour-continue">Continue ▶</button></div>';
+  $('btn-tour-new').textContent = mach ? 'Start Ball Machine' : live ? 'Start a New Tournament' : 'Enter Tournament';
+}
+/** Ball Machine on the Tournament screen: its waves in order and your best. */
+function machineCard() {
+  const best = store.get('pp3d.machineBest', 0);
+  return `<div class="mach-card"><div class="mach-best"><small>Your best</small><b>${best}</b></div>
+    <ol class="mach-waves">${MACHINE.waves.map(w => `<li><b>${w.name}</b><small>${w.tip}</small></li>`).join('')}</ol>
+    <p class="mach-note">Land it on the machine's half: <b>+1</b>. In the lit target: <b>+${MACHINE.target}</b>. After the last wave it starts over, faster.</p></div>`;
+}
+$('tour-saved').addEventListener('click', e => { if (e.target.closest('#btn-tour-continue')) showTourHub(); });
+$('event-extra').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-act=partner]')) { e.preventDefault(); e.target.click(); } });
+$('event-extra').addEventListener('click', e => {
+  if (!e.target.closest('[data-act=partner]')) return;
+  openRoster('Your partner', duo.ally, key => { duo.ally = key; if (duo.opps && duo.opps.includes(key)) duo.opps = null; saveSetup(); renderEvent(); });
+});
 
 /** The venue behind a menu screen (its big screens show the title). */
 export function menuVenue(key, board = 'Open') { setVenue(key); setTableOfVenue(key); setBoardText(board); drawScreens(); }
@@ -351,8 +381,10 @@ export function enterMenuState() {
   match.doubles = false;
   allyRacket.mesh.visible = ai2Racket.mesh.visible = false;
   for (const r of [player, aiRacket]) r.setGhost(false);
+  showMachine(false);
   resetJutsu();
   $('topbar').classList.add('hidden');
+  $('topbar').classList.remove('machine');
   setBall({ x: 0, y: 1.3, z: 0.5 });
 }
 export function showStartMenu() {
@@ -403,15 +435,18 @@ export function startDuo() {
   setHome(null);
   match.gamesToWin = 2;
   if (!duo.opps) duo.opps = rollOpps();
-  const [a, o1, o2] = duoSlots().map(rosterBy);
-  setOpponent({ ...o1, level: duo.level });   // (ai.name stays o1's own: it carries the signature)
-  Object.assign(opp, { name: `${o1.short} & ${o2.short}`, short: `${o1.short} & ${o2.short}`, flag: '' });
-  Object.assign(ai2, { level: duo.level, style: o2.style, name: o2.name, short: o2.short });
-  Object.assign(ally, { level: duo.level, style: a.style, name: a.name, short: a.short });
-  ai2Racket.setColor(o2.color);
-  allyRacket.setColor(a.color);
+  seatDuo(...duoSlots().map(rosterBy), duo.level);
   rememberLast('duo', null, duo.level);
   startMatch();
+}
+/** Seat a 2v2: your ally `a` beside you, `o1` and `o2` across, all at `level` (2v2 and the 2v2 tournament). */
+export function seatDuo(a, o1, o2, level) {
+  setOpponent({ ...o1, level });   // (ai.name stays o1's own: it carries the signature)
+  Object.assign(opp, { name: `${o1.short} & ${o2.short}`, short: `${o1.short} & ${o2.short}`, flag: '' });
+  Object.assign(ai2, { level, style: o2.style, name: o2.name, short: o2.short });
+  Object.assign(ally, { level, style: a.style, name: a.name, short: a.short });
+  ai2Racket.setColor(o2.color);
+  allyRacket.setColor(a.color);
 }
 
 /** HUD overlays — How to play (?) and Settings (⚙): the game waits while one is open. They also
@@ -510,22 +545,23 @@ export function syncPauseButton() {
 
 export function showEndMenu(winner) {
   syncLogTools();
+  if (match.mode === 'machine') return showMachineEnd();
   const s = match.stats, lvl = LEVEL_ORDER.indexOf(match.levelKey), o = opp.short, won = winner === 'player';
   const games = `${match.games[0]} – ${match.games[1]}`, detail = match.gameScores.join(', ');
   const tourMode = match.mode === 'tour';
   if (match.watch) {
     const w = won ? home : opp;
     $('end-title').textContent = `${w.flag} ${w.short} wins`;
-    $('end-sub').textContent = `${ROUND_NAMES[match.watch.r]} · ${detail}`;
+    $('end-sub').textContent = `${roundNames()[match.watch.r]} · ${detail}`;
     $('end-stats').innerHTML = [
       ['Points', `${s.pointsWon[0]} – ${s.pointsWon[1]}`],
       ['Longest rally', s.longestRally],
       ['Fastest', `${Math.round(s.fastest)} km/h`],
     ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
   } else if (tourMode) {
-    const r = tour.round, round = ROUND_NAMES[tour.lostIn ?? (tour.done ? FINAL : r - 1)], tier = TIERS[tour.tier];
+    const r = tour.round, round = roundNames()[tour.lostIn ?? (tour.done ? finalRound() : r - 1)], tier = TIERS[tour.tier];
     if (won && tour.done) {
-      $('end-title').textContent = `🏆 ${tier.label} Champion!`;
+      $('end-title').textContent = `🏆 ${isDuoTour() ? '2v2 ' : ''}${tier.label} Champion!`;
       confetti();
     } else if (won) {
       $('end-title').textContent = `✅ ${round} won`;
@@ -567,6 +603,26 @@ export function showEndMenu(winner) {
   $('menu-end').classList.remove('hidden');
 }
 
+/** The end of a Ball Machine run: the score (and a new best), how far you got, Play Again. */
+function showMachineEnd() {
+  const s = match.stats;
+  $('end-title').textContent = mach.newBest ? `🏆 New best: ${mach.score}` : `Score ${mach.score}`;
+  $('end-sub').textContent = `Ball Machine · reached wave ${mach.waveNo}${mach.newBest ? '' : ` · best ${mach.best}`}`;
+  $('end-grade').classList.add('hidden');
+  $('end-rank').classList.add('hidden');
+  $('end-stats').innerHTML = [
+    ['Balls returned', mach.returned],
+    ['Targets hit', mach.targets],
+    ['Longest run', mach.bestStreak],
+    ['Fastest', `${Math.round(s.fastest)} km/h`],
+  ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+  for (const id of ['btn-continue', 'btn-next', 'btn-rival']) $(id).classList.add('hidden');
+  $('btn-again').classList.remove('hidden');
+  if (mach.newBest) confetti();
+  $('topbar').classList.add('hidden');
+  $('menu-end').classList.remove('hidden');
+}
+
 function confetti() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const box = $('confetti'), colors = ['#ffd23f', '#ff4d5e', '#57e389', '#3d8bff', '#ffffff'];
@@ -585,5 +641,6 @@ function confetti() {
 
 // Setters for the bindings other modules assign (an imported binding is read-only).
 export function setSelTier(v) { return (selTier = v); }
+export function setSelKind(v) { return (selKind = v); }
 export function setUiMode(v) { return (uiMode = v); }
 export function setKitOpen(v) { return (kitOpen = v); }

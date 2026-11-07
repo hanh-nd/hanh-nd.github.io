@@ -5,8 +5,9 @@ import { touchSens } from '../input.js';
 import { armJutsu, autoJutsu, setAutoJutsu, syncChakra } from '../jutsu.js';
 import { WATCH_SPEEDS, match, setWatchSpeed, startMatch, watchSpeed } from '../rules.js';
 import { $, store } from './hud.js';
-import { VENUE_PICKS, buildMenus, cycleFastForward, duo, hideOverlay, practice, quick, rosterBy, selTier, setSelTier, setUiMode, showOverlay, showRivalPicker, showStartMenu, startDuo, startQuick, syncSettings, togglePause, uiMode } from './menus.js';
+import { VENUE_PICKS, buildMenus, cycleFastForward, duo, hideOverlay, practice, quick, rosterBy, selKind, selTier, setSelKind, setSelTier, setUiMode, showOverlay, showRivalPicker, showStartMenu, startDuo, startQuick, syncSettings, togglePause, uiMode } from './menus.js';
 import { newTournament, showTourHub } from '../tournament.js';
+import { startMachine } from '../machine.js';
 import { Sound } from '../audio.js';
 
 // The menu choices saved last time (before the menus are built).
@@ -23,6 +24,7 @@ import { Sound } from '../audio.js';
       if (o === practice) { practice.refill = v.refill !== false; practice.cpuJutsu = v.cpuJutsu !== false; }
     }
     if (TIER_ORDER.includes(s.tier)) setSelTier(s.tier);
+    if (['single', 'double', 'machine'].includes(s.kind)) setSelKind(s.kind);
   }
   const sp = store.get('pp3d.speed', null);
   if (GAME.speeds[sp]) match.speedKey = sp;
@@ -38,7 +40,12 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) Soun
 // Tapping your scorebug row (name or chakra bar) arms too.
 for (const el of document.querySelectorAll('.sb-row.you > span')) el.addEventListener('pointerdown', e => { e.stopPropagation(); armJutsu(); });
 $('jutsu-menu').addEventListener('pointerdown', e => { const t = e.target.closest('[data-tier]'); if (t) { e.stopPropagation(); armJutsu(+t.dataset.tier); } });
-$('btn-tour-new').addEventListener('click', () => { Sound.init(); newTournament(selTier); showTourHub(); });
+$('btn-tour-new').addEventListener('click', () => {
+  Sound.init();
+  if (selKind === 'machine') return startMachine();
+  newTournament(selTier, selKind, duo.ally);
+  showTourHub();
+});
 $('home-settings').addEventListener('click', () => { syncSettings(); showOverlay('menu-settings'); });
 $('home-help').addEventListener('click', () => showOverlay('menu-help'));
 $('btn-resume').addEventListener('click', togglePause);
