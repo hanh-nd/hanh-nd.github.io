@@ -232,3 +232,8 @@ Human-like bot (`you` = smash habit, 16 matches vs wizards; the rest 12 per oppo
 Per style (`human.sh` youBlock, 30 matches), allround, wizard and blocker moved by 0.01 or less.
 The Hammer was left alone. It's already the hardest attacker to keep out: vs `youBlock`, 25% of its rally
 balls beat you (Ma Long 6%, Ito 5%, Zhang Jike 14%), median pace 11.9 m/s, p90 15.6.
+
+Hard's reaction time went from 140 ms to 160 ms (blockers ×0.8: 112 → 128 ms). 140 was at or below the fastest
+a person reacts to what they see (~150 ms). Real play is ~0.22–0.27 s, so 160 is still quick, just not superhuman.
+Human-like bot, 40 matches, Hard: you 0.26 → 0.28 (it misses a few more smashes), youSpin 0.25 → 0.26,
+youBlock 0.31 → 0.30.

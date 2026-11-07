@@ -188,7 +188,7 @@ export const PLAYER_CFG = {
 export const AI_LEVELS = {
   easy:   { label: 'Easy',   speed: 2.6, accel: 11, reactionMs: 240, aimError: 0.13, power: 0.9,  spin: 0.5,  mistakeRate: 0.09,  smash: 0.35, smashError: 1.9,  pattern: 0.55, adapt: 0.35, counter: 0,    antiSmash: 0, iq: 0.25 },
   medium: { label: 'Medium', speed: 3.0, accel: 14, reactionMs: 180, aimError: 0.07, power: 1.05, spin: 0.8,  mistakeRate: 0.045, smash: 0.6,  smashError: 1.45, pattern: 0.7,  adapt: 0.5,  counter: 0.35, antiSmash: 0.5, iq: 0.55 },
-  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 140, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.85, smashError: 1.15, pattern: 0.8,  adapt: 0.6,  counter: 0.65, antiSmash: 1, iq: 0.85 },
+  hard:   { label: 'Hard',   speed: 3.3, accel: 16, reactionMs: 160, aimError: 0.04, power: 1.15, spin: 1.0,  mistakeRate: 0.02,  smash: 0.85, smashError: 1.15, pattern: 0.8,  adapt: 0.6,  counter: 0.65, antiSmash: 1, iq: 0.85 },
 };
 export const LEVEL_ORDER = ['easy', 'medium', 'hard'];
 export const LEVEL_BLURB = { easy: 'Steady', medium: 'Fast, spinny', hard: 'Ruthless' };
