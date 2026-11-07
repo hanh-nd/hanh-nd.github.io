@@ -117,7 +117,7 @@ function showHome() {
   if (last) $('again-txt').textContent = last.text;
   const live = tour && !tour.done;
   let t = '1v1 · 2v2 · Ball Machine';
-  if (live && tour.lostIn != null) t = `You're out · ${isDuoTour() ? 'skip to the end' : `watch the ${roundNames()[tour.round]}`}`;
+  if (live && tour.lostIn != null) t = `You're out · watch the ${roundNames()[tour.round]}`;
   else if (live) { const e = nextRival(); t = `Continue · ${roundNames()[tour.round]} vs ${e.flag} ${e.short}`; }
   $('tour-tile').textContent = t;
   showScreen('menu-start');

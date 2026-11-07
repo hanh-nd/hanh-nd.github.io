@@ -62,7 +62,7 @@ export const youServe = () => !match.watch && match.server === 'player' && match
 export const serverBot = () => memberBot(match.server, match.serverIdx);
 export const serverRacket = () => memberRacket(match.server, match.serverIdx);
 /** The bots in this match. */
-export const activeBots = () => match.doubles ? [ai, ai2, ally] : match.watch ? [ai, nearAI] : [ai];
+export const activeBots = () => match.doubles ? (match.watch ? [ai, ai2, ally, nearAI] : [ai, ai2, ally]) : match.watch ? [ai, nearAI] : [ai];
 /** The CPU that plays `who`'s next ball, or null when it's you. */
 const botFor = who => turnBot(who);
 export const levelCfg = c => AI_LEVELS[c.level];

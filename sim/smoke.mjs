@@ -30,6 +30,11 @@ const out = await page.evaluate(() => {
   P.startQuick(); P.match.paused = true;
   run(120);
   res.quick = { state: P.match.state, pts: [...P.match.stats.pointsWon] };
+  // A 2v2 tournament match watched: both pairs are bots (four CPUs), it plays to the end.
+  P.newTournament('world', 'double', 'Sun Yingsha');
+  P.watchTourMatch(0, 0); P.match.paused = true;
+  run(900);
+  res.watchDuo = { state: P.match.state, games: [...P.match.games], pts: [...P.match.stats.pointsWon], rally: P.match.stats.longestRally, home: P.home ? P.home.short : null };
   // Ball Machine: a racket that always gets to the ball (it blocks: no swing), through every wave
   // and round again — every fed ball must land on your half (faults 0), and the run must end.
   P.match.watch = null;

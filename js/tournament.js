@@ -4,9 +4,10 @@ import { clamp, rand } from './util.js';
 import { AI_LEVELS, BRACKET_SEEDS, DUO_BEST_OF, DUO_ROUND_NAMES, DUO_SEEDS, JUTSU_AI, LEVEL_ORDER, ROSTER, ROUND_BEST_OF, ROUND_NAMES, TIERS, drawLevel, styleOf } from './config.js';
 import { setBoardText } from './render/table.js';
 import { VENUE_OF_TIER, setAttendance } from './render/venues.js';
-import { YOU_FLAG, match, setHome, setOpponent, startMatch } from './rules.js';
+import { YOU_FLAG, home, match, opp, setHome, setOpponent, startMatch } from './rules.js';
+import { ally } from './ai.js';
 import { $, store } from './ui/hud.js';
-import { enterMenuState, kitOpen, menuVenue, oppCard, seatDuo, setKitOpen, setUiMode, showEvent, showKit, showStartMenu, uiMode } from './ui/menus.js';
+import { enterMenuState, kitOpen, menuVenue, oppCard, seatDuo, setKitOpen, setSelKind, setUiMode, showEvent, showKit, showStartMenu, uiMode } from './ui/menus.js';
 import { Sound } from './audio.js';
 
 /* =====================================================================
@@ -79,7 +80,7 @@ function simulateMatch(m, bestOf) {
 }
 
 /** Is this an undecided bot-vs-bot match of the current round (one you can watch)? */
-const watchable = (m, r) => !isDuoTour() && !tour.done && r === tour.round && m.w == null && m.a !== YOU() && m.b !== YOU();   // (CPU pairs: simulated only)
+const watchable = (m, r) => !tour.done && r === tour.round && m.w == null && m.a !== YOU() && m.b !== YOU();
 
 /** Play out a round's remaining matches and draw the next round (or crown the champion). */
 function completeRound(r) {
@@ -180,7 +181,7 @@ export function showTourHub() {
       : `<div class="result">Out in the ${names[tour.lostIn]} · 🏆 ${champ.flag} <b>${champ.name}</b></div>`;
     actions = '<button class="btn" id="btn-tour-again">New Tournament</button>';
   } else if (out) {
-    next = `<div class="result">Out in the ${names[tour.lostIn]}${isDuoTour() ? '' : ' · ▶ watch or skip'}</div>`;
+    next = `<div class="result">Out in the ${names[tour.lostIn]} · ▶ watch or skip</div>`;
     actions = '<button class="btn" id="btn-tour-sim">Skip to the End</button>';
   } else {
     const e = nextRival(), head = `${names[tour.round]} · Seed ${e.seed} · Best of ${roundBestOf(tour.round)}`;
@@ -198,9 +199,9 @@ export function showTourHub() {
   if (play) play.addEventListener('click', playTourMatch);
   if (sim) sim.addEventListener('click', () => { while (!tour.done) advanceRound(); saveTour(); showTourHub(); });
   $('bracket').querySelectorAll('.watch').forEach(b => b.addEventListener('click', () => watchTourMatch(+b.dataset.r, +b.dataset.i)));
-  if (again) again.addEventListener('click', () => { newTournament(tour.tier); showTourHub(); });
+  if (again) again.addEventListener('click', () => { newTournament(tour.tier, tour.kind, isDuoTour() ? tour.entrants[YOU()].members[0] : null); showTourHub(); });   // (the same kind, event and partner)
   $('btn-tour-menu').addEventListener('click', showStartMenu);
-  if (!tour.done) $('btn-tour-change').addEventListener('click', () => { setUiMode('tour'); showEvent(); });
+  if (!tour.done) $('btn-tour-change').addEventListener('click', () => { setUiMode('tour'); setSelKind(tour.kind); showEvent(); });
   setAttendance(tier.crowd[tour.round]);
   setBoardText(tier.label);
   $('menu-tour').classList.remove('hidden');
@@ -225,9 +226,19 @@ export function watchTourMatch(r, i) {
   const m = tour.rounds[r][i];
   match.mode = 'tour';
   match.watch = { r, i };
-  match.doubles = false;
+  match.doubles = isDuoTour();
   match.gamesToWin = (roundBestOf(r) + 1) / 2;
-  setHome(tour.entrants[m.a]);
-  setOpponent(tour.entrants[m.b]);
+  const A = tour.entrants[m.a], B = tour.entrants[m.b];
+  if (match.doubles) {   // pair a at the near end (its first player and the ally seat), pair b at the far end
+    const by = n => ROSTER.find(x => x.name === n), [a1, a2] = A.members.map(by), [b1, b2] = B.members.map(by);
+    setHome({ ...a1, level: A.level });
+    Object.assign(home, { name: A.name, short: A.short, flag: A.flag });   // (the scorebug: the pair; nearAI keeps a1's own name)
+    seatDuo({ ...a2, level: A.level }, b1, b2, B.level);
+    opp.flag = B.flag;
+    Object.assign(ally, { level: A.level });
+  } else {
+    setHome(A);
+    setOpponent(B);
+  }
   startMatch();
 }

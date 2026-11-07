@@ -170,7 +170,6 @@ export function machineMiss(winner, why) {
   if (winner === 'player') { mach.faults++; return schedule(0.8, feed); }
   mach.lives--;
   mach.streak = 0;
-  rally.heat = rally.heatHits = 0;
   Sound.point(false);
   syncBoard();
   if (mach.lives <= 0) return schedule(1.2, finish);

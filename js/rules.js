@@ -152,7 +152,7 @@ export function startMatch() {
   }
   $('opp-name').textContent = tag(opp);
   $('cpu-level').textContent = `(${AI_LEVELS[levelKey].label.toLowerCase()})`;
-  $('you-name').textContent = d ? `YOU + ${(ally.short || 'ally').toUpperCase()}` : tag(home);
+  $('you-name').textContent = d && !match.watch ? `YOU + ${(ally.short || 'ally').toUpperCase()}` : tag(home);
   $('you-level').textContent = match.watch ? `(${AI_LEVELS[nearAI.level].label.toLowerCase()})` : '';
   $('btn-ff').classList.toggle('hidden', !match.watch);
   syncFastForward();
@@ -286,7 +286,7 @@ export function registerHit(who, intensity, smash = false, stroke = true) {
  *  Feel only (the ball's trail and glow, the RALLY tag, the crowd, shake, clang; sparks only at
  *  Overdrive) plus the real-time pace in timeScale. */
 function heatUp(smash, who) {
-  if (match.watch) return;
+  if (match.watch || match.mode === 'machine') return;   // (Ball Machine has its own pace: its waves speed up)
   const H = HEAT, level = rally.heat;
   rally.cashIn = 0;
   if (smash) {   // the cash-in: the bigger the heat, the bigger the hit

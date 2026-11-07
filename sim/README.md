@@ -268,7 +268,7 @@ Her weakness is now a real one: Change Up ×1.6.
 
 The Tournament screen has three tabs. 1v1 is the 16-player knockout. 2v2 is 8 pairs (you and your partner,
 from the 2v2 ally, and seven roster pairs), from the quarterfinal. Both have Club Open, Pro Tour and World
-Championship, and titles are counted per kind. CPU pairs are simulated, not watched.
+Championship, and titles are counted per kind.
 
 Ball Machine (`machine.js`, `MACHINE`) is survival: a robot at the far end feeds nine waves (warm-up,
 topspin, backspin, corners, short and long, sidespin, fast and flat, at your body, everything), then repeats
@@ -280,7 +280,13 @@ Human-like bot, 12 runs each (score min / median / max · wave reached, median a
 
 | Bot | Score | Wave |
 |---|---|---|
-| youSpin | 10 / 40 / 59 | 5, 7 |
-| you (smash) | 10 / 36 / 67 | 5, 7 |
-| mixer | 14 / 36 / 78 | 4, 10 |
-| youBlock | 21 / 130 / 217 | 13, 23 |
+| youSpin | 17 / 69 / 126 | 7, 14 |
+| you (smash) | 15 / 48 / 86 | 6, 10 |
+| youBlock | 21 / 88 / 158 | 9, 17 |
+
+Overdrive is off in Ball Machine: its rally never resets between balls, so the heat sat at its top and
+added +10% pace on top of the waves' own speed-up. With it on, runs ended a wave or two earlier
+(smash 36, spin 40 median).
+
+2v2 tournament matches between CPU pairs can be watched (all four seats are bots: `activeBots`
+adds `nearAI` in a watched 2v2). `smoke.mjs` watches one to the end.
