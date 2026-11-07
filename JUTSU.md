@@ -93,9 +93,9 @@ That's about +0.1 to +0.15 points per seal whichever you pick. In CPU-vs-CPU due
 - Around the court: a coach for each player (they cheer their player's points) and towel boxes.
 
 ## Overdrive rally
-- A long rally **heats up**. From the 3rd stroke of a point, every 2 strokes add a level, up to 4 (at the 9th stroke). Each stroke then lands with a camera shake and a clang that climb with the level, plus a spark at the racket. The rally also runs a little faster: up to +10% at level 4, when **Overdrive!** flashes.
-- Any stroke builds it: drive, push, block, chop, sidespin. **A smash cashes it in** with a big shake and a deep thump, and the heat starts over. From level 2 up, the world also holds still for a moment (70–90 ms) as the smash lands: the finishing blow. A smash early in a rally is just a smash.
-- Only the cash-in freezes. A freeze on every stroke broke the rally's rhythm and parted the racket from your finger.
+- A long rally **heats up**. From the 3rd stroke of a point, every 2 strokes add a level, up to 4 (at the 9th stroke). You see it on the ball and its trail (a shade deeper orange each level, no glow) and hear it in the crowd (louder each level, on its feet at Overdrive). Each stroke lands with a camera shake and a clang that climb with the level; sparks fly only at Overdrive. The rally also runs a little faster: up to +10% at level 4, when **Overdrive!** flashes.
+- Any stroke builds it: drive, push, block, chop, sidespin. **A smash cashes it in**: the ball turns a touch lighter until it's returned, a big shake and a deep thump, the hitter's fans roar (and a burst of sparks if it was Overdrive), and the heat starts over. A smash early in a rally is just a smash.
+- Nothing freezes. A first version held the world still for 70–90 ms on a big cash-in, but your finger kept moving, and when play went on that movement read as a swipe of about 3× its speed: the next stroke (often your return of that smash) flew wrong.
 - It changes how the game feels, not the shots. Physics, aim and the CPU are as before. It's off while you watch a CPU match. Tuning: `HEAT` in `config.js`.
 
 ## FLOW, Ego rank

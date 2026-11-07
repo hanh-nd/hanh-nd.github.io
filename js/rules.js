@@ -16,7 +16,7 @@ import { $, beatSignature, hideAllMenus, pointSituation, showMessage, updateHUD 
 import { practice, showEndMenu, syncFastForward, syncPauseButton } from './ui/menus.js';
 import { hex, tour, tourRecordResult, tourRecordWatched } from './tournament.js';
 import { Sound } from './audio.js';
-import { cameraShake, setCameraShake, setHitStop, simTime } from './loop.js';
+import { cameraShake, setCameraShake, simTime } from './loop.js';
 
 /* =====================================================================
    RULES — serves, faults, lets, scoring, serve rotation, games, match
@@ -44,7 +44,7 @@ export const match = {
 };
 export const rally = { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, lastHitTime: 0,
   smashed: false, smashH: 0, yourSmashes: 0,
-  heat: 0, heatHits: 0,   // Overdrive rally (HEAT): the heat level, and strokes counted toward it
+  heat: 0, heatHits: 0, cashIn: 0,   // Overdrive rally (HEAT): the heat level, strokes counted toward it, the level a smash just cashed in
   shotW: { x: 0, y: 0, z: 0 }, shotBounces: 0,   // spin the last stroke put on the ball, table bounces since
   expectY: 0.92,                                  // height the player's racket waits at before the bounce
   botShot: null,      // the CPU's last stroke: { by, zone, sig, lean } (adaptation, scouting, signature trail)
@@ -190,7 +190,7 @@ function setupServe(first = false) {
   Object.assign(rally, { live: false, serveStage: 0, lastHitter: null, bounceCount: 0, netTouched: false, shotBounces: 0, botShot: null, answering: null,
     turn: { [match.server]: match.serverIdx, [other(match.server)]: match.receiverIdx }, jutsu: null, pendingJutsu: null, jutsuAnswer: null, cloneRevealAt: Infinity, fired: { player: false, ai: false }, slow: false, zone: null, warp: { player: false, ai: false }, hand: { player: false, ai: false }, void: null, hidden: false, snake: null, stop: null,
     mirror: { player: 0, ai: 0 }, bind: null, held: null, combo: null, shark: null, charge: { player: null, ai: null },
-    smashed: false, smashH: 0, yourSmashes: 0, byYou: false, yourStrokes: [], popUpAt: -1, heat: 0, heatHits: 0 });   // the last stroke was a smash · your smashes this point (ADAPT.smash)
+    smashed: false, smashH: 0, yourSmashes: 0, byYou: false, yourStrokes: [], popUpAt: -1, heat: 0, heatHits: 0, cashIn: 0 });   // the last stroke was a smash · your smashes this point (ADAPT.smash)
   clearDecoys();
   syncChakra();   // a new point: seals spent last point are usable again
   match.toss = null;
@@ -253,7 +253,7 @@ export function registerHit(who, intensity, smash = false, stroke = true) {
   match.rallyCount++;
   if (match.doubles) rally.turn[who] ^= 1;   // partners alternate (the serve counts too)
   Sound.hit(intensity);
-  heatUp(smash);
+  heatUp(smash, who);
   if (rally.warp[who]) { const r = turnRacket(who); fxBurst(r.pos.x, r.pos.y, r.pos.z, JUTSU.hiraishin.color, 0.3); fxSprite(FX_TEX.ring, JUTSU.hiraishin.color, r.pos.x, TABLE_TOP + 0.01, r.pos.z, 0.2, 0.4, 2); }
   const opponent = turnBot(other(who));
   if (self) self.plan = null;
@@ -273,13 +273,19 @@ export function registerHit(who, intensity, smash = false, stroke = true) {
 }
 
 /** Overdrive rally (HEAT): a stroke heats a long rally up, or a smash cashes the heat in.
- *  Feel only (shake, clang, spark; a hit-stop on a big cash-in) plus the real-time pace in timeScale. */
-function heatUp(smash) {
+ *  Feel only (the ball's trail and glow, the RALLY tag, the crowd, shake, clang; sparks only at
+ *  Overdrive) plus the real-time pace in timeScale. */
+function heatUp(smash, who) {
   if (match.watch) return;
   const H = HEAT, level = rally.heat;
+  rally.cashIn = 0;
   if (smash) {   // the cash-in: the bigger the heat, the bigger the hit
-    if (level >= H.freezeFrom) setHitStop(H.freeze + H.freezePer * level);   // the finishing blow
-    if (level > 0) { setCameraShake(Math.max(cameraShake, SMASH.shake * (1 + level / 2))); Sound.overdrive(level); fxBurst(ball.p.x, ball.p.y, ball.p.z, H.color, 0.25 + 0.08 * level); }
+    if (level > 0) {
+      rally.cashIn = level;   // the smash trails white-hot until it's returned
+      setCameraShake(Math.max(cameraShake, SMASH.shake * (1 + level / 2))); Sound.overdrive(level);
+      crowdReact(who, Math.min(1, 0.6 + 0.1 * level));   // the hitter's fans roar
+      if (level === H.max) fxBurst(ball.p.x, ball.p.y, ball.p.z, 0xffffff, 0.45);
+    }
     rally.heat = rally.heatHits = 0;
     return;
   }
@@ -288,7 +294,8 @@ function heatUp(smash) {
   if (!rally.heat) return;
   setCameraShake(Math.max(cameraShake, H.shake * rally.heat));
   Sound.heat(rally.heat);
-  fxBurst(ball.p.x, ball.p.y, ball.p.z, H.color, 0.1 + 0.04 * rally.heat);
+  if (rally.heat > level) crowdReact(null, H.crowd[rally.heat - 1]);   // the crowd builds with each level, on its feet at Overdrive
+  if (rally.heat === H.max) fxBurst(ball.p.x, ball.p.y, ball.p.z, H.color, 0.26);   // sparks only at Overdrive
   if (rally.heat === H.max && level < H.max) showMessage('Overdrive!', '', 'warn', 0.8, 0);   // never over a call-out
 }
 

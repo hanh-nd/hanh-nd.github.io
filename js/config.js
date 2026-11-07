@@ -638,20 +638,26 @@ export const AIM = {
 export const META_SLOW = 0.5;
 
 /** Overdrive rally (specs/DECISIONS.md): a long rally heats up. From the `from`-th stroke of a
- *  point (the serve is the 1st), every `every` strokes add a heat level, up to `max`. Each
- *  stroke then lands with a camera shake and a clang that rise with the level, and the rally
- *  runs a little faster in real time (timeScale × 1 + pace·level/max). A smash cashes the heat
- *  in: a big shake and thump, then the heat starts over. Only a cash-in at level `freezeFrom` or
- *  more gets a hit-stop (the world holds still for freeze + freezePer·level real seconds): a
- *  freeze on every stroke broke the rally's rhythm and parted the racket from your finger.
+ *  point (the serve is the 1st), every `every` strokes add a heat level, up to `max`. You see it
+ *  on the ball (it and its trail turn a shade deeper orange each level: `ball`, `trail`; no glow,
+ *  a hint, not a new ball) and hear it in the crowd (`crowd`). Each stroke lands with a shake and
+ *  a clang that rise with the level; sparks fly only at Overdrive (max). The rally runs a little
+ *  faster in real time (timeScale × 1 + pace·level/max). A smash cashes the heat in: the ball turns
+ *  a touch lighter, a big shake and thump, the hitter's fans roar (sparks if it was Overdrive),
+ *  then the heat starts over. No hit-stop: the world never holds still while your finger is live
+ *  (in a freeze the finger kept moving, and when play went on that movement read as a swipe of
+ *  ~3× its speed, so the next stroke flew wrong).
  *  Feel and real-time pace only: the physics, the shots and the CPU (all in sim time) are
  *  untouched. Off while watching CPU vs CPU. */
 export const HEAT = {
   from: 3, every: 2, max: 4,
-  freezeFrom: 2, freeze: 0.05, freezePer: 0.01,
   pace: 0.1,
   shake: 0.006,           // camera shake per level (m); a cash-in: SMASH.shake × (1 + level/2)
-  color: 0xffb347,        // the spark at the racket
+  color: 0xffb347,        // the sparks at the racket (only at Overdrive)
+  trail: [0xffa64a, 0xff9a3a, 0xff8e2c, 0xff8220],   // the ball's trail per level: the same orange, a little deeper each level
+  ball: [0xff8616, 0xff8012, 0xff790e, 0xff720a],    // the ball's own colour per level: a small shift from COLORS.ball (0xff8c1a); no glow
+  cashBall: 0xffa23e, cashTrail: 0xffc274,            // a cash-in smash, until it's returned: a touch lighter
+  crowd: [0.35, 0.5, 0.65, 0.9],                      // the crowd's energy as each level is reached (≥ 0.85: on its feet, phone flashes)
 };
 
 /** Touch drags the racket relative to where the finger lands (like a trackpad): racket travel per

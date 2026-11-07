@@ -1,13 +1,13 @@
 // The ball: mesh, shadow, spin marker, trail, and the jutsu effects drawn around it.
 import * as THREE from 'three';
 import { clamp, rand } from '../util.js';
-import { COLORS, JUTSU, PHYS, SIGNATURES, SPIRIT } from '../config.js';
+import { COLORS, HEAT, JUTSU, PHYS, SIGNATURES, SPIRIT } from '../config.js';
 import { HALF_L, HALF_W, TABLE_TOP, makeBallState } from '../physics.js';
 import { ambLight, hemiLight, scene, sun } from './scene.js';
 import { std } from './table.js';
 import { venue } from './venues.js';
 import { turnRacket } from '../ai.js';
-import { liveJutsu, rally } from '../rules.js';
+import { liveJutsu, match, rally } from '../rules.js';
 
 /* =====================================================================
    BALL — mesh with a marker dot (to show spin), blob shadow, bounce marker
@@ -65,10 +65,13 @@ function updateTrail(p) {
   if (jt && JUTSU[jt.id].fx.trail === 'zigzag') {   // lightning: the trail crackles
     for (let i = 1; i < TRAIL_N; i++) { trailPos[i * 3] += rand(-1, 1) * 0.012; trailPos[i * 3 + 1] += rand(-1, 1) * 0.012; }
   }
-  const fast = !rally.hidden && (jt || sig || hook || (rally.live && !lj && Math.hypot(ball.v.x, ball.v.y, ball.v.z) > 9.5));
+  // Overdrive (HEAT): a heated rally's ball and its trail deepen a little each level (no glow); a cash-in smash turns a touch lighter.
+  const heat = rally.live && !match.watch && !lj ? rally.heat : 0, cash = rally.live && !match.watch && !lj && rally.cashIn > 0;
+  const fast = !rally.hidden && (jt || sig || hook || cash || heat > 0 || (rally.live && !lj && Math.hypot(ball.v.x, ball.v.y, ball.v.z) > 9.5));
   if (fast && !trail.visible) for (let i = 3; i < TRAIL_N * 3; i++) trailPos[i] = trailPos[i % 3];   // restart cleanly
-  trail.material.color.setHex(jt ? JUTSU[jt.id].color : sig ? sig.color : hook ? 0x5ad1ff : 0xffb347);
+  trail.material.color.setHex(jt ? JUTSU[jt.id].color : sig ? sig.color : hook ? 0x5ad1ff : cash ? HEAT.cashTrail : heat ? HEAT.trail[heat - 1] : 0xffb347);
   trail.visible = !!fast;
+  ballMesh.material.color.setHex(rally.hidden ? COLORS.ball : cash ? HEAT.cashBall : heat ? HEAT.ball[heat - 1] : COLORS.ball);   // (the decoys share it)
 }
 
 /** Jutsu glow around the ball: an additive sprite, one drawing per jutsu look (JUTSU.fx.aura), tinted
