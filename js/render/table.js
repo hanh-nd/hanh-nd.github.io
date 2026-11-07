@@ -59,7 +59,7 @@ const LOOKS = {
   arena: { top: COLORS.table, rough: 0.45, legs: 'steel' },
   club: { top: 0x1f5a3d, rough: 0.7, apron: 0x6b4527, legs: 'wood' },                 // old green club table, wooden edge
   pro: { top: 0x0d2f5e, rough: 0.4, apron: 0x101216, legs: 'chassis' },               // deep blue, black frame, heavy chassis
-  park: { top: 0x8e9398, rough: 0.95, slab: 0.07, legs: 'concrete', net: 'plate' },   // concrete slab, steel plate net
+  park: { top: 0x8e9398, rough: 0.95, slab: 0.07, paint: 0x174f59, legs: 'concrete', net: 'plate' },   // concrete slab with a painted petrol-teal top (the orange ball's opposite: it pops), steel plate net
 };
 const tables = {};
 
@@ -71,6 +71,7 @@ function buildTable(key) {
   // The top (a park slab is thicker, downward: the playing surface stays at H).
   const slab = look.slab || T;
   g.add(box(W, slab, L, std(look.top, { roughness: look.rough }), 0, H - slab / 2, 0));
+  if (look.paint) g.add(box(W - 0.004, 0.0006, L - 0.004, std(look.paint, { roughness: 0.8 }), 0, H + 0.0003, 0, false));   // the painted playing surface
   if (look.apron) {   // a frame round the top's edge
     const ap = std(look.apron, { roughness: 0.6 }), a = 0.012, ah = T + 0.03;
     for (const sx of [-1, 1]) g.add(box(a, ah, L + 2 * a, ap, sx * (W / 2 + a / 2), H - ah / 2 + 0.001, 0));
