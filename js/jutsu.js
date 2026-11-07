@@ -1,6 +1,6 @@
-// Chakra, the jutsu and their effects, FLOW, Ego rank.
+// Chakra, the jutsu and their effects, FLOW, Ego grade.
 import { clamp, rand } from './util.js';
-import { AI_COMMON, CHAKRA, FLOW, GODHAND, HIRAISHIN, JUTSU, JUTSU_AI, META_REACH, META_STEADY, MIRROR, MISDIRECT, PLAYER_CFG, POSSESSION, RANK, SAMEHADA, SLOTS, SLOT_COST, SMASH, SPIRIT, STOP, STYLE_KIT } from './config.js';
+import { AI_COMMON, CHAKRA, FLOW, GODHAND, HIRAISHIN, JUTSU, JUTSU_AI, META_REACH, META_STEADY, MIRROR, MISDIRECT, PLAYER_CFG, POSSESSION, SAMEHADA, SLOTS, SLOT_COST, SMASH, SPIRIT, STOP, STYLE_KIT } from './config.js';
 import { HALF_L, HALF_W, TABLE_TOP, landingOf, predictBounce, simulate, solveShot, stepBall } from './physics.js';
 import { crowdReact } from './render/venues.js';
 import { player } from './render/racket.js';
@@ -8,13 +8,13 @@ import { FX_TEX, HAND_TEX, ball, decoys, fxBurst, fxMark, fxSprite, marker, setB
 import { applyShot, pendingUpgrade, setPendingUpgrade, topspinOf } from './strokes.js';
 import { activeBots, ai, aiPlay, levelCfg, memberBot, memberRacket, noteAIShot, seesJutsu, styleCfg, turnBot, turnRacket, yourTurn } from './ai.js';
 import { incomingJutsu, isPlaying, isYou, liveJutsu, match, nameOf, opp, other, rally, registerHit } from './rules.js';
-import { $, showMessage, store } from './ui/hud.js';
+import { $, showMessage } from './ui/hud.js';
 import { hex } from './tournament.js';
 import { Sound } from './audio.js';
 import { cameraShake, setCameraShake, simTime } from './loop.js';
 
 /* =====================================================================
-   JUTSU — chakra, arming, the three jutsu, counters, FLOW, Ego rank
+   JUTSU — chakra, arming, the three jutsu, counters, FLOW, Ego grade
    ===================================================================== */
 export const chakra = { player: 0, ai: 0 };
 export const flow = { player: false, ai: false, streak: { player: 0, ai: 0 }, deep: { player: false, ai: false } };   // deep: an Awakening's FLOW, it survives a lost point
@@ -402,15 +402,6 @@ export function updateFlow(winner) {
   syncFlow();
 }
 
-/** Ego rank (#1 is the top): a win climbs, a loss slips. Returns { before, after }. */
-export const rankNow = () => clamp(Math.round(store.get('pp3d.rank', RANK.start)), 1, 999);
-export function moveRank(won) {
-  const before = rankNow();
-  const gain = won ? RANK.win[match.levelKey] * (match.doubles ? RANK.duo : match.mode === 'tour' ? RANK.tour : 1) : -RANK.loss;
-  const after = clamp(Math.round(before - gain), 1, 999);
-  store.set('pp3d.rank', after);
-  return { before, after };
-}
 /** Ego grade for your match: points share, the win, counters, flows, jutsu, winners vs errors. */
 export function egoGrade(won) {
   const s = match.stats, total = s.pointsWon[0] + s.pointsWon[1] || 1;

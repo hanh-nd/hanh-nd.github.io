@@ -81,7 +81,7 @@ That's about +0.1 to +0.15 points per seal whichever you pick. In CPU-vs-CPU due
 - **1v1 and Practice:** the rival's card shows their style, top jutsu and signature counter. The roster sheet also has **Random** (a new rival each time you reach Ready). **Change Rival** at the end of a 1v1 opens Ready with the roster up.
 - **2v2:** three roster players: **your ally** and **Opponent 1 and 2**, each a card to tap. Picking someone already in swaps them; **Re-roll** draws two new opponents of different styles. Your ally is remembered.
 - **Tournament:** choose an event, then the hub. With a run in progress, the tile says who's next and opens the hub; **New Event** in the hub starts over.
-- **Practice:** a 1v1 that never ends (games roll on, no rank change, no grade). Two switches on Ready: **Seals refill every point** (on) and **CPU uses jutsu**. Leave from the pause menu. A tag under the scorebug names each combo as you land it (gold on the rival's weak spot), or warns **Careful · it read you**.
+- **Practice:** a 1v1 that never ends (games roll on, no grade). Two switches on Ready: **Seals refill every point** (on) and **CPU uses jutsu**. Leave from the pause menu. A tag under the scorebug names each combo as you land it (gold on the rival's weak spot), or warns **Careful · it read you**.
 - **Game speed** is in Settings and applies straight away. Every choice (rival, 2v2 ally, level, event, speed, practice switches) is remembered.
 
 ## Venues
@@ -98,9 +98,9 @@ That's about +0.1 to +0.15 points per seal whichever you pick. In CPU-vs-CPU due
 - Nothing freezes. A first version held the world still for 70–90 ms on a big cash-in, but your finger kept moving, and when play went on that movement read as a swipe of about 3× its speed: the next stroke (often your return of that smash) flew wrong.
 - It changes how the game feels, not the shots. Physics, aim and the CPU are as before. It's off while you watch a CPU match. Tuning: `HEAT` in `config.js`.
 
-## FLOW, Ego rank
+## FLOW, Ego grade
 - **FLOW:** 3 points in a row. Until you lose a point: hand error ×0.6 (steadier aim) and chakra gain ×1.6. It does not slow time (that is Meta Vision). A CPU in FLOW makes 40% fewer mistakes. Awakening's **deep FLOW** is stronger (hand error ×0.4, a CPU 65% fewer mistakes, reach ×1.3) and survives one lost point.
-- **Ego rank:** starts at #300, climbs with wins (more against Hard, ×1.2 in 2v2, ×1.5 in the tournament), slips 4 on a loss. Each match ends with an S–D grade.
+- **Ego grade:** each match you play ends with an S–D grade.
 
 ## 2v2
 - You + an ally vs 2 opponents, all from the roster at the level you pick. Partners **alternate hits**; the racket whose turn it isn't fades out and can't touch the ball.

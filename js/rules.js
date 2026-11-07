@@ -11,7 +11,7 @@ import { input } from './input.js';
 import { TLOG } from './log.js';
 import { pendingUpgrade, setPendingUpgrade } from './strokes.js';
 import { BOTS, DOUBLES, activeBots, adapting, ai, aiOnOpponentHit, ally, aiStartPoint, nearAI, newAdapt, serverBot, serverRacket, turnBot, turnRacket, yourTurn } from './ai.js';
-import { armed, chakra, clearDecoys, drainSeals, gainChakra, godHandSave, mirrorCheck, moveRank, resetJutsu, setArmed, startJutsu, strokeLanded, syncChakra, updateFlow } from './jutsu.js';
+import { armed, chakra, clearDecoys, drainSeals, gainChakra, godHandSave, mirrorCheck, resetJutsu, setArmed, startJutsu, strokeLanded, syncChakra, updateFlow } from './jutsu.js';
 import { $, beatSignature, hideAllMenus, pointSituation, showMessage, updateHUD } from './ui/hud.js';
 import { practice, showEndMenu, syncFastForward, syncPauseButton } from './ui/menus.js';
 import { hex, roundNames, tour, tourRecordResult, tourRecordWatched } from './tournament.js';
@@ -476,7 +476,6 @@ export function endMatch(winner) {
   TLOG.matchEnd();
   setArmed(0);
   syncChakra();
-  match.rankMove = match.watch || match.mode === 'machine' ? null : moveRank(winner === 'player');
   Sound.fanfare(winner === 'player');
   crowdReact(winner, 1);
   startWave();

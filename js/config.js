@@ -497,9 +497,6 @@ export const JUTSU_AI = {
 export const FLOW = { streak: 3, aim: 0.6, mistake: 0.6, deep: { aim: 0.4, mistake: 0.35, reach: 1.3 } };   // deep: an Awakening's FLOW (reach: contact reach ×)
 /** Meta Vision: the rest of the point your hand error (a bot's error chance) is × META_STEADY. */
 export const META_STEADY = 0.6, META_REACH = 1.25;   // ...and its contact reach × this
-/** Ego rank: you start at #300 and climb with every win (more vs a higher level), and slip a
- *  little on a loss. duo / tour: multipliers for a 2v2 or a tournament win. */
-export const RANK = { start: 300, win: { easy: 6, medium: 14, hard: 26 }, loss: 4, duo: 1.2, tour: 1.5 };
 
 /** Adaptation within a match (vs you only, never in watch mode, never from the score): the CPU
  *  remembers the kind of shot you missed (zone = your side × short / backspin / topspin), aims a

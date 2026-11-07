@@ -10,7 +10,7 @@ import { marker, setBall } from '../render/ball.js';
 import { input, touchSens } from '../input.js';
 import { TLOG } from '../log.js';
 import { ai2, ally } from '../ai.js';
-import { autoJutsu, egoGrade, kitJutsu, rankNow, resetJutsu, setYourKit, yourKit } from '../jutsu.js';
+import { autoJutsu, egoGrade, kitJutsu, resetJutsu, setYourKit, yourKit } from '../jutsu.js';
 import { WATCH_SPEEDS, home, isPlaying, match, opp, rally, setHome, setOpponent, setWatchSpeed, startMatch, watchSpeed } from '../rules.js';
 import { $, hideAllMenus, showMessage, store } from './hud.js';
 import { attrBars, finalRound, hex, isDuoTour, nextRival, roundNames, showTourHub, titleKey, tour } from '../tournament.js';
@@ -111,7 +111,6 @@ function showHome() {
   duo.opps = null;
   menuVenue('arena');
   drawBanners();
-  $('rank-badge').textContent = `EGO RANK #${rankNow()}`;
   const last = lastSetup();
   $('btn-again-last').classList.toggle('hidden', !last);
   if (last) $('again-txt').textContent = last.text;
@@ -256,7 +255,7 @@ function showReady(roll = true) {
   $('ready-extra').innerHTML = mode !== 'practice' ? '' : `<div class="set-sec" style="margin:14px 0 4px">
     <div class="set-row"><span>Seals refill every point</span><button class="btn alt" data-pr="refill" aria-pressed="${practice.refill}">${practice.refill ? 'On' : 'Off'}</button></div>
     <div class="set-row" style="margin-top:8px"><span>CPU uses jutsu</span><button class="btn alt" data-pr="cpuJutsu" aria-pressed="${practice.cpuJutsu}">${practice.cpuJutsu ? 'On' : 'Off'}</button></div></div>`;
-  $('ready-rules').textContent = mode === 'practice' ? 'No score limit · no rank change · leave from the pause menu'
+  $('ready-rules').textContent = mode === 'practice' ? 'No score limit · leave from the pause menu'
     : mode === 'duo' ? 'Best of 3 · first to 11 · partners take turns, serve diagonal' : 'Best of 3 · first to 11, win by 2';
   $('btn-go').textContent = mode === 'practice' ? 'Start Practice' : 'Start Match';
   kitOpen = -1;
@@ -271,8 +270,8 @@ function renderReady() {
   const pickSide = (cls, c, act, label, small, big) => `<button class="vs-side ${cls} pick" style="--c:${c}" data-act="${act}" aria-label="${label}"><small>${small}</small><b>${big} ${caret}</b></button>`;
   const who = uiMode === 'practice' ? 'partner' : 'rival';
   const [al, o1, o2] = d ? duoSlots().map(rosterBy) : [];
-  $('ready-vs').innerHTML = (d ? pickSide('you', hex(COLORS.player), 'ally', 'Change your ally', `Ego #${rankNow()}`, `You + ${al.short}`)
-    : side('you', hex(COLORS.player), `Ego #${rankNow()}`, 'YOU'))
+  $('ready-vs').innerHTML = (d ? pickSide('you', hex(COLORS.player), 'ally', 'Change your ally', 'Player', `You + ${al.short}`)
+    : side('you', hex(COLORS.player), 'Player', 'YOU'))
     + '<div class="vs-mark">VS</div>'
     + (d ? side('them', hex(o1.color), AI_LEVELS[duo.level].label, `${o1.short} & ${o2.short}`)
       : pickSide('them', hex(rival.color), 'rival', `Change ${who}`, AI_LEVELS[s.level].label, `${rival.flag} ${rival.short}`));
@@ -409,7 +408,7 @@ export function startQuick() {
   rememberLast('quick', rival, quick.level);
   startMatch();
 }
-/** Practice: a 1v1 that never ends (games roll on; no rank, no grade). Your seals can refill
+/** Practice: a 1v1 that never ends (games roll on; no grade). Your seals can refill
  *  every point (practice.refill) and the CPU's jutsu can be turned off (practice.cpuJutsu). */
 function startPractice() {
   Sound.init();
@@ -574,15 +573,10 @@ export function showEndMenu(winner) {
     $('end-sub').textContent = `vs ${`${opp.flag} ${opp.short}`.trim()} · ${games} · ${detail}`;
     if (won && match.levelKey === 'hard') confetti();
   }
-  // Ego grade and rank (your matches only).
-  const grade = $('end-grade'), rank = $('end-rank'), mv = match.rankMove;
+  // Ego grade (your matches only).
+  const grade = $('end-grade');
   grade.classList.toggle('hidden', !!match.watch);
-  rank.classList.toggle('hidden', !mv);
   if (!match.watch) { const g = egoGrade(won); grade.textContent = g; grade.className = `grade ${g}`; }
-  if (mv) {
-    const d = mv.before - mv.after;
-    rank.textContent = `EGO RANK #${mv.after}${d > 0 ? `  ▲${d}` : d < 0 ? `  ▼${-d}` : ''}`;
-  }
   const rows = [
     ['Points', `${s.pointsWon[0]} – ${s.pointsWon[1]}`],
     ['Winners / errors', `${s.winners} / ${s.errors}`],
@@ -609,7 +603,6 @@ function showMachineEnd() {
   $('end-title').textContent = mach.newBest ? `🏆 New best: ${mach.score}` : `Score ${mach.score}`;
   $('end-sub').textContent = `Ball Machine · reached wave ${mach.waveNo}${mach.newBest ? '' : ` · best ${mach.best}`}`;
   $('end-grade').classList.add('hidden');
-  $('end-rank').classList.add('hidden');
   $('end-stats').innerHTML = [
     ['Balls returned', mach.returned],
     ['Targets hit', mach.targets],

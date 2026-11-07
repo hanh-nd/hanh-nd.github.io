@@ -16,7 +16,7 @@ A table tennis game in the browser (three.js, no build step): open `index.html` 
 | `combo.js` | Combos: two strokes in a row read as a tactic (Draw & Drive, Run Around, Change Up, Set & Kill), scaled by each CPU style's weakness |
 | `ai.js` | The CPU: reading your shot, moving, choosing and playing strokes, adapting |
 | `serve.js` | Serves and the toss |
-| `jutsu.js` | Chakra, jutsu, FLOW, Ego rank |
+| `jutsu.js` | Chakra, jutsu, FLOW, Ego grade |
 | `rules.js` | Match state and the rules: faults, lets, scoring, games; the time scale |
 | `loop.js` | The frame loop: fixed-step physics, contacts, camera, rendering |
 | `log.js` | The play log (`?log`) |

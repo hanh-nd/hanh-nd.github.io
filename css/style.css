@@ -456,7 +456,6 @@
   .howto span.j { color: #6fe3ff; }
   .howto.ways { grid-template-columns: 1fr; }
   .howto.ways span { font-weight: 600; font-size: 13px; text-align: right; }
-  .rank-badge { display: inline-block; margin: 2px 0 6px; font-size: 12px; font-weight: 900; letter-spacing: .14em; padding: 4px 10px; border-radius: 6px; background: #10131a; border: 1px solid var(--gold); color: var(--gold); }
   .grade { font-size: 64px; font-weight: 900; font-style: italic; line-height: 1; float: right; margin: -6px 0 0 10px; text-shadow: 0 0 22px currentColor; }
   .grade.S { color: #ffd23f; } .grade.A { color: #57e389; } .grade.B { color: #6fe3ff; } .grade.C { color: #c0c8d6; } .grade.D { color: #ff6b6b; }
 
