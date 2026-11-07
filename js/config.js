@@ -391,8 +391,8 @@ export const STYLE_KIT = {
 };
 /** Your jutsu (start menu): one per cost, picked from that cost's pool; kept in storage. */
 export const JUTSU_POOL = {
-  block: ['clone', 'sharingan', 'zeroshiki', 'metavision', 'samehada'],
-  drive: ['snake', 'misdirect', 'blackflash', 'hiraishin', 'timestop', 'mirror', 'possession', 'spiritbomb'],
+  block: ['clone', 'sharingan', 'zeroshiki', 'metavision', 'samehada', 'spiritbomb'],
+  drive: ['snake', 'misdirect', 'blackflash', 'hiraishin', 'timestop', 'mirror', 'possession'],
   smash: ['rasengan', 'godhand', 'void', 'awaken'],
 };
 /** One line each for the picker. */
