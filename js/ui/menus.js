@@ -3,7 +3,8 @@ import { rand } from '../util.js';
 import { AI_LEVELS, AI_STYLES, COLORS, COMBO_NAMES, FINAL, GAME, JUTSU, JUTSU_ANGLE, JUTSU_POOL, JUTSU_TIP, LEVEL_BLURB, LEVEL_ORDER, ROSTER, ROUND_NAMES, SIGNATURES, SIGNATURE_OF, SLOTS, SLOT_COST, SLOT_LABEL, STYLE_KIT, STYLE_ORDER, TIERS, TIER_ORDER, YOU } from '../config.js';
 import { isDesktop } from '../render/scene.js';
 import { setBoardText } from '../render/table.js';
-import { VENUE_OF_TIER, drawBanners, drawScreens, setAttendance, setVenue, venueFor } from '../render/venues.js';
+import { VENUE_OF_TIER, drawBanners, drawScreens, setAttendance, setVenue } from '../render/venues.js';
+import { setTableOfVenue } from '../tables.js';
 import { ai2Racket, aiRacket, allyRacket, player } from '../render/racket.js';
 import { marker, setBall } from '../render/ball.js';
 import { input, touchSens } from '../input.js';
@@ -20,16 +21,22 @@ import { Sound } from '../audio.js';
    tap who you face (the rival, your ally, a CPU) to change them in a sheet, or just Start.
    A returning player can also tap Play again on Home (pp3d.last) and skip Ready. */
 /** Your setup per mode. opp: a roster name, or 'random' (rolled each time you reach Ready). */
-export const quick = { level: 'easy', opp: 'random' };
-export const practice = { level: 'easy', opp: 'random', refill: true, cpuJutsu: true };
-export const duo = { level: 'easy', opps: null, ally: 'Sun Yingsha' };   // opps: the two you face (roster names), rolled on the Ready screen · ally: your partner (a roster name)
+export const quick = { level: 'easy', opp: 'random', venue: 'arena' };
+export const practice = { level: 'easy', opp: 'random', refill: true, cpuJutsu: true, venue: 'arena' };
+export const duo = { level: 'easy', opps: null, ally: 'Sun Yingsha', venue: 'arena' };   // opps: the two you face (roster names), rolled on the Ready screen · ally: your partner (a roster name)
 export let selTier = 'pro', uiMode = 'quick';
 let rival = null;   // the roster entry you face in 1v1 / Practice (shown on Ready)
 export const rosterBy = name => ROSTER.find(e => e.name === name) || null;
 const sigOf = e => (SIGNATURE_OF[e.name] ? SIGNATURES[SIGNATURE_OF[e.name]] : null);
 const setupOf = mode => (mode === 'practice' ? practice : quick);
 const MODE_LABEL = { practice: 'Practice', quick: '1v1', duo: '2v2', tour: 'Tournament' };
-const saveSetup = () => store.set('pp3d.setup', { quick, practice, duo: { level: duo.level, ally: duo.ally }, tier: selTier });
+const saveSetup = () => store.set('pp3d.setup', { quick, practice, duo: { level: duo.level, ally: duo.ally, venue: duo.venue }, tier: selTier });
+/** Where a 1v1, 2v2 or Practice is played: the venue brings its table (TABLES). Practice starts on
+ *  the standard table, so it plays like a quick match until you pick another (to learn the wind,
+ *  say). The tournament's venue comes with its event. */
+export const VENUE_PICKS = ['arena', 'park', 'gym', 'stadium'];
+const VENUE_PICK = { arena: ['Arena', 'Standard'], park: ['Park', 'Wind'], gym: ['Club', 'Low, skids'], stadium: ['Pro', 'Sits up'] };
+const pickedVenue = mode => (mode === 'duo' ? duo : setupOf(mode)).venue;
 
 /** A segmented toggle (one selected); rebuilding it replaces its handler. */
 function buildSeg(wrapId, keys, render, sel, onPick) {
@@ -236,7 +243,7 @@ function rollOpps() {
  *  few options, Start. */
 function showReady(roll = true) {
   const mode = uiMode;
-  menuVenue(venueFor(mode), BOARD_OF_MODE[mode]);
+  menuVenue(pickedVenue(mode), BOARD_OF_MODE[mode]);
   if (roll && mode !== 'duo') rollRival();
   if (mode === 'duo' && !duo.opps) duo.opps = rollOpps();
   $('ready-mode').textContent = MODE_LABEL[mode];
@@ -272,8 +279,10 @@ function renderReady() {
       + `<div class="row-label row-flex"><span>Opponents</span><button class="reroll" data-act="reroll">🎲 Re-roll</button></div>`
       + [o1, o2].map((e, i) => pickCard('cpu', `Change opponent ${i + 1}`, oppCard({ ...e, level: duo.level }, `Opponent ${i + 1}`, false), i + 1)).join('')
     : pickCard('rival', `Change ${who}`, oppCard({ ...rival, level: s.level }, s.opp === 'random' ? 'Random rival' : uiMode === 'practice' ? 'Practice partner' : 'Your rival', false)))
-    + '<div class="row-label">Level</div><div class="seg" id="ready-levels"></div>';
+    + '<div class="row-label">Level</div><div class="seg" id="ready-levels"></div>'
+    + '<div class="row-label">Table</div><div class="seg" id="ready-venues"></div>';
   buildSeg('ready-levels', LEVEL_ORDER, k => `${AI_LEVELS[k].label}<small>${LEVEL_BLURB[k]}</small>`, s.level, k => { s.level = k; saveSetup(); renderReady(); });
+  buildSeg('ready-venues', VENUE_PICKS, k => `${VENUE_PICK[k][0]}<small>${VENUE_PICK[k][1]}</small>`, s.venue, k => { s.venue = k; saveSetup(); menuVenue(k, BOARD_OF_MODE[uiMode]); });
 }
 function readyAct(b) {
   const act = b.dataset.act;
@@ -324,7 +333,7 @@ export function showEvent() {
 }
 
 /** The venue behind a menu screen (its big screens show the title). */
-export function menuVenue(key, board = 'Open') { setVenue(key); setBoardText(board); drawScreens(); }
+export function menuVenue(key, board = 'Open') { setVenue(key); setTableOfVenue(key); setBoardText(board); drawScreens(); }
 const BOARD_OF_MODE = { practice: 'Practice', duo: 'Doubles' };
 
 /** Back to the attract mode (ball bouncing, camera orbiting) behind a menu. */
@@ -354,6 +363,7 @@ export function startQuick() {
   Sound.init();
   if (!rival) rival = rosterBy(quick.opp) || ROSTER[0];
   match.mode = 'quick';
+  match.venue = quick.venue;
   match.watch = null;
   match.doubles = false;
   setHome(null);
@@ -368,6 +378,7 @@ function startPractice() {
   Sound.init();
   if (!rival) rival = rosterBy(practice.opp) || ROSTER[0];
   match.mode = 'practice';
+  match.venue = practice.venue;
   match.watch = null;
   match.doubles = false;
   setHome(null);
@@ -381,6 +392,7 @@ function startPractice() {
 export function startDuo() {
   Sound.init();
   match.mode = 'duo';
+  match.venue = duo.venue;
   match.watch = null;
   match.doubles = true;
   setHome(null);

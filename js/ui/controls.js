@@ -5,7 +5,7 @@ import { touchSens } from '../input.js';
 import { armJutsu, autoJutsu, setAutoJutsu, syncChakra } from '../jutsu.js';
 import { WATCH_SPEEDS, match, setWatchSpeed, startMatch, watchSpeed } from '../rules.js';
 import { $, store } from './hud.js';
-import { buildMenus, cycleFastForward, duo, hideOverlay, practice, quick, rosterBy, selTier, setSelTier, setUiMode, showOverlay, showRivalPicker, showStartMenu, startDuo, startQuick, syncSettings, togglePause, uiMode } from './menus.js';
+import { VENUE_PICKS, buildMenus, cycleFastForward, duo, hideOverlay, practice, quick, rosterBy, selTier, setSelTier, setUiMode, showOverlay, showRivalPicker, showStartMenu, startDuo, startQuick, syncSettings, togglePause, uiMode } from './menus.js';
 import { newTournament, showTourHub } from '../tournament.js';
 import { Sound } from '../audio.js';
 
@@ -19,6 +19,7 @@ import { Sound } from '../audio.js';
       if (LEVEL_ORDER.includes(v.level)) o.level = v.level;
       if (o === duo) { const a = rosterBy(v.ally) || ROSTER.find(e => e.style === v.ally); if (a) duo.ally = a.name; }   // (saved before 2v2 had names: a style)
       if ('opp' in o && (v.opp === 'random' || rosterBy(v.opp))) o.opp = v.opp;
+      if (VENUE_PICKS.includes(v.venue)) o.venue = v.venue;
       if (o === practice) { practice.refill = v.refill !== false; practice.cpuJutsu = v.cpuJutsu !== false; }
     }
     if (TIER_ORDER.includes(s.tier)) setSelTier(s.tier);

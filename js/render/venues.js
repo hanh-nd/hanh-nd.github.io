@@ -2,9 +2,10 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { rand } from '../util.js';
-import { COLORS } from '../config.js';
+import { COLORS, TABLE_OF_VENUE } from '../config.js';
 import { ambLight, hemiLight, scene, sun } from './scene.js';
-import { boardMaterial, box, std } from './table.js';
+import { boardMaterial, box, setTableLook, std } from './table.js';
+import { wind } from '../physics.js';
 import { ball } from './ball.js';
 import { home, match, opp } from '../rules.js';
 import { $ } from '../ui/hud.js';
@@ -23,6 +24,7 @@ import { $ } from '../ui/hud.js';
 const geoBox = (w, h, d, x = 0, y = 0, z = 0) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
 /** Merge geometries into one (one draw call). */
 const mergeAll = list => mergeGeometries(list.map(g => (g.index ? g.toNonIndexed() : g)));
+const clampN = (v, m) => Math.max(-m, Math.min(m, v));
 const pickOf = arr => arr[Math.floor(Math.random() * arr.length)];
 const css = c => '#' + new THREE.Color(c).getHexString();
 function canvasTex(w, h, draw) {
@@ -57,7 +59,7 @@ const FANS = {
   capShare: 0.18, clapShare: 0.4,
 };
 /** Who comes, per venue: share in your colour / the rival's, and the share of those with a flag. */
-const FAN_MIX = { gym: { you: 0.15, rival: 0.1, flags: 0.2 }, arena: { you: 0.25, rival: 0.15, flags: 0.4 }, stadium: { you: 0.3, rival: 0.25, flags: 0.55 } };
+const FAN_MIX = { park: { you: 0.1, rival: 0.1, flags: 0.1 }, gym: { you: 0.15, rival: 0.1, flags: 0.2 }, arena: { you: 0.25, rival: 0.15, flags: 0.4 }, stadium: { you: 0.3, rival: 0.25, flags: 0.55 } };
 const fanU = {
   uTime: { value: 0 }, uWave: { value: -1 }, uAtt: { value: 0.35 }, uCheer: { value: new THREE.Vector3() },
   uBall: { value: new THREE.Vector3(0, 1, 0) }, uBallLag: { value: new THREE.Vector3(0, 1, 0) }, uFlash: { value: 0 }, uIdle: { value: 0 },
@@ -252,7 +254,7 @@ function crowdCardMaterial() {
 const screenTex = canvasTex(512, 256);
 const screenMat = new THREE.MeshBasicMaterial({ map: screenTex, color: new THREE.Color(1.5, 1.5, 1.5), fog: false });
 const bannerTex = [0, 1].map(() => canvasTex(512, 128));
-const VENUE_LABEL = { gym: 'City TT Club', arena: 'Ping Pong 3D Arena', stadium: 'World Championship' };
+const VENUE_LABEL = { park: 'Riverside Park', gym: 'City TT Club', arena: 'Ping Pong 3D Arena', stadium: 'World Championship' };
 let screenKey = '';
 function fitText(g, text, maxW, size, weight = 900) {
   do g.font = `${weight} ${size}px system-ui, -apple-system, Segoe UI, sans-serif`; while (g.measureText(text).width > maxW && (size -= 2) > 12);
@@ -396,6 +398,7 @@ const VENUE_CFG = {
       net: new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.7 }),
       tableTop: std(COLORS.table, { roughness: 0.45 }),
     } },
+  park: { bg: 0x9cc4e4, fog: [0xb9d3e6, 26, 70], light: { amb: 0.6, hemi: 0.9, sun: 2.8 }, idle: 0 },
   arena: { bg: 0x141920, fog: [0x141920, 18, 50], light: { amb: 0.45, hemi: 0.6, sun: 2.3 }, idle: 0.02,
     floor: 0x262a31, mat: 0x6b2b2b, endZ: 7.3, sideX: 5.9, endRows: 10, sideRows: 6, upper: 8, roof: 17, fixY: 12,
     screen: [6.4, 3.2], screenY: 8.8, flashes: 160, seat: s => (s.row < 2 ? 0x7c1f2c : 0x203c74),
@@ -547,10 +550,105 @@ function buildGym() {
   return V;
 }
 
+/** The park: a concrete table on a concrete pad in the grass, trees, a chain-link fence, benches
+ *  with a few locals, flats behind, and a flag and blowing leaves that show the point's wind. */
+function buildPark() {
+  const c = VENUE_CFG.park, V = newVenue('park', c), seats = [];
+  const P = (k, g) => putPart(V, k, g);
+  Object.assign(V.mats, {
+    concrete: std(0x9a9c9c, { roughness: 1 }), trunk: std(0x5a3d26, { roughness: 1 }),
+    leaf: std(0x3f7a3a, { roughness: 0.9 }), leaf2: std(0x5c8f3c, { roughness: 0.9 }),
+    fence: new THREE.MeshBasicMaterial({ color: 0x8a9096, wireframe: true, transparent: true, opacity: 0.55 }),
+    post: std(0x6d737a, { metalness: 0.5, roughness: 0.5 }), wood: std(0x8a5a32, { roughness: 0.8 }),
+    flats: std(0xd8c8b0, { roughness: 1, map: canvasTex(256, 256, (g, w, h) => {
+      g.fillStyle = '#d8c8b0'; g.fillRect(0, 0, w, h);
+      for (let y = 10; y < h; y += 32) for (let x = 10; x < w; x += 28) { g.fillStyle = Math.random() < 0.3 ? '#f4e2a0' : '#5d6f80'; g.fillRect(x, y, 14, 18); }
+    }) }),
+    flag: std(0xffffff, { roughness: 0.8, side: THREE.DoubleSide, map: canvasTex(128, 80, (g, w, h) => {
+      g.fillStyle = '#e63946'; g.fillRect(0, 0, w, h); g.fillStyle = '#ffffff'; g.fillRect(0, h / 3, w, h / 3);
+    }) }),
+  });
+  // Grass (mown stripes) and the asphalt pad.
+  const grass = canvasTex(1024, 1024, (g, S) => {
+    for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? '#5f9a45' : '#56903f'; g.fillRect(0, i * S / 16, S, S / 16); }
+    for (let i = 0; i < 9000; i++) { g.fillStyle = `hsla(${rand(85, 110)}, 45%, ${rand(28, 45)}%, .5)`; g.fillRect(Math.random() * S, Math.random() * S, 2, 3); }
+  });
+  grass.wrapS = grass.wrapT = THREE.RepeatWrapping; grass.repeat.set(6, 6);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ map: grass, roughness: 1 }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(8, 13), std(0x4a4e55, { roughness: 1 }));   // asphalt, so the concrete table stands out
+  pad.rotation.x = -Math.PI / 2; pad.position.y = 0.003; pad.receiveShadow = true;
+  V.court.add(floor, pad);
+  // Chain-link fence round the pad's far half and behind you.
+  for (const z of [-7, 7]) { P('fence', new THREE.PlaneGeometry(9, 2.4, 36, 10).translate(0, 1.2, z)); for (let x = -4.5; x <= 4.5; x += 3) P('post', geoBox(0.06, 2.5, 0.06, x, 1.25, z)); }
+  // Trees.
+  const tree = (x, z, s) => {
+    P('trunk', new THREE.CylinderGeometry(0.12 * s, 0.18 * s, 2.4 * s, 7).translate(x, 1.2 * s, z));
+    P(Math.random() < 0.5 ? 'leaf' : 'leaf2', new THREE.IcosahedronGeometry(1.5 * s, 1).translate(x, 3.1 * s, z));
+    P('leaf', new THREE.IcosahedronGeometry(1.1 * s, 1).translate(x + 0.6 * s, 3.8 * s, z - 0.3 * s));
+  };
+  for (const [x, z, sc] of [[-7, -9, 1.3], [-10, -3, 1.1], [8, -10, 1.4], [11, -2, 1.2], [-9, 5, 1], [9, 6, 1.1], [-3, -14, 1.5], [4, -15, 1.3], [-14, -12, 1.6], [15, -13, 1.5]]) tree(x, z, sc);
+  // Flats behind the trees.
+  for (const [x, z, w, h] of [[-12, -26, 10, 14], [0, -30, 12, 18], [13, -25, 9, 12], [-24, -18, 8, 10], [25, -18, 8, 11]]) P('flats', geoBox(w, h, 6, x, h / 2, z));
+  // Benches at both sides, a few locals on them and standing by the fence.
+  for (const sx of [-1, 1]) for (const z of [-3.2, 0.6]) {
+    P('wood', geoBox(0.45, 0.05, 1.8, sx * 5.2, 0.45, z)); P('wood', geoBox(0.05, 0.4, 1.8, sx * 5.42, 0.7, z));
+    for (const dz of [-0.75, 0.75]) P('concrete', geoBox(0.4, 0.43, 0.08, sx * 5.2, 0.215, z + dz));
+    for (const dz of [-0.5, 0.1, 0.6]) seats.push({ x: sx * 5.25, y: 0.02, z: z + dz, yaw: sx * -Math.PI / 2, row: 0, fill: Math.random() * 0.8 });
+  }
+  const chairs = [];
+  for (let x = -3.6; x <= 3.6; x += 0.7) chairs.push({ x, y: 0, z: -7.6, yaw: 0, row: 0, fill: Math.random() * 0.9 + 0.1 });
+  addChairs(chairs, V.stands, () => 0x3a6e9a);
+  // A small flip scoreboard on a post, and the flag that shows the wind.
+  P('post', geoBox(0.08, 1.6, 0.08, -4.6, 0.8, -1.5)); P('dark', geoBox(1.3, 0.75, 0.08, -4.6, 1.9, -1.5));
+  P('screen', new THREE.PlaneGeometry(1.2, 0.6).rotateY(Math.PI / 2).translate(-4.55, 1.9, -1.5));
+  P('post', new THREE.CylinderGeometry(0.03, 0.045, 3, 8).translate(3.4, 1.5, -6.8));
+  const flagGeo = new THREE.PlaneGeometry(0.9, 0.56, 12, 4).translate(0.45, -0.28, 0);
+  const flag = new THREE.Mesh(flagGeo, V.mats.flag); flag.position.set(3.4, 2.92, -6.8); flag.castShadow = true;
+  V.stands.add(flag);
+  const flagRest = flagGeo.attributes.position.array.slice();
+  // Leaves blowing with the wind (none when calm).
+  const N = 70, lp = new Float32Array(N * 3), lv = [];
+  for (let i = 0; i < N; i++) { lp.set([rand(-9, 9), rand(0.2, 3), rand(-8, 1)], i * 3); lv.push(rand(0.6, 1.4)); }
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lp, 3));
+  const leaves = new THREE.Points(lg, new THREE.PointsMaterial({ color: 0x8a6a2a, size: 0.05, sizeAttenuation: true }));
+  V.stands.add(leaves);
+  let sway = 0;
+  V.tick = (dt, t) => {
+    const ws = Math.hypot(wind.x, wind.z), k = Math.min(1, ws / 2.6);
+    // The flag points downwind and flaps harder with the wind; calm, it hangs.
+    const yaw = Math.atan2(-wind.z, wind.x);
+    sway += (yaw - sway) * Math.min(1, dt * 3);
+    flag.rotation.y = ws > 0.1 ? sway : 0;
+    const a = flagGeo.attributes.position.array;
+    for (let i = 0; i < a.length; i += 3) {
+      const x = flagRest[i], f = x / 0.9;
+      a[i] = x * (0.35 + 0.65 * k); a[i + 1] = flagRest[i + 1] - (1 - k) * x * 0.8;
+      a[i + 2] = Math.sin(t * (4 + 6 * k) - x * 5) * f * (0.04 + 0.12 * k);
+    }
+    flagGeo.attributes.position.needsUpdate = true;
+    leaves.visible = ws > 0.1;
+    if (!leaves.visible) return;
+    for (let i = 0; i < N; i++) {
+      const j = i * 3, s = lv[i];
+      lp[j] += wind.x * s * dt * 1.6; lp[j + 2] += wind.z * s * dt * 1.6; lp[j + 1] += Math.sin(t * 2 + i) * dt * 0.4;
+      if (Math.abs(lp[j]) > 10 || lp[j + 2] < -9 || lp[j + 2] > 1.5) {   // blown out: back in on the upwind edge
+        const ux = wind.x / ws, uz = wind.z / ws, r = rand(-8, 8);
+        lp[j] = clampN(-ux * 9.5 - uz * r, 9.5); lp[j + 1] = rand(0.2, 3); lp[j + 2] = clampN(-uz * 5 + ux * r, 4.5) - 3.5;   // (kept away from the camera)
+      }
+    }
+    lg.attributes.position.needsUpdate = true;
+  };
+  makeCrowd([...seats, ...chairs], V.stands, FAN_MIX.park);
+  finishParts(V);
+  return V;
+}
+
 /** Switch venue (built the first time): its stands, fog and light levels. */
 export function setVenue(key) {
   if (venue && venue.key === key) return;
-  venue = VENUES[key] || (key === 'gym' ? buildGym() : buildBowl(key));
+  venue = VENUES[key] || (key === 'gym' ? buildGym() : key === 'park' ? buildPark() : buildBowl(key));
+  setTableLook(TABLE_OF_VENUE[key]);
   for (const v of Object.values(VENUES)) v.root.visible = v === venue;
   venue.stands.visible = true;
   scene.background.setHex(venue.bg);

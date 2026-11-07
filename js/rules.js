@@ -4,6 +4,7 @@ import { ADAPT, AI_COMMON, AI_LEVELS, AI_STYLES, CHAKRA, COLORS, GAME, HEAT, JUT
 import { HALF_L, HALF_W, TABLE_TOP, predictBounce, predictIntercept } from './physics.js';
 import { setBoardText } from './render/table.js';
 import { VENUE_OF_TIER, crowdReact, drawBanners, drawScreens, setAttendance, setCrowdColors, setVenue, startWave, venueFor } from './render/venues.js';
+import { rollWind, setTableOfVenue } from './tables.js';
 import { ai2Body, ai2Racket, aiBody, aiRacket, allyBody, allyRacket, placeBody, player, playerBody } from './render/racket.js';
 import { FX_TEX, ball, fxBurst, fxSprite, marker, serveZone, setBall } from './render/ball.js';
 import { input } from './input.js';
@@ -134,6 +135,9 @@ export function startMatch() {
   placeBody(allyBody, -0.5, 2.2); placeBody(ai2Body, 0.5, -2.2);
   input.target.x = player.pos.x; input.target.z = 1.8;
   TLOG.matchStart();
+  // The venue (and with it the table) before the first serve: that point's wind is rolled on it.
+  const vk = match.mode === 'tour' ? VENUE_OF_TIER[tour.tier] : match.venue || venueFor(match.mode);   // 1v1 / 2v2: picked on Ready
+  setVenue(vk); setTableOfVenue(vk);
   setupServe(true);
   const tag = p => (p.flag ? p.flag + ' ' : '') + p.short.toUpperCase();
   $('opp-name').textContent = tag(opp);
@@ -146,7 +150,6 @@ export function startMatch() {
   if (match.mode === 'tour') {
     const r = match.watch ? match.watch.r : tour.round, round = ROUND_NAMES[r], tier = TIERS[tour.tier];
     $('sb-head').textContent = `${match.watch ? '▶ ' : ''}${tier.label} · ${round}`;
-    setVenue(VENUE_OF_TIER[tour.tier]);
     setAttendance(tier.crowd[r]);
     setBoardText(tier.label);
     showMessage(round, match.watch ? `${home.flag} ${home.short} vs ${opp.flag} ${opp.short}` : `vs ${opp.flag} ${opp.name}`, 'neutral', 2.2, 3);
@@ -154,7 +157,6 @@ export function startMatch() {
   } else {
     const prac = match.mode === 'practice';
     $('sb-head').textContent = prac ? 'Practice · no limit' : `${d ? '2v2' : '1v1'} · Best of ${bo}`;
-    setVenue(venueFor(match.mode));
     setAttendance(d ? 0.5 : prac ? 0.15 : 0.35);
     setBoardText(d ? 'Doubles' : prac ? 'Practice' : 'Open');
     showMessage(prac ? 'Practice' : d ? '2v2' : 'Game 1', d ? 'Take turns · serve diagonal' : `vs ${opp.flag} ${opp.short} · ${AI_LEVELS[levelKey].label} · ${style}`, 'neutral', 1.8, 3);
@@ -206,6 +208,7 @@ function setupServe(first = false) {
     const sx = match.server === 'player' ? -1 : 1;
     serveZone.position.set(sx * HALF_W / 2, TABLE_TOP + 0.002, sx * HALF_L / 2);
   }
+  rollWind();   // the park table: this point's wind (shown before the serve)
   holdBallForServe();
   updateHUD();
 }

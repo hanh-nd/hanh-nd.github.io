@@ -5,6 +5,8 @@ import { currentCharge, input } from '../input.js';
 import { youServe, yourTurn } from '../ai.js';
 import { idx, isPlaying, match, nameOf, other } from '../rules.js';
 import { Sound } from '../audio.js';
+import { wind } from '../physics.js';
+import { table } from '../tables.js';
 
 /* =====================================================================
    UI — HUD, messages, menus
@@ -71,6 +73,13 @@ export function updateHUD() {
     const mine = match.state === 'serve' || match.state === 'toss' ? (match.server === 'player' ? match.serverIdx : match.receiverIdx) === 0 : yourTurn();
     turnTag.textContent = mine ? '▶ YOU' : '▶ ALLY';
     turnTag.className = 'tag' + (mine ? ' player' : '');
+  }
+  // The park table: this point's wind, as you see it from your end (screen right = +x, down = +z).
+  const windTag = $('tag-wind'), ws = Math.hypot(wind.x, wind.z), showWind = !!table.def.wind && isPlaying();
+  windTag.classList.toggle('hidden', !showWind);
+  if (showWind) {
+    windTag.classList.toggle('strong', ws >= 2);
+    windTag.innerHTML = ws < 0.1 ? 'CALM' : `<i style="transform:rotate(${(Math.atan2(wind.z, wind.x) * 180 / Math.PI).toFixed(0)}deg)">➜</i>WIND ${ws.toFixed(1)}`;
   }
   const serving = match.state === 'serve' && youServe();
   $('power-wrap').classList.toggle('hidden', !serving);

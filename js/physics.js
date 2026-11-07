@@ -10,6 +10,10 @@ export const HALF_L = TABLE.length / 2, HALF_W = TABLE.width / 2;
 export const TABLE_TOP = TABLE.height, NET_TOP = TABLE.height + TABLE.netHeight;
 export const NET_HALF = HALF_W + TABLE.netOverhang;
 
+/** The air's own speed (m/s, horizontal). Drag acts on the ball's speed through the air, so a
+ *  crosswind bends a slow ball more than a fast one. Zero except on the park table (setTable). */
+export const wind = { x: 0, z: 0 };
+
 export function makeBallState() {
   return { p: { x: 0, y: 1, z: 0 }, v: { x: 0, y: 0, z: 0 }, w: { x: 0, y: 0, z: 0 } };
 }
@@ -27,13 +31,14 @@ function spinVector(dx, dz, top, side) {
 /** Advance the ball one step. Fills `ev` with { net, table, floor } collision events. */
 export function stepBall(b, dt, ev) {
   const R = PHYS.radius, p = b.p, v = b.v, w = b.w;
-  const speed = Math.hypot(v.x, v.y, v.z);
+  const ax = v.x - wind.x, az = v.z - wind.z;   // velocity through the air
+  const speed = Math.hypot(ax, v.y, az);
   const kd = PHYS.drag * speed, km = PHYS.magnus;
 
   // Forces: gravity + drag + Magnus (ω × v). Semi-implicit Euler.
-  v.x += (-kd * v.x + km * (w.y * v.z - w.z * v.y)) * dt;
+  v.x += (-kd * ax + km * (w.y * v.z - w.z * v.y)) * dt;
   v.y += (-PHYS.gravity - kd * v.y + km * (w.z * v.x - w.x * v.z)) * dt;
-  v.z += (-kd * v.z + km * (w.x * v.y - w.y * v.x)) * dt;
+  v.z += (-kd * az + km * (w.x * v.y - w.y * v.x)) * dt;
   const decay = Math.max(0, 1 - PHYS.spinDecay * dt);
   w.x *= decay; w.y *= decay; w.z *= decay;
 

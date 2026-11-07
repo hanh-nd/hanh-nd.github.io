@@ -162,3 +162,31 @@ Now `keepReachable` (physics.js) checks the final ball of every stroke, on both 
 | chop | 0.50 | 0.45–0.47 |
 
 Against Medium the drop is smaller (smasher 0.43 → 0.33, the rest within about 0.03). Signatures win as often as before. The guard on the CPU's own shots changes nothing measurable for you. `REACH.playable` 0.03 still let a few balls that only just crept into reach go unanswered; 0.06 left none.
+
+## Tables (Nov 2026)
+
+Each venue has its own table (`TABLES`, `TABLE_OF_VENUE`): club (gym), arena (baseline), pro (stadium), park (with a per-point wind). Sim a table by pointing the quick match's venue at it: `TUNE='{"TABLE_OF_VENUE":{"arena":"park"}}' sim/styles.sh hard 30`. For the tournament and the duel, map `gym` and `stadium` too.
+
+What you see (a probe of `solveShot` + `simulate`, same shots on each table; bounce height over the table / speed after the bounce):
+
+| Table | restitution / grip | Drive | Chop |
+|---|---|---|---|
+| arena | 0.88 / 0.55 | 19 cm / 7.5 m/s | 9 cm / 3.3 |
+| club | 0.76 / 0.38 | 15 cm / 7.9 | 8 cm / 4.0 |
+| pro | 0.93 / 0.72 | 21 cm / 7.0 | 10 cm / 2.6 |
+| park | 0.97 / 0.42 | 23 cm / 7.8 | 12 cm / 3.9 |
+
+Park wind, at 1 / 2 / 2.6 m/s across: a drive bends 6 / 11 / 15 cm by the far end line, a soft push 15 / 31 / 43 cm.
+
+Point share per style (30 matches, skilled finger):
+
+| Hard | smasher | mixed | drive | spin | chop | block |
+|---|---|---|---|---|---|---|
+| arena | 0.181 | 0.257 | 0.215 | 0.270 | 0.426 | 0.332 |
+| club | 0.165 | 0.226 | 0.185 | 0.311 | 0.423 | 0.361 |
+| pro | 0.201 | 0.245 | 0.199 | 0.292 | 0.437 | 0.351 |
+| park | 0.196 | 0.216 | 0.161 | 0.324 | 0.420 | 0.371 |
+
+Medium is within ±0.04 of the arena for every style. Rally length and CPU misses are unchanged (a block-only bot: 0 CPU misses on every table). Signatures (`sig.sh hard 32`): 40–43% wins vs an unaware bot and 27–29% vs an aware one on all four tables. The jutsu duel's order and rates match the arena within noise; points without a jutsu stay at 0.52–0.54. 2v2 (medium, 16 matches): 0.35–0.40 on all tables.
+
+A first try with gentler numbers (club 0.84 / 0.42, pro 0.90 / 0.68) changed bounces by only 1–2 cm, too small to notice, so they were pushed to about ±30%.

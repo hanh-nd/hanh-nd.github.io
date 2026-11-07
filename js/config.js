@@ -28,6 +28,30 @@ export const PHYS = {
   netDamping: 0.15,       // fraction of speed kept when the ball hits the net
 };
 
+/** Tables: each venue has its own, and each table has one trait you feel in the first rally.
+ *  `phys` replaces those PHYS numbers while you play on it (the arena table is the baseline).
+ *  The two levers: restitution sets the bounce height (it goes with restitution²), grip sets how
+ *  much speed the ball loses at the bounce (more grip = it checks up and sits; less = it skids on).
+ *  In this model grip doesn't make topspin jump: a stroke's spin turns the ball's surface slower
+ *  than the ball travels, so the bounce's friction always takes some pace off.
+ *  - club (gym): low and skidding. A drive bounces ~15 cm instead of 19, a chop comes on faster:
+ *    low balls are hard to attack, a defenders' table.
+ *  - pro (stadium): sits up and slow. A little taller, and the ball checks up: time to attack.
+ *  - park: concrete, the tallest bounce (a drive ~23 cm), skids on, and WIND. Each point gets its
+ *    own wind (none on some), shown before the serve (flag, leaves, the HUD arrow) and steady for
+ *    the whole point, so it's read, never a surprise; the CPU's reads use the same wind. At the
+ *    top speed a drive bends ~15 cm, a soft push ~43 cm: wind punishes soft play. `wind`: chance
+ *    of wind per point, its speed range (m/s), and the share along the length (mostly across).
+ *  Point shares, rally length, CPU misses, signatures and jutsu stay within the sim's noise of the
+ *  arena on every table (sim/README.md, "Tables"). Practice, 1v1 and 2v2 pick one on Ready. */
+export const TABLES = {
+  arena: { label: 'Arena', phys: {} },
+  club: { label: 'Club', phys: { tableRestitution: 0.76, tableGrip: 0.38 } },
+  pro: { label: 'Pro', phys: { tableRestitution: 0.93, tableGrip: 0.72 } },
+  park: { label: 'Park', phys: { tableRestitution: 0.97, tableGrip: 0.42 }, wind: { chance: 0.75, min: 1, max: 2.6, along: 0.35 } },
+};
+export const TABLE_OF_VENUE = { gym: 'club', arena: 'arena', stadium: 'pro', park: 'park' };
+
 export const GAME = {
   pointsToWin: 11, winBy: 2, gamesToWin: 2,  // best of 3
   servesPerTurn: 2,                          // serve switches every 2 points (every point at deuce)

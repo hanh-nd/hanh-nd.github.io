@@ -60,6 +60,8 @@
     background: rgba(10, 13, 20, 0.82); border: 1px solid var(--border); color: var(--text); white-space: nowrap;
   }
   .tag.player { background: var(--player); border-color: transparent; }
+  .tag.wind i { display: inline-block; font-style: normal; margin-right: 4px; transition: transform .4s; }
+  .tag.wind.strong { border-color: #9fd3ff; color: #d8efff; }
   .tag.ai { background: var(--cpu); border-color: transparent; }
   .tag.deuce { background: var(--gold); color: #10131a; border-color: transparent; }
 
@@ -266,7 +268,7 @@
   .rules { margin: 4px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
   /* Who you face is tappable: the VS side and the cards (rival, ally, each CPU) open a sheet. */
   .caret { color: var(--gold); font-size: .75em; }
-  #ready-levels { margin-bottom: 16px; }
+  #ready-levels, #ready-venues { margin-bottom: 16px; }
   button.vs-side { font: inherit; color: var(--text); cursor: pointer; touch-action: manipulation; text-align: left; }
   button.vs-side.them { text-align: right; }
   .vs-side.pick:hover, .vs-side.pick:focus-visible { outline: none; background: color-mix(in srgb, var(--c) 30%, rgba(255,255,255,.05)); }
