@@ -81,7 +81,7 @@ That's about +0.1 to +0.15 points per seal whichever you pick. In CPU-vs-CPU due
 - **1v1 and Practice:** the rival's card shows their style, top jutsu and signature counter. The roster sheet also has **Random** (a new rival each time you reach Ready). **Change Rival** at the end of a 1v1 opens Ready with the roster up.
 - **2v2:** three roster players: **your ally** and **Opponent 1 and 2**, each a card to tap. Picking someone already in swaps them; **Re-roll** draws two new opponents of different styles. Your ally is remembered.
 - **Tournament:** choose an event, then the hub. With a run in progress, the tile says who's next and opens the hub; **New Event** in the hub starts over.
-- **Practice:** a 1v1 that never ends (games roll on, no rank change, no grade). Two switches on Ready: **Seals refill every point** (on) and **CPU uses jutsu**. Leave from the pause menu.
+- **Practice:** a 1v1 that never ends (games roll on, no rank change, no grade). Two switches on Ready: **Seals refill every point** (on) and **CPU uses jutsu**. Leave from the pause menu. A tag under the scorebug names each combo as you land it (gold on the rival's weak spot), or warns **Careful · it read you**.
 - **Game speed** is in Settings and applies straight away. Every choice (rival, 2v2 ally, level, event, speed, practice switches) is remembered.
 
 ## Venues

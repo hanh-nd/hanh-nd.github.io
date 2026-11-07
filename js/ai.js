@@ -5,7 +5,7 @@ import { HALF_L, HALF_W, TABLE_TOP, handPlay, moveBody, predictIntercept, racket
 import { ai2Body, ai2Racket, aiBody, aiRacket, allyBody, allyRacket, player, playerBody } from './render/racket.js';
 import { ball, decoys } from './render/ball.js';
 import { DEBUG, TLOG, lr } from './log.js';
-import { comboFor } from './combo.js';
+import { comboFor, poppedUpTag } from './combo.js';
 import { applyShot, intoNet, topspinOf, unreadSpin } from './strokes.js';
 import { callout, canFire, chakraFull, fireJutsu, flow, idleJutsu, jutsuShot, kitOfBot, mirrorReflect, possessedStroke, releaseSpirit, sealsOf, spiritReady } from './jutsu.js';
 import { incomingJutsu, match, nameOf, other, rally, registerHit } from './rules.js';
@@ -462,6 +462,7 @@ export function aiHit(c) {
       const shot = solveShot(ball.p, { x: tx * 0.5, z: toward * rand(...U.depth) }, rand(...U.speed), ptop, 0);
       TLOG.note({ kind: 'popup', offSide: Math.round(sr.offSide) });
       rally.popUpAt = simTime;   // (its registerHit stamps this time on the ball)
+      poppedUpTag(c);
       aiPlay(c, shot, ptop, 0.3);
       return noteAIShot(c, it, tx * 0.5, ptop, false);
     }

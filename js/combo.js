@@ -1,11 +1,12 @@
 // Combos: your stroke read together with your previous one in the rally (see COMBO), and the
 // style weakness that scales each one (AI_STYLES.weak).
-import { COMBO } from './config.js';
+import { COMBO, COMBO_NAMES } from './config.js';
 import { landingOf } from './physics.js';
 import { ball, spinShotAt } from './render/ball.js';
 import { match, rally } from './rules.js';
 import { styleCfg } from './ai.js';
 import { TLOG } from './log.js';
+import { $ } from './ui/hud.js';
 
 /** Your stroke as the CPU sees it leave: pace, spin, where it will land on its side. */
 function record() {
@@ -42,7 +43,35 @@ export function comboFor(c) {
   const sk = shape(cur);
   out.read = !cur.smash && h.length >= COMBO.read.n && h.every(s => shape(s) === sk && !s.jutsu);
   TLOG.amend({ combo: out.ids.join('+') || null, read: out.read ? 1 : 0 });   // (re-read after an upgrade: replaced)
+  if (match.mode === 'practice') practiceTag(cur.t, out, weak);
   return out;
+}
+
+/** Practice: a tag under the scorebug names the combo your stroke just completed (and what it
+ *  does), or warns that it read you. A re-read of the same stroke (an upgrade) replaces it. */
+const EFFECT = { drawDrive: 'caught at the net', runAround: 'it has to run', changeUp: 'timing broken' };
+let tagT = -1, tagTimer = 0;
+function showTag(text, cls) {
+  const el = $('tag-combo');
+  el.textContent = text;
+  el.className = `tag combo ${cls}`;
+  void el.offsetWidth;   // restart the fade
+  el.classList.add('go');
+  clearTimeout(tagTimer);
+  tagTimer = setTimeout(() => el.classList.add('hidden'), 1600);
+}
+function practiceTag(t, out, weak) {
+  if (out.ids.length) {
+    const weakSpot = out.ids.some(id => (weak[id] ?? 1) > 1);
+    showTag(`${out.ids.map(id => COMBO_NAMES[id]).join(' + ')} · ${out.ids.length > 1 ? 'double!' : EFFECT[out.ids[0]]}${weakSpot ? ' · weak spot' : ''}`, weakSpot ? 'weak' : '');
+  } else if (out.read) showTag('Careful · it read you', 'read');
+  else if (t === tagT) $('tag-combo').classList.add('hidden');   // the upgrade undid it
+  else return;
+  tagT = t;
+}
+/** Set & Kill, step 2: your sidespin floated back up (Practice: say so). */
+export function poppedUpTag(c) {
+  if (match.mode === 'practice') showTag(`${COMBO_NAMES.setKill} · smash it!`, (styleCfg(c).weak || {}).setKill > 1 ? 'weak' : '');
 }
 /** The ball the CPU just hit was a pop-up off your brush: your smash of it is steady (Set & Kill). */
 export const poppedUp = () => rally.live && rally.popUpAt === rally.lastHitTime && rally.lastHitter !== 'player';

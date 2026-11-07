@@ -404,6 +404,12 @@
   #jutsu-menu span b { color: var(--c); }
   .tag.flow { background: linear-gradient(90deg, #ff4d5e, #ffd23f); color: #10131a; border-color: transparent; animation: ckpulse .5s infinite alternate; }
   .tag.flow.ai { background: linear-gradient(90deg, var(--cpu), #b98cff); color: #fff; }
+  /* Practice: the combo you just landed (green; gold on the style's weak spot), or "it read you" (red). */
+  .tag.combo { background: #57e389; color: #10131a; border-color: transparent; letter-spacing: .04em; }
+  .tag.combo.weak { background: var(--gold); }
+  .tag.combo.read { background: #ff6b6b; }
+  .tag.combo.go { animation: combotag 1.6s ease-out forwards; }
+  @keyframes combotag { 0% { opacity: 0; transform: scale(1.25); } 10% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
 
   /* ---------- Anime FX: speed lines, jutsu call-outs, flash, flow vignette ---------- */
   #fx { position: fixed; inset: 0; pointer-events: none; z-index: 6; overflow: hidden; }
@@ -466,6 +472,24 @@
     #callout { top: 30%; }
   }
 
-  .howto.playbook div { justify-content: flex-start; gap: 12px; }
-  .howto.playbook span { text-align: left; }
-  .howto.playbook small { font-weight: 500; color: var(--muted); }
+  /* Help · Combos: each one a recipe, shot 1 → shot 2, then what it does. */
+  .playbook { display: grid; gap: 8px; margin: 0 0 14px; }
+  .pb-intro { margin: -2px 2px 2px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .pb { padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.05); }
+  .pb-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .pb-head b { font-size: 15px; font-weight: 900; }
+  .pb-head em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--gold); text-align: right; }
+  .pb-steps { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 6px; }
+  .pb-step { position: relative; min-width: 0; padding: 7px 8px 7px 30px; border-radius: 9px; background: rgba(255,255,255,.06); }
+  .pb-step i { position: absolute; left: 8px; top: 8px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-style: normal; font-size: 10px; font-weight: 900; color: #10131a; background: #6fe3ff; }
+  .pb-step + .pb-arr + .pb-step i { background: var(--gold); }
+  .pb-step b { display: block; font-size: 13px; font-weight: 800; }
+  .pb-step small { display: block; font-size: 11px; line-height: 1.3; color: var(--muted); }
+  .pb-arr { font-weight: 900; color: var(--muted); }
+  .pb-then { margin: 8px 0 0; font-size: 13px; font-weight: 600; }
+  .pb-then::before { content: '→ '; color: var(--gold); font-weight: 900; }
+  .pb-avoid { background: rgba(255,77,94,.08); border: 1px solid rgba(255,77,94,.25); }
+  .pb-avoid .pb-head { margin-bottom: 0; }
+  .pb-avoid .pb-head b { color: #ff8a95; }
+  .pb-avoid .pb-then { margin-top: 4px; font-weight: 500; color: var(--muted); }
+  .pb-avoid .pb-then::before { content: ''; }

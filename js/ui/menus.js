@@ -1,6 +1,6 @@
 // Menu screens and overlays: home, rival pick, ready, pause, settings, end of match.
 import { rand } from '../util.js';
-import { AI_LEVELS, AI_STYLES, COLORS, FINAL, GAME, JUTSU, JUTSU_ANGLE, JUTSU_POOL, JUTSU_TIP, LEVEL_BLURB, LEVEL_ORDER, ROSTER, ROUND_NAMES, SIGNATURES, SIGNATURE_OF, SLOTS, SLOT_COST, SLOT_LABEL, STYLE_KIT, STYLE_ORDER, TIERS, TIER_ORDER, YOU } from '../config.js';
+import { AI_LEVELS, AI_STYLES, COLORS, COMBO_NAMES, FINAL, GAME, JUTSU, JUTSU_ANGLE, JUTSU_POOL, JUTSU_TIP, LEVEL_BLURB, LEVEL_ORDER, ROSTER, ROUND_NAMES, SIGNATURES, SIGNATURE_OF, SLOTS, SLOT_COST, SLOT_LABEL, STYLE_KIT, STYLE_ORDER, TIERS, TIER_ORDER, YOU } from '../config.js';
 import { isDesktop } from '../render/scene.js';
 import { setBoardText } from '../render/table.js';
 import { VENUE_OF_TIER, drawBanners, drawScreens, setAttendance, setVenue, venueFor } from '../render/venues.js';
@@ -144,25 +144,28 @@ document.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () =
   showReady();
 }));
 
-/** A player's card: flag, name, style, signature (and its counter), top jutsu, level, and
- *  (the tournament's) attribute bars. */
-/** The Playbook (Help): each combo (COMBO) with a mini diagram of their half of the table, seen from
- *  your end (net at the bottom): where your two strokes land, 1 then 2. */
+/** The Playbook (Help): each combo (COMBO) as a recipe — shot 1, shot 2 (in the words of the
+ *  Strokes list), what it does to the CPU's next ball, and the styles weak to it (AI_STYLES.weak).
+ *  Then the one thing to avoid: the same shot 3× (COMBO.read). */
 const PLAYBOOK = [
-  { name: 'Draw & Drive', how: 'Short, then a deep drive', why: 'It stepped in: caught at the table', pts: [[0.1, 0.3, '1'], [-0.5, 1.15, '2']] },
-  { name: 'Run Around', how: 'Wide, then the other wide', why: 'It drifted back: stretched, it errs', pts: [[-0.6, 0.9, '1'], [0.6, 0.95, '2']] },
-  { name: 'Change Up', how: 'Soft ↔ fast (block, push, brush ↔ drive)', why: 'Its timing breaks', pts: [[-0.1, 0.75, 's'], [0.35, 1.15, 'F']] },
-  { name: 'Set & Kill', how: 'Sidespin, then smash the pop-up', why: 'The spin floats it up: a safe smash', pts: [[0.45, 0.9, '↺'], [-0.35, 1.05, '★']] },
-  { name: 'Careful', how: 'Same stroke, same place, 3×', why: 'It reads you and gets there early', pts: [[0.4, 1.0, '3×']] },
+  { id: 'drawDrive', steps: [['Short', 'let go over the table: it lands near the net'], ['Deep drive', 'swipe ↑ to their end line']], then: 'Caught at the net: it reacts late and moves slowly' },
+  { id: 'runAround', steps: [['Wide', 'to one side'], ['Wide', 'to the other side']], then: 'It has to run: more errors, weaker return' },
+  { id: 'changeUp', steps: [['Slow', 'let go, or pull ↓'], ['Fast', 'swipe ↑ (or fast first, then slow)']], then: 'Its timing breaks: more errors' },
+  { id: 'setKill', steps: [['Sidespin', 'flick ↔'], ['Smash', 'flick ↑ fast if it floats one back up']], then: 'Your safest smash' },
 ];
 function playbookRow(c) {
-  const X = x => 32 + x / 0.76 * 26, Y = d => 44 - d / 1.37 * 38;
-  const dots = c.pts.map(([x, d, t], i) => `<circle cx="${X(x)}" cy="${Y(d)}" r="6" fill="${i ? '#ffd23f' : '#6fe3ff'}"/><text x="${X(x)}" y="${Y(d) + 3}" font-size="8" font-weight="800" text-anchor="middle" fill="#111">${t}</text>`).join('');
-  const line = c.pts.length > 1 ? `<path d="M${X(c.pts[0][0])} ${Y(c.pts[0][1])} L${X(c.pts[1][0])} ${Y(c.pts[1][1])}" stroke="rgba(255,255,255,.45)" stroke-dasharray="2 2"/>` : '';
-  return `<div><svg width="64" height="48" viewBox="0 0 64 48" aria-hidden="true"><rect x="6" y="6" width="52" height="38" rx="2" fill="#1d4f91" stroke="#fff" stroke-width="1"/><line x1="32" y1="6" x2="32" y2="44" stroke="#fff" stroke-width=".5"/><line x1="3" y1="44" x2="61" y2="44" stroke="#ddd" stroke-width="2"/>${line}${dots}</svg>
-    <span><b>${c.name}</b> · ${c.how}<br><small>${c.why}</small></span></div>`;
+  const weak = STYLE_ORDER.filter(st => AI_STYLES[st].weak && AI_STYLES[st].weak[c.id]).map(st => AI_STYLES[st].label).join(' · ');
+  const step = ([what, how], i) => `<div class="pb-step"><i>${i + 1}</i><b>${what}</b><small>${how}</small></div>`;
+  return `<div class="pb"><div class="pb-head"><b>${COMBO_NAMES[c.id]}</b>${weak ? `<em>best vs ${weak}</em>` : ''}</div>
+    <div class="pb-steps">${step(c.steps[0], 0)}<span class="pb-arr" aria-hidden="true">→</span>${step(c.steps[1], 1)}</div>
+    <p class="pb-then">${c.then}</p></div>`;
 }
+const playbookHtml = () => '<p class="pb-intro">Two of your shots in a row, in the same rally. No button: play them and the CPU\'s next ball gets worse. A smash or a jutsu in between starts over.</p>'
+  + PLAYBOOK.map(playbookRow).join('')
+  + '<div class="pb pb-avoid"><div class="pb-head"><b>Avoid</b></div><p class="pb-then">The same shot to the same spot 3× in a row: it reads you and gets there early.</p></div>';
 
+/** A player's card: flag, name, style, signature (and its counter), top jutsu, level, and
+ *  (the tournament's) attribute bars. */
 export function oppCard(e, eyebrow, bars = true, mate = false) {   // mate: your 2v2 partner (what it does, not how to beat it; no jutsu: you spend the team's seals)
   const st = AI_STYLES[e.style], sg = sigOf(e);
   return `<div class="opp" style="--opp:${hex(e.color)}"><div class="opp-flag">${e.flag}</div><div style="min-width:0">
@@ -406,7 +409,7 @@ let overlayPaused = false;
 export function showOverlay(id) {
   const inMenu = match.state === 'menu';
   if (openOverlay() || (!inMenu && (!isPlaying() || !$('menu-pause').classList.contains('hidden')))) return;
-  if (id === 'menu-help') $('help-combos').innerHTML = PLAYBOOK.map(playbookRow).join('');
+  if (id === 'menu-help') $('help-combos').innerHTML = playbookHtml();
   if (id === 'menu-help') $('help-kit').innerHTML = SLOTS.map((slot, i) => `<div><kbd>${SLOT_LABEL[slot]} ${'●'.repeat(SLOT_COST[slot])}</kbd><span class="j">${JUTSU[inMenu ? yourKit[i] : kitJutsu('player', slot)].name}</span></div>`).join('')
     + `<div><kbd>${isDesktop ? 'Keys 1–3' : 'Tap the list'}</kbd><span>Pick a smaller one</span></div>`;
   if (!inMenu) {

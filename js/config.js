@@ -451,8 +451,8 @@ export const ADAPT = {
   smash: { decay: 0.85, use: 0.16, won: 0.16, rise: 0.15, fall: 0.1 },
 };
 /** Combos: your stroke read together with your previous one in the rally, as a real tactic — and
- *  what the tactic does to the CPU, exaggerated so it shows (no on-screen text: the Playbook in
- *  Help and the rival card explain them before the match). Each one also costs you something.
+ *  what the tactic does to the CPU, exaggerated so it shows (the Playbook in Help and the rival
+ *  card explain them; in Practice a tag under the scorebug names each one as it lands). Each one also costs you something.
  *  Draw & Drive, Run Around and Change Up arm your rally strokes — a drive, a block, a brush can
  *  beat it outright — not the smash (it wins ~70% of the balls it lands on its own; sim, Nov 2026,
  *  when no rally stroke ever did): a smash only finishes Set & Kill.
@@ -472,6 +472,8 @@ export const ADAPT = {
  *  - read: the same stroke to the same place `n` times running (not a smash: ADAPT does that) — it
  *    saw it coming and saves `save` of its reaction time.
  *  A style's `weak` multiplies a combo's effect (AI_STYLES). */
+/** Each combo's name (Help's Playbook, Practice's combo tag). */
+export const COMBO_NAMES = { drawDrive: 'Draw & Drive', runAround: 'Run Around', changeUp: 'Change Up', setKill: 'Set & Kill' };
 export const COMBO = {
   short: 0.6, deep: 0.95, wide: 0.38, soft: 5.8, fast: 7.2,   // real play: block / push ~5 m/s, brush 4.4–6.7, drive 6.4–7.9, smash ~12.3
   drawDrive: { late: 0.25, slow: 0.4 },
