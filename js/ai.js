@@ -1,6 +1,6 @@
 // The CPU players: reading your shot, moving to it, choosing and playing their strokes, adapting.
 import { clamp, rand, randn } from './util.js';
-import { ADAPT, AIM, AI_COMMON, BARRIER, COMBO, AI_LEVELS, AI_STYLES, FLOW, GAME, HIRAISHIN, JUTSU, JUTSU_AI, META_STEADY, MIRROR, PLAYER_CFG, POSSESSION, REACH, SHORT_PLAY, SIGNATURES, SIGNATURE_OF, SIG_INTENT, SLOTS, SLOT_COST, SMART, SMART_J, SMASH, SMASH_D, SPIN_D, SPIRIT, STYLE_PATTERNS, VOID } from './config.js';
+import { ADAPT, AIM, AI_COMMON, COMBO, AI_LEVELS, AI_STYLES, FLOW, GAME, HIRAISHIN, JUTSU, JUTSU_AI, META_STEADY, MIRROR, PLAYER_CFG, POSSESSION, REACH, SHORT_PLAY, SIGNATURES, SIGNATURE_OF, SIG_INTENT, SLOTS, SLOT_COST, SMART, SMART_J, SMASH, SMASH_D, SPIN_D, SPIRIT, STYLE_PATTERNS, VOID } from './config.js';
 import { HALF_L, HALF_W, TABLE_TOP, handPlay, moveBody, predictIntercept, racketMinY, reachableShort, simulate, solveShot, strokeError } from './physics.js';
 import { ai2Body, ai2Racket, aiBody, aiRacket, allyBody, allyRacket, player, playerBody } from './render/racket.js';
 import { ball, decoys } from './render/ball.js';
@@ -109,9 +109,7 @@ export function aiOnOpponentHit(c) {
   if (rally.void && rally.void !== c.owner) c.plan.readyAt += VOID.delay;
   if (rally.warp[c.owner]) c.plan.readyAt = simTime + (c.plan.readyAt - simTime) * 0.5;
   if (rally.mirror[c.owner] === 'primed') c.plan.readyAt = simTime + (c.plan.readyAt - simTime) * 0.4;   // its mirror waits for it
-  // Their Barrier: if it reads the walls it aims inside them (aiPlay). Their Spirit Bomb gathering:
-  // if it reads it, it hits harder to end the point first (END IT FAST).
-  c.plan.barrierRead = rally.barrier === other(c.owner) && seesJutsu(c, 'barrier');
+  // Their Spirit Bomb gathering: if it reads it, it hits harder to end the point first (END IT FAST).
   c.plan.bombRead = !!rally.charge[other(c.owner)] && seesJutsu(c, 'spiritbomb');
   if (rally.held === c.owner) { c.plan.readyAt += POSSESSION.hold; rally.held = null; }   // still in the shadow
   // Their Yata Mirror is up: it reads it (no hard ball at it) or it goes for the bait.
@@ -675,12 +673,6 @@ function aiShortBall(c, it, mistake) {
   noteAIShot(c, { ...it, sig, lean }, tx, top, kind === 'drop');
 }
 export function aiPlay(c, shot, top, intensity) {
-  // Their Barrier, read: a ball headed for a walled strip is aimed back inside it.
-  const lim = HALF_W - BARRIER.w - BARRIER.margin;
-  if (rally.barrier === other(c.owner) && c.plan && c.plan.barrierRead && shot.land && shot.land.table && Math.abs(shot.land.x) > lim) {
-    const s2 = solveShot(ball.p, { x: Math.sign(shot.land.x) * lim, z: shot.land.z }, Math.hypot(shot.v.x, shot.v.z), top, 0);
-    if (s2.land && s2.land.table && !s2.land.net) shot = s2;
-  }
   applyShot(shot);
   c.racket.tilt = clamp(top / 140, -1, 1);
   c.racket.swing = 1;

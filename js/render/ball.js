@@ -1,7 +1,7 @@
 // The ball: mesh, shadow, spin marker, trail, and the jutsu effects drawn around it.
 import * as THREE from 'three';
 import { clamp, rand } from '../util.js';
-import { BARRIER, COLORS, JUTSU, PHYS, SIGNATURES, SPIRIT } from '../config.js';
+import { COLORS, JUTSU, PHYS, SIGNATURES, SPIRIT } from '../config.js';
 import { HALF_L, HALF_W, TABLE_TOP, makeBallState } from '../physics.js';
 import { ambLight, hemiLight, scene, sun } from './scene.js';
 import { std } from './table.js';
@@ -174,19 +174,7 @@ const bindFx = ['player', 'ai'].map(() => {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTexture('ring'), color: JUTSU.possession.color, transparent: true, opacity: 0.9, depthWrite: false }));
   sp.visible = false; scene.add(sp); return sp;
 });
-/** Barrier: on the caster's half, each walled side strip glows, with a low wall on its inner edge.
- *  Spirit Bomb: a light orb over the gathering racket that grows with each charge. */
-const barrierFx = ['player', 'ai'].map(side => {
-  const g = new THREE.Group(), s = side === 'player' ? 1 : -1, col = JUTSU.barrier.color;
-  for (const sx of [-1, 1]) {
-    const strip = new THREE.Mesh(new THREE.PlaneGeometry(BARRIER.w, HALF_L), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending }));
-    strip.rotation.x = -Math.PI / 2; strip.position.set(sx * (HALF_W - BARRIER.w / 2), TABLE_TOP + 0.004, s * HALF_L / 2);
-    const wall = new THREE.Mesh(new THREE.PlaneGeometry(HALF_L, 0.14), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
-    wall.rotation.y = Math.PI / 2; wall.position.set(sx * (HALF_W - BARRIER.w), TABLE_TOP + 0.07, s * HALF_L / 2);
-    g.add(strip, wall);
-  }
-  g.visible = false; scene.add(g); return g;
-});
+/** Spirit Bomb: a light orb over the gathering racket that grows with each charge. */
 const spiritFx = ['player', 'ai'].map(() => {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTexture('glow'), color: JUTSU.spiritbomb.color, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
   sp.visible = false; scene.add(sp); return sp;
@@ -206,9 +194,6 @@ function updateFx(dt) {
   }
   ['player', 'ai'].forEach((side, i) => {
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 180);
-    const bw = barrierFx[i];
-    bw.visible = !!(rally.live && rally.barrier === side);
-    if (bw.visible) bw.children.forEach(m => { m.material.opacity = 0.38 + 0.22 * pulse; });
     const ch = rally.live && rally.charge[side], sp = spiritFx[i], rr = turnRacket(side);
     sp.visible = !!ch;
     if (ch) {

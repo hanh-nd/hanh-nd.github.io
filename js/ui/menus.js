@@ -79,7 +79,7 @@ $('kit').addEventListener('click', e => {
 });
 export function buildMenus() {
   const saved = store.get('pp3d.kit', null);
-  if (Array.isArray(saved) && SLOTS.every((slot, i) => JUTSU_POOL[slot].includes(saved[i]))) setYourKit([...saved]);
+  if (Array.isArray(saved)) setYourKit(SLOTS.map((slot, i) => (JUTSU_POOL[slot].includes(saved[i]) ? saved[i] : yourKit[i])));   // (a jutsu no longer in its pool: the default)
   kitOpen = -1;
   showKit();
   buildSeg('speeds', Object.keys(GAME.speeds), k => `${GAME.speeds[k].label}<small>${Math.round(GAME.speeds[k].scale * 100)}%</small>`,

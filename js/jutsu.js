@@ -75,7 +75,7 @@ export function idleJutsu(side, id) {
   const self = JUTSU[id].self;
   return self === 'copy' ? !incomingJutsu(side) : self === 'drain' ? sealsOf(other(side)) < 1
     : self === 'flow' ? flow.deep[side] : self === 'warp' ? rally.warp[side] : self === 'hand' ? rally.hand[side]
-    : self === 'mirror' ? !!rally.mirror[side] : self === 'barrier' ? rally.barrier === side : self === 'charge' ? !!rally.charge[side] : false;
+    : self === 'mirror' ? !!rally.mirror[side] : self === 'charge' ? !!rally.charge[side] : false;
 }
 
 /** `side`'s stroke fires jutsu `id`: seals spent; it goes live in registerHit. dir: the corner (world
@@ -110,7 +110,6 @@ export function fireJutsu(side, id, dir = 0, fizzle = false) {
   if (j.self === 'drain') rally.shark = side;   // pays out in endPoint, if this side wins the point
   if (j.self === 'mirror') rally.mirror[side] = 'up';
   if (j.self === 'bind') rally.bind = other(side);
-  if (j.self === 'barrier') rally.barrier = side;
   if (j.self === 'charge') { rally.charge[side] = { n: 0 }; if (copied) rally.charge[other(side)] = null; }   // a copy cancels theirs
   if (j.self === 'flow') { flow[side] = flow.deep[side] = true; flow.streak[side] = Math.max(flow.streak[side], FLOW.streak); syncFlow(); }
   rally.pendingJutsu = { id, by: side, dir };
@@ -374,7 +373,6 @@ export function jutsuAtBounce(jt, side) {
 /** `side`'s stroke landed on the other half: chakra, and if it answered a jutsu, a COUNTER. */
 export function strokeLanded(side) {
   gainChakra(side, CHAKRA.stroke + (match.rallyCount > CHAKRA.rallyFrom ? CHAKRA.rally : 0));
-  if (rally.void && rally.void !== side) rally.void = null;   // FOCUS ON THE BALL: a ball landed back breaks their Infinite Void
   if (rally.charge[side]) rally.charge[side].n++;              // a Spirit Bomb gathers
   const j = rally.jutsuAnswer;
   rally.jutsuAnswer = null;
